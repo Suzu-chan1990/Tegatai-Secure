@@ -1,0 +1,710 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: tegatai-secure\n"
+"POT-Creation-Date: 2026-02-26 22:16:58\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Hardening"
+msgstr ""
+
+msgid "Quick access"
+msgstr ""
+
+
+msgid "Instantly blocks all external access and secures the perimeter."
+msgstr ""
+
+msgid "Activates the Web Application Firewall to block malicious requests."
+msgstr ""
+
+msgid "Block Bad Bots"
+msgstr ""
+
+msgid "Blocks known malicious bots, scrapers, and automated attack tools."
+msgstr ""
+
+msgid "Rate Limit"
+msgstr ""
+
+msgid "Prevents brute-force attacks by limiting requests per minute."
+msgstr ""
+
+msgid "404 Trap"
+msgstr ""
+
+msgid "Bans IPs that generate too many 404 Not Found errors."
+msgstr ""
+
+msgid "Block AI Bots"
+msgstr ""
+
+msgid "Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content."
+msgstr ""
+
+msgid "Block SEO Bots"
+msgstr ""
+
+msgid "Blocks aggressive SEO crawlers like Ahrefs or Semrush."
+msgstr ""
+
+msgid "Disable Directory Browsing"
+msgstr ""
+
+msgid "Prevents attackers from seeing lists of your files."
+msgstr ""
+
+msgid "Protect Sensitive Files"
+msgstr ""
+
+msgid "Blocks access to .env, .sql, .bak, .log, and .git files."
+msgstr ""
+
+msgid "Block System Files"
+msgstr ""
+
+msgid "Hides readme.html, license.txt, and wp-config.php from the web."
+msgstr ""
+
+msgid "Block Dotfiles"
+msgstr ""
+
+msgid "Denies access to hidden files (e.g., .htaccess)."
+msgstr ""
+
+msgid "Block XML-RPC"
+msgstr ""
+
+msgid "Disables xmlrpc.php to prevent DDoS and brute-force attacks."
+msgstr ""
+
+msgid "Disable PHP in Uploads"
+msgstr ""
+
+msgid "Prevents execution of malicious backdoors in your media folder."
+msgstr ""
+
+msgid "Ultimate Bad Bot Filter"
+msgstr ""
+
+msgid "Strict Nginx-level blocking for hacking tools."
+msgstr ""
+
+msgid "Hotlink Protection"
+msgstr ""
+
+msgid "Prevents other sites from embedding your images and stealing bandwidth."
+msgstr ""
+
+msgid "Login Protection"
+msgstr ""
+
+msgid "Disable App Passwords"
+msgstr ""
+
+msgid "Turns off the WordPress application passwords feature."
+msgstr ""
+
+msgid "Trusted Devices"
+msgstr ""
+
+msgid "Warns via email upon logins from unknown devices."
+msgstr ""
+
+msgid "Block wp-login.php"
+msgstr ""
+
+msgid "Disables the default login route (requires Custom Slug)."
+msgstr ""
+
+msgid "Hide /wp-admin/"
+msgstr ""
+
+msgid "Redirects unauthenticated users away from the admin area."
+msgstr ""
+
+msgid "Idle Logout (60m)"
+msgstr ""
+
+msgid "Automatically logs out inactive administrators after 60 minutes."
+msgstr ""
+
+msgid "Enable Magic Links"
+msgstr ""
+
+msgid "Allows passwordless login via a secure email link."
+msgstr ""
+
+msgid "Enable Honeypot"
+msgstr ""
+
+msgid "Adds an invisible field to catch automated spam bots."
+msgstr ""
+
+msgid "Minimum Fill Time"
+msgstr ""
+
+msgid "Blocks forms submitted too quickly (typical bot behavior)."
+msgstr ""
+
+msgid "Referrer Check"
+msgstr ""
+
+msgid "Ensures form submissions come from your own site."
+msgstr ""
+
+msgid "Block Trash Mails"
+msgstr ""
+
+msgid "Rejects disposable email addresses during registration."
+msgstr ""
+
+msgid "Enable Turnstile CAPTCHA"
+msgstr ""
+
+msgid "Privacy-friendly Cloudflare CAPTCHA for login and comments."
+msgstr ""
+
+msgid "Hide WP Version"
+msgstr ""
+
+msgid "Removes the WordPress version number from your source code."
+msgstr ""
+
+msgid "Disable XML-RPC (WP Core)"
+msgstr ""
+
+msgid "Turns off the XML-RPC API internally."
+msgstr ""
+
+msgid "Disable File Editor"
+msgstr ""
+
+msgid "Prevents editing plugins and themes via the WP dashboard."
+msgstr ""
+
+msgid "Block User Enumeration"
+msgstr ""
+
+msgid "Stops attackers from discovering your usernames."
+msgstr ""
+
+msgid "Admin Honeypot"
+msgstr ""
+
+msgid "Permanently bans anyone trying to log in as admin."
+msgstr ""
+
+msgid "Privilege Escalation Guard"
+msgstr ""
+
+msgid "Prevents unauthorized users from upgrading to Administrator."
+msgstr ""
+
+msgid "Enable Email Alerts"
+msgstr ""
+
+msgid "Receive notifications for critical security events."
+msgstr ""
+
+msgid "Enable 2FA"
+msgstr ""
+
+msgid "Enforces Two-Factor Authentication for administrators."
+msgstr ""
+
+msgid "X-Frame-Options"
+msgstr ""
+
+msgid "Prevents your site from being framed (Clickjacking protection)."
+msgstr ""
+
+msgid "X-Content-Type-Options"
+msgstr ""
+
+msgid "Stops browsers from MIME-sniffing."
+msgstr ""
+
+msgid "X-XSS-Protection"
+msgstr ""
+
+msgid "Enables legacy browser XSS filtering."
+msgstr ""
+
+msgid "HSTS (SSL)"
+msgstr ""
+
+msgid "Enforces strict HTTPS connections."
+msgstr ""
+
+msgid "Referrer Policy"
+msgstr ""
+
+msgid "Controls how much referrer information is passed to external sites."
+msgstr ""
+
+msgid "Permissions-Policy"
+msgstr ""
+
+msgid "Restricts access to browser features (camera, microphone)."
+msgstr ""
+
+msgid "Content Security Policy"
+msgstr ""
+
+msgid "Mitigates XSS by controlling resource loading sources."
+msgstr ""
+
+msgid "Auto-Quarantine (IPS)"
+msgstr ""
+
+msgid "Automatically moves detected malware to a safe location."
+msgstr ""
+
+msgid "IP Guard"
+msgstr ""
+
+msgid "Invalidates the session if the users IP address changes."
+msgstr ""
+
+msgid "Browser Guard"
+msgstr ""
+
+msgid "Invalidates the session if the users browser changes."
+msgstr ""
+
+msgid "Restrict REST API"
+msgstr ""
+
+msgid "Requires authentication for most REST API endpoints."
+msgstr ""
+
+msgid "Disable Right-Click"
+msgstr ""
+
+msgid "Prevents basic right-clicking on your website content."
+msgstr ""
+
+msgid "Enable Copy Protection"
+msgstr ""
+
+msgid "Stops users from highlighting and copying text."
+msgstr ""
+
+msgid "Upload guard"
+msgstr ""
+
+msgid "Scans files during upload for malicious payloads."
+msgstr ""
+
+msgid "WAF Settings"
+msgstr ""
+
+msgid "WAF Whitelist"
+msgstr ""
+
+msgid "Allowed URLs"
+msgstr ""
+
+msgid "Custom Rules (Regex)"
+msgstr ""
+
+msgid "Custom Regex Filters"
+msgstr ""
+
+msgid "One regex per line (e.g., <code>/bad-bot/i</code>)."
+msgstr ""
+
+msgid "IP Lists"
+msgstr ""
+
+msgid "Whitelist IPs"
+msgstr ""
+
+msgid "Blacklist IPs"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Server Rules"
+msgstr ""
+
+msgid "Write rules to server config"
+msgstr ""
+
+msgid "Custom Protection"
+msgstr ""
+
+msgid "Protected Directories"
+msgstr ""
+
+msgid "Block Specific Files"
+msgstr ""
+
+msgid "Paths from root (e.g., <code>/secret.zip</code>). One file per line."
+msgstr ""
+
+msgid "Hotlink Whitelist"
+msgstr ""
+
+msgid "Custom Login Slug"
+msgstr ""
+
+msgid "Spam & Bots"
+msgstr ""
+
+msgid "Max. Links"
+msgstr ""
+
+msgid "Cloudflare Turnstile"
+msgstr ""
+
+msgid "Site Key"
+msgstr ""
+
+msgid "Secret Key"
+msgstr ""
+
+msgid "System"
+msgstr ""
+
+msgid "Enterprise Protection"
+msgstr ""
+
+msgid "Notifications"
+msgstr ""
+
+msgid "Recipient Email"
+msgstr ""
+
+msgid "Discord / Slack Webhook URL"
+msgstr ""
+
+msgid "2FA"
+msgstr ""
+
+msgid "Preferred 2FA Method"
+msgstr ""
+
+msgid "Email Code Only"
+msgstr ""
+
+msgid "Authenticator App Only"
+msgstr ""
+
+msgid "Both (App + Email Fallback)"
+msgstr ""
+
+msgid "HTTP Security Headers"
+msgstr ""
+
+msgid "Backup Configuration"
+msgstr ""
+
+msgid "Frequency"
+msgstr ""
+
+msgid "Daily"
+msgstr ""
+
+msgid "Weekly"
+msgstr ""
+
+msgid "Local Backups"
+msgstr ""
+
+msgid "Create Backup Now"
+msgstr ""
+
+msgid "Available Backups"
+msgstr ""
+
+msgid "File"
+msgstr ""
+
+msgid "Size"
+msgstr ""
+
+msgid "Date"
+msgstr ""
+
+msgid "Action"
+msgstr ""
+
+msgid "No backups available."
+msgstr ""
+
+msgid "Download"
+msgstr ""
+
+msgid "Remote FTP Setup (Encrypted)"
+msgstr ""
+
+msgid "FTP Server (Host / IP)"
+msgstr ""
+
+msgid "FTP Port"
+msgstr ""
+
+msgid "Username"
+msgstr ""
+
+msgid "Password"
+msgstr ""
+
+msgid "Save Encrypted"
+msgstr ""
+
+msgid "Data saved securely!"
+msgstr ""
+
+msgid "Malware & Integrity Scanner"
+msgstr ""
+
+msgid "Start New Scan"
+msgstr ""
+
+msgid "Create File Snapshot"
+msgstr ""
+
+msgid "Save current state as a safe baseline?"
+msgstr ""
+
+msgid "Last Result:"
+msgstr ""
+
+msgid "Files Checked:"
+msgstr ""
+
+msgid "Issue"
+msgstr ""
+
+msgid "Scanner Configuration"
+msgstr ""
+
+msgid "Exclude from Scan (Folders)"
+msgstr ""
+
+msgid "Session Security"
+msgstr ""
+
+msgid "Max Session Duration (Min)"
+msgstr ""
+
+msgid "Active Sessions"
+msgstr ""
+
+msgid "User"
+msgstr ""
+
+msgid "Browser"
+msgstr ""
+
+msgid "Extras & API"
+msgstr ""
+
+msgid "Temporary Admin Accounts"
+msgstr ""
+
+msgid "Temporary access generated and email sent!"
+msgstr ""
+
+msgid "Validity (in hours)"
+msgstr ""
+
+msgid "Generate & Send Access"
+msgstr ""
+
+msgid "Live Traffic Log"
+msgstr ""
+
+msgid "Clear Logs"
+msgstr ""
+
+msgid "Are you sure?"
+msgstr ""
+
+msgid "Time"
+msgstr ""
+
+msgid "Type"
+msgstr ""
+
+msgid "Message"
+msgstr ""
+
+msgid "Options Whitelist (Exceptions)"
+msgstr ""
+
+msgid "Cron Hooks Whitelist (Exceptions)"
+msgstr ""
+
+msgid "Saved successfully"
+msgstr ""
+
+msgid "Data saved!"
+msgstr ""
+
+msgid "No data provided."
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "WP-Root writable:"
+msgstr ""
+
+msgid "Nginx file writable:"
+msgstr ""
+
+msgid "Size:"
+msgstr ""
+
+msgid "YES"
+msgstr ""
+
+msgid "NO"
+msgstr ""
+
+msgid "Manual Nginx Rules (Copy & Paste):"
+msgstr ""
+
+msgid "Please click \'Write rules to server config\' below first."
+msgstr ""
+
+msgid "Shows the <em>actually</em> delivered response headers (incl. Nginx/CDN/Cache). This helps you detect conflicts or duplications."
+msgstr ""
+
+msgid "GeoIP Settings"
+msgstr ""
+
+msgid "Control who can access your site."
+msgstr ""
+
+msgid "Your current detection:"
+msgstr ""
+
+msgid "If this is not your real IP, check your proxy settings."
+msgstr ""
+
+msgid "Protect login area only"
+msgstr ""
+
+msgid "If disabled, the entire website will be blocked for the selected countries."
+msgstr ""
+
+msgid "GeoIP Mode"
+msgstr ""
+
+msgid "Off (Disabled)"
+msgstr ""
+
+msgid "Blacklist (Block selected)"
+msgstr ""
+
+msgid "Whitelist (Allow selected only)"
+msgstr ""
+
+msgid "Country Codes (Comma separated)"
+msgstr ""
+
+msgid "Example: "US, UK, CA" allows only English speaking countries."
+msgstr ""
+
+msgid "Save Settings"
+msgstr ""
+
+msgid "Active IP Bans (Prison)"
+msgstr ""
+
+msgid "Here you can see all currently banned IPs (Login Rate, Firewall, Honeypot). You can unban them early."
+msgstr ""
+
+msgid "IP successfully unbanned!"
+msgstr ""
+
+msgid "No active bans found."
+msgstr ""
+
+msgid "Reason / Type"
+msgstr ""
+
+msgid "Expires in"
+msgstr ""
+
+msgid "Min"
+msgstr ""
+
+msgid "Sec"
+msgstr ""
+
+msgid "Unban"
+msgstr ""
+
+msgid "Kill"
+msgstr ""
+
+msgid "Scan running..."
+msgstr ""
+
+msgid "Clean ✅"
+msgstr ""
+
+msgid "Scan required..."
+msgstr ""
+
+msgid "Maintenance Mode"
+msgstr ""
+
+msgid "The website is currently locked for security maintenance."
+msgstr ""
+
+msgid "503 Service Unavailable"
+msgstr ""
+
+msgid "System Error"
+msgstr ""
+
+msgid "Trap"
+msgstr ""
+
+msgid "Invalid inputs."
+msgstr ""
+
+msgid "Temporary Admin Access: %s"
+msgstr ""
+
+msgid "Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %d hour(s).\n\nClick here to log in securely:\n%s\n\nAfter the time expires, this account will be automatically and completely deleted."
+msgstr ""
+
+msgid "Backup Error."
+msgstr ""
+
+msgid "Too many failed attempts. Login locked."
+msgstr ""
+
+msgid "Invalid link."
+msgstr ""
+
+msgid "🛡️ Tegatai Security Status"
+msgstr ""
+
+msgid "Never"
+msgstr ""
+
+msgid "Go to Dashboard"
+msgstr ""
+
+msgid "Last Scan:"
+msgstr ""
+
+msgid "Result:"
+msgstr ""
+
+msgid "Blocked"
+msgstr ""
+
+msgid "Traffic"
+msgstr ""
