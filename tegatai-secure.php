@@ -178,7 +178,7 @@ add_action('init', function () {
         return;
     }
 
-    $puc_path = TEGATAI_PATH . 'includes/plugin-update-checker/plugin-update-checker.php';
+    $puc_path = TEGATAI_PATH . 'lib/plugin-update-checker/plugin-update-checker.php';
     if ( ! file_exists($puc_path) ) {
         return; // Library fehlt
     }
