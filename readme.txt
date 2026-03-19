@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, wordpress security, hardening, 2fa
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.0.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -45,8 +45,17 @@ It can if rules are too aggressive. Use whitelists and safe mode while tuning.
 
 == Changelog ==
 
-= 1.0.0 =
-Initial release.
+= 1.0.1 =
+
+🐛 Bug Fixes & Backend Polish
+
+    Enterprise Features Activation: Added missing feature toggles (Admin Honeypot, Privilege Escalation Guard, Turnstile CAPTCHA, and Auto-Quarantine) to the strict internal whitelist. These enterprise protections can now be activated and saved without triggering AJAX validation errors.
+
+    PHP Fatal Error Resolution: Fixed a critical typo in the form handler where a missing variable identifier ($_POST) caused the settings panel to crash on strict PHP environments.
+
+    Syntax & Parsing Stability: Cleaned up residual syntax parsing errors in the admin dashboard controller to ensure flawless compatibility with PHP 8.1+.
+
+    GeoIP UI Correction: Resolved a character encoding bug (mojibake) within the GeoIP settings tab that displayed corrupted text instead of the intended clean UI elements.
 
 == Upgrade Notice ==
 

@@ -9,14 +9,14 @@ add_action('plugins_loaded', function () {
 Plugin Name: Tegatai Security
 Plugin URI: https://example.com/tegatai
 Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
-Version: 1.0.0 (Gold Master)
-Author: ã™ãšã¡ã‚ƒã‚“
+Version: 1.0.1 (Gold Master)
+Author: すずちゃん
 License: GPL2
 */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'TEGATAI_VERSION', '2.0.0' );
+define( 'TEGATAI_VERSION', '1.0.1' );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 require_once TEGATAI_PATH . 'includes/honeypot.php';
 require_once TEGATAI_PATH . 'includes/perm_monitor.php';

@@ -53,7 +53,7 @@ class Tegatai_Admin {
         'enable_email_alerts', 'alert_email', 'waf_whitelist_urls',
         'server_disable_php_uploads', 'server_filter_bad_bots',
         'server_hotlink_protection', 'server_hotlink_whitelist', 'server_protected_dirs', 'scanner_exclusions',
-        'enable_magic_links'
+        'enable_magic_links', 'enable_admin_honeypot', 'enable_role_guard', 'enable_turnstile', 'enable_auto_quarantine'
     ];
 
     public function __construct() {
@@ -563,7 +563,7 @@ class Tegatai_Admin {
                         <form onsubmit="tegSaveForm(this, event)">
 <label class="teg-switch-label"><?php echo esc_html__('GeoIP Mode', 'tegatai-secure'); ?></label>
                             <select name="tegatai_options[geoip_mode]" class="teg-form-input">
-                                <option value="off" <?php selected($this->get_opt('geoip_mode'), 'off'); ?>>ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¦ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â´ <?php echo esc_html__('Off (Disabled)', 'tegatai-secure'); ?></option>
+                                <option value="off" <?php selected($this->get_opt('geoip_mode'), 'off'); ?>>⚪ <?php echo esc_html__('Off (Disabled)', 'tegatai-secure'); ?></option>
                                 <option value="blacklist" <?php selected($this->get_opt('geoip_mode'), 'blacklist'); ?>>🚫 <?php echo esc_html__('Blacklist (Block selected)', 'tegatai-secure'); ?></option>
                                 <option value="whitelist" <?php selected($this->get_opt('geoip_mode'), 'whitelist'); ?>>✅ <?php echo esc_html__('Whitelist (Allow selected only)', 'tegatai-secure'); ?></option>
                             </select>
