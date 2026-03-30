@@ -1,9 +1,4 @@
 <?php
-
-
-
-
-
 /* TEGATAI_AUTOPATH_DETECTION_V1 applied 2026-02-26 21:54:52 */
 /* TEGATAI_FORCE_RULES_TO_WP_ROOT_V1 applied 2026-02-26 21:43:03 */
 /* TEGATAI_AUTOWRITE_RULES_AND_LOG_V1 applied 2026-02-26 21:27:35 */
@@ -125,9 +120,13 @@ class Tegatai_Server {
         $lines[] = "";
 
         // 0. Disable Indexing (X-Robots-Tag)
-        if (!empty($ops['server_disable_indexing'])) {
-            $lines[] = "# Disable indexing";
-            $lines[] = "add_header X-Robots-Tag \"noindex, nofollow, nosnippet, noarchive\" always;";
+if (!empty($ops['server_disable_indexing'])) {
+            $lines[] = "# Disable indexing for admin/login cleanly without breaking PHP routing";
+            $lines[] = 'set $tegatai_robots "";';
+            $lines[] = 'if ($request_uri ~* "^/(wp-admin/|wp-login\.php)") {';
+            $lines[] = '    set $tegatai_robots "noindex, nofollow";';
+            $lines[] = '}';
+            $lines[] = 'add_header X-Robots-Tag $tegatai_robots always;';
             $lines[] = "";
         }
 
@@ -152,7 +151,7 @@ class Tegatai_Server {
             $special = [
                 'kontentsu' => true,            // wp-content (only block PHP in themes)
                 'puraguin' => true,             // wp-content/plugins (block PHP execution)
-                'kontentsumu-plugins' => true,  // wp-content/mu-plugins (block PHP execution)
+                'kontentsu/mu-plugins' => true,  // wp-content/mu-plugins (block PHP execution)
                 'appurodo' => true,             // uploads (block PHP execution)
             ];
             $php_only = [];
@@ -186,8 +185,8 @@ class Tegatai_Server {
                 if (!empty($php_only['puraguin'])) {
                     $lines[] = "location ~ ^/puraguin/.*\\.{$phpre}$ { deny all; }";
                 }
-                if (!empty($php_only['kontentsumu-plugins'])) {
-                    $lines[] = "location ~ ^/kontentsumu-plugins/.*\\.{$phpre}$ { deny all; }";
+                if (!empty($php_only['kontentsu/mu-plugins'])) {
+                    $lines[] = "location ~ ^/kontentsu/mu-plugins/.*\\.{$phpre}$ { deny all; }";
                 }
                 if (!empty($php_only['kontentsu'])) {
                     // Keep theme PHP from being directly executed via URL
