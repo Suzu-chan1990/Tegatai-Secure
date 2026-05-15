@@ -1,5 +1,5 @@
 ![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue)
-![PHP](https://img.shields.io/badge/PHP-8.x%2B-purple)
+![PHP](https://img.shields.io/badge/PHP-8.xB-purple)
 ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
 ![Security](https://img.shields.io/badge/security-active-red)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
