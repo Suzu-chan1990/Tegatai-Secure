@@ -10,6 +10,12 @@
 
 It features a zero-load architecture, multiple deep-scanning engines, cryptographic authentication systems, hardened API protection, and encrypted remote communication.
 
+# 📸 Screenshot
+![Dashboard View](./assets/Dashboard.png)
+![Terminal View](./assets/Tegatai_Terminal.png)
+![API-Guard View](./assets/API_Guard.png)
+![Hive View](./assets/The_Hive .png)
+
 ---
 
 # 🚀 Key Advantages
