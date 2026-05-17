@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.1 
+
+    [FIX] WordPress.WP.I18n.TextDomainMismatch
+
 ## 1.2.0
 
 🎨 Admin Interface & UX
