@@ -1,6 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
+/* TEGATAI_HONEYPOT_UNIFIED_IP_V1 applied */
 class Tegatai_Honeypot {
 
     const FIELD = 'teg_hp_field';
@@ -30,10 +31,19 @@ class Tegatai_Honeypot {
 
         $val = isset($_POST[self::FIELD]) ? (string)$_POST[self::FIELD] : '';
         if ($val !== '') {
+            
+            // TEGATAI_FIX: Unified IP Handling (Proxy-kompatibel)
+            $ip = class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+
             if (class_exists('Tegatai_Timeline')) {
-                $ip = isset($_SERVER['REMOTE_ADDR']) ? (string)$_SERVER['REMOTE_ADDR'] : '';
                 Tegatai_Timeline::add('honeypot', 'Login honeypot triggered from IP ' . $ip);
             }
+            
+            // Für 100% Konsistenz: Auch im Live-Terminal / zentralen Logger pushen
+            if (class_exists('Tegatai_Logger')) {
+                Tegatai_Logger::log('AUTH-BAN', 'Login honeypot triggered.', $ip);
+            }
+
             return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-secure'));
         }
         return $user;

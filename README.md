@@ -1,5 +1,5 @@
 ![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue)
-![PHP](https://img.shields.io/badge/PHP-7.4%2B-purple)
+![PHP](https://img.shields.io/badge/PHP-8.x-purple)
 ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
 ![Security](https://img.shields.io/badge/security-active-red)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
@@ -8,135 +8,321 @@
 
 **Tegatai Secure** is a high-performance, enterprise-grade security suite for WordPress. Unlike traditional security plugins that process everything at the PHP level, Tegatai integrates directly with your server (**Nginx, Apache, or LiteSpeed**) to block malicious traffic, bots, and brute-force attacks *before* WordPress is even loaded.
 
-It features a zero-load architecture, 8 deep-scanning engines, and military-grade encryption for remote backups.
+It features a zero-load architecture, multiple deep-scanning engines, cryptographic authentication systems, hardened API protection, and encrypted remote communication.
 
 ---
 
-## 🚀 Key Advantages
+# 🚀 Key Advantages
 
-* **Zero-Load Protection:** Malicious requests are dropped by the web server (via auto-generated `nginx.conf` or `.htaccess`), keeping PHP-FPM and CPU load near zero.
-* **Intrusion Prevention System (IPS):** Automatically quarantines suspicious files in a secure vault before they can be executed.
-* **Fully Internationalized:** 100% i18n ready and translatable.
-* **No Bloat:** A clean, modern UI without ads or upsells.
-
----
-
-## 🔥 Complete Feature List
-
-### 🛡️ Web Application Firewall (WAF) & Network
-* **Bad Bot Blocking:** Drops known malicious bots, scrapers, and automated attack tools (e.g., sqlmap, masscan).
-* **AI & SEO Bot Blocker:** Stops AI scrapers (OpenAI, ChatGPT, Claude) and aggressive SEO crawlers (Ahrefs, Semrush).
-* **Rate Limiting:** Prevents DDoS and brute-force attacks by limiting requests per minute.
-* **404 Trap:** Automatically bans IP addresses that generate too many "404 Not Found" errors (usually vulnerability scanners).
-* **GeoIP Filtering:** Restrict access to your entire site or just the login area using a Whitelist or Blacklist approach.
-* **IP Prison:** Manage blacklisted/whitelisted IPs and manually unban users directly from the dashboard.
-
-### ⚡ Server Rules Engine (Nginx / Apache)
-* **Disable PHP in Uploads:** Prevents execution of malicious backdoors in your media folders.
-* **Protect Sensitive Files:** Blocks web access to `.env`, `.sql`, `.bak`, `.log`, and `.git` files.
-* **System File Protection:** Hides `wp-config.php`, `readme.html`, and `license.txt`.
-* **XML-RPC & Dotfile Block:** Completely disables `xmlrpc.php` and access to hidden dotfiles.
-* **Advanced Hotlink Protection:** Prevents bandwidth theft with customizable whitelist support.
-
-### 🔐 Authentication & Login Guard
-* **Two-Factor Authentication (2FA):** Enforce 2FA for administrators via Authenticator App (TOTP), Email codes, or both.
-* **Login Limit:** Locks out IPs after multiple failed login attempts.
-* **Magic Links:** Allows passwordless, secure login via email tokens.
-* **Custom Login Slug & Hide /wp-admin/:** Obfuscates your login routes to thwart automated attacks.
-* **Trusted Devices:** Notifies administrators via email if a login occurs from an unknown device.
-* **Idle Logout:** Automatically disconnects inactive administrators after 60 minutes.
-
-### 🛑 Anti-Spam & Content Protection
-* **Cloudflare Turnstile:** Privacy-friendly CAPTCHA integration for logins and comments.
-* **Invisible Honeypot & Bot Timer:** Catches automated spam submissions using hidden fields and minimum-fill-time validation.
-* **Trash Mail Blocker:** Rejects disposable/temporary email addresses during registration.
-* **Referrer Check & Link Limits:** Blocks unauthorized form submissions and comment link spam.
-
-### 🔎 8-Engine Integrity & Malware Scanners
-1.  **Malware / Backdoor Scanner:** Signature-based scanning for common malware patterns in plugins and themes.
-2.  **File Integrity Monitor (FIM):** Creates a baseline and alerts you to changed, new, or deleted core/plugin files.
-3.  **WordPress Core Integrity:** Compares your local `wp-admin` and `wp-includes` files against official WordPress.org checksums.
-4.  **Stored-XSS DB Scanner:** Scans database tables (posts, comments, options) for injected HTML/JS payloads.
-5.  **Dangerous Options Scanner:** Scans `wp_options` for malicious `eval()`, `base64`, or hidden iframes.
-6.  **Suspicious Cron Monitor:** Analyzes WP scheduled tasks for hidden mailers or crypto miners.
-7.  **Uploads Monitor:** Specifically hunts for hidden `.php`, `.cgi`, or `.pl` executables masquerading as media.
-8.  **File Permissions Monitor:** Audits critical files (`wp-config.php`, `.htaccess`) for world-writable vulnerabilities.
-
-### 💻 System Hardening & HTTP Headers
-* **Enterprise Privilege Guard:** Prevents unauthorized users from upgrading their roles to Administrator.
-* **Admin Honeypot:** Permanently bans anyone attempting to log in with the username "admin".
-* **Security Headers Enforcer:** Automatically injects `X-Frame-Options`, `Content-Security-Policy`, `HSTS`, `X-XSS-Protection`, and more.
-* **Hide WP Footprint:** Removes WP version numbers, disables user enumeration, and disables the integrated file editor.
-
-### 👥 Session Security & Management
-* **IP & Browser Guard:** Instantly kills user sessions if their IP address or User-Agent changes mid-session (Session Hijacking prevention).
-* **Single Session Limit:** Restricts users to one active session at a time.
-* **Remote Kill-Switch:** View all active sessions and remotely disconnect suspicious users.
-
-### 💾 Encrypted Backups
-* **Automated Scheduling:** Generate full database backups daily or weekly.
-* **Secure Remote FTP:** Send backups automatically to an external FTP server. All credentials are encrypted in your database using AES-256-CBC.
-
-### 🛠️ Extras & API
-* **Temporary Admin Accounts:** Generate time-limited admin access (e.g., 24 hours) for support staff. Accounts self-destruct securely after expiration.
-* **REST API Restriction:** Require authentication for all sensitive REST API endpoints.
-* **Content Protection:** Disable right-click and text highlighting/copying.
-* **Discord / Slack Webhooks:** Get real-time alerts for critical security events straight to your messenger.
-* **Live Traffic & Timeline Logs:** Monitor every block, WAF hit, and system event in real-time.
+* **Zero-Load Protection:** Malicious requests are dropped directly by the web server via auto-generated `nginx.conf` or `.htaccess` rules.
+* **Zero-Knowledge Architecture:** Sensitive secrets and master tokens can be completely removed from the database and securely stored inside `wp-config.php`.
+* **Cryptographic API Protection:** HMAC-based request signing with replay protection and rolling timestamps.
+* **Enterprise Security without Bloat:** Lightweight architecture focused on performance and real protection.
+* **Server-Level Hardening:** Deep integration with Nginx, Apache, and LiteSpeed.
+* **Fully CLI Compatible:** Designed to avoid unnecessary PHP timeouts and support large-scale automation.
+* **Fully Internationalized:** Translation-ready and multilingual.
 
 ---
 
-## ⚙️ Installation & Setup
+# 🔐 Zero-Knowledge Security Architecture
 
-1.  Upload and activate **Tegatai Secure** in your WordPress dashboard.
-2.  Navigate to **Tegatai Secure -> Server Rules**.
-3.  Configure your desired protections (e.g., Block Dotfiles, Disable PHP in Uploads).
-4.  Click **"Write rules to server config"**.
+Tegatai Secure introduces a hardened secret-management system designed to minimize attack surfaces.
 
-**For Apache / LiteSpeed Users:**
-Tegatai will automatically inject the required rules into your `.htaccess` file. You are fully protected immediately.
+## 🗝️ Sudo Vault
 
-**For Nginx Users:**
-Since Nginx does not support `.htaccess`, Tegatai generates a `tegatai-nginx.conf` file. You must include this file in your server block once:
-```nginx
-server {
-    # Your existing config...
-    
-    # Include Tegatai Security Rules
-    include /path/to/your/wordpress/tegatai-nginx.conf;
-}
+Critical secrets can be protected using a dedicated Sudo Vault system.
 
----
+Instead of exposing master keys in the WordPress dashboard or storing them permanently in the database, Tegatai supports secure secret handling through `wp-config.php`.
 
-## Installation
+### Example:
 
-1. Upload the plugin folder to:
+```php
+// Generate a Bcrypt hash:
+// php -r "echo password_hash('YourSecretPin123', PASSWORD_BCRYPT);"
 
+define('TEGATAI_SUDO_PIN', '$2y$10$YourGeneratedHashHere');
 ```
+
+The PIN itself is never stored in the database.
+
+---
+
+## 🔑 API Secret Locking
+
+Sensitive API secrets can also be fully externalized:
+
+```php
+define('TEGATAI_API_SECRET', 'your-super-long-random-secret');
+define('TEGATAI_HIVE_SECRET', 'your-hive-network-secret');
+```
+
+When configured:
+
+* Secrets are hidden from the UI
+* Secrets are never exposed through AJAX
+* Secrets are removed from normal database workflows
+* Database leaks become significantly less dangerous
+
+---
+
+# 🌐 Tegatai Hive (Distributed Threat Network)
+
+Tegatai Hive allows multiple WordPress installations to communicate and synchronize threat intelligence securely.
+
+## Features
+
+* HMAC-SHA256 signed payloads
+* Strict timestamp validation
+* Replay-attack protection
+* Request-ID verification
+* Distributed IP ban synchronization
+* Secure node-to-node communication
+* Optional SSL verification
+* Zero-trust architecture
+
+Every node validates incoming requests cryptographically before applying actions.
+
+---
+
+# 🛡️ API Gateway & Endpoint Protection
+
+The integrated API Gateway protects custom endpoints and synchronization routes.
+
+## Included Features
+
+* Static Token Authentication
+* HMAC v2 Authentication
+* Replay Protection
+* Timestamp Validation
+* Request-ID Verification
+* IPv4 & IPv6 CIDR Allowlists
+* Rate Limiting
+* ReDoS-Protected Regex Routing
+* CLI / WP-CLI bypass support
+* Tarpit delay system for failed authentication
+
+### HMAC Example
+
+```php
+$uri = '/api/sync';
+$timestamp = time();
+$req_id = bin2hex(random_bytes(16));
+
+$signature = hash_hmac(
+    'sha256',
+    $uri . '|' . $timestamp . '|' . $req_id,
+    'YOUR_SECRET'
+);
+```
+
+---
+
+# 🔥 Complete Feature List
+
+## 🛡️ Web Application Firewall (WAF) & Network
+
+* Bad Bot Blocking
+* AI & SEO Bot Blocking
+* GeoIP Filtering
+* Rate Limiting
+* 404 Trap System
+* IP Prison
+* Distributed Threat Sync (Hive)
+* REST API Restriction
+
+---
+
+## ⚡ Server Rules Engine (Nginx / Apache / LiteSpeed)
+
+* Disable PHP in Uploads
+* Dotfile Protection
+* Sensitive File Protection
+* XML-RPC Blocking
+* Hotlink Protection
+* System File Shielding
+* Custom server rule generation
+
+---
+
+## 🔐 Authentication & Login Guard
+
+* Two-Factor Authentication (TOTP / Email)
+* Login Attempt Limits
+* Magic Links
+* Trusted Device Monitoring
+* Custom Login Slugs
+* Hide `/wp-admin/`
+* Idle Logout
+* Session Hijack Detection
+
+---
+
+## 🛑 Anti-Spam & Content Protection
+
+* Cloudflare Turnstile
+* Honeypot Protection
+* Bot Timer Validation
+* Disposable Email Blocking
+* Referrer Checks
+* Link Spam Protection
+
+---
+
+## 🔎 Integrity & Malware Scanners
+
+* Malware Scanner
+* File Integrity Monitor (FIM)
+* WordPress Core Verification
+* Database Injection Scanner
+* Dangerous Option Scanner
+* Suspicious Cron Detection
+* Uploads Monitoring
+* File Permission Auditing
+
+---
+
+## 💻 System Hardening
+
+* Security Headers
+* CSP / HSTS / X-Frame-Options
+* Privilege Escalation Protection
+* WP Footprint Removal
+* User Enumeration Blocking
+* Admin Honeypot
+* File Editor Disabling
+
+---
+
+## 👥 Session Security
+
+* IP & Browser Validation
+* Single Session Enforcement
+* Remote Session Termination
+* Active Session Monitoring
+
+---
+
+## 💾 Secure Backups
+
+* Automated Scheduling
+* Remote FTP Transfer
+* AES-256-CBC Encryption
+* Encrypted Credential Storage
+
+---
+
+## 📡 Logging & Monitoring
+
+* Live Traffic Logs
+* WAF Event Logs
+* Security Timeline
+* Discord / Slack Notifications
+* Real-Time Threat Monitoring
+
+---
+
+# ⚙️ Installation
+
+## Standard Installation
+
+1. Upload the plugin to:
+
+```text
 /wp-content/plugins/tegatai-secure
 ```
 
-2. Activate the plugin in the WordPress admin panel.
-3. Open **Tegatai Secure** and configure your protection modules.
+2. Activate the plugin inside WordPress.
+3. Open **Tegatai Secure** in the admin dashboard.
+4. Configure your preferred protection modules.
 
-## Requirements
+---
 
-- WordPress 6.0+
-- PHP 7.4+
+## Nginx Integration
 
-## Contributing
+Tegatai generates an optimized `tegatai-nginx.conf` file.
 
-See `CONTRIBUTING.md`.
+Example:
 
-## Security
+```nginx
+server {
+    # Existing configuration
+
+    include /path/to/wordpress/tegatai-nginx.conf;
+}
+```
+
+---
+
+## Apache / LiteSpeed
+
+Rules are automatically injected into `.htaccess`.
+
+---
+
+# ⚙️ Requirements
+
+* WordPress 6.0+
+* PHP 8.x+
+* Recommended: Nginx / OpenResty / LiteSpeed
+
+---
+
+# 💻 CLI Compatibility
+
+Tegatai Secure is designed to work in large-scale and automated environments.
+
+Features include:
+
+* WP-CLI compatibility
+* Timeout-safe workflows
+* Cron-safe execution
+* Large dataset handling
+* Server automation support
+
+---
+
+# 🔒 Security Philosophy
+
+Tegatai Secure follows a minimalistic security philosophy:
+
+* Prevent attacks before PHP loads
+* Reduce attack surfaces
+* Avoid unnecessary dependencies
+* Keep secrets outside the database whenever possible
+* Prioritize performance and server stability
+* Focus on real-world protection instead of marketing features
+
+---
+
+# 🤝 Contributing
+
+See `CONTRIBUTING.md`
+
+---
+
+# 🚨 Security Reporting
 
 If you discover a vulnerability, please report it privately.
-- Contact: `security@your-domain.example`
 
-## License
+Contact:
 
-GPL v2 or later. See `LICENSE`.
+```text
+security@your-domain.example
+```
 
-## Changelog
+---
 
-See `CHANGELOG.md` (current: 1.0.0).
+# 📄 License
+
+GPL v2 or later.
+
+See `LICENSE`.
+
+---
+
+# 📜 Changelog
+
+Current Version: `1.1.x`
+
+See `CHANGELOG.md` for detailed release notes.
+

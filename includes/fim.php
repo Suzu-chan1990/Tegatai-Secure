@@ -1,6 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
+/* TEGATAI_FIM_ABS_PATHS_V1 applied */
 class Tegatai_FIM {
 
     const OPT_SNAPSHOT = 'teg_fim_snapshot_v1';
@@ -121,6 +122,9 @@ class Tegatai_FIM {
 
         foreach ($old_files as $key => $meta) {
             if (!isset($current[$key])) {
+                // TEGATAI_FIX: Konstruiere den absoluten Pfad für gelöschte Dateien
+                $root_path = $paths[$meta['root']] ?? '';
+                $meta['abs'] = $root_path ? rtrim($root_path, '/\\') . '/' . ltrim($meta['rel'], '/\\') : '';
                 $deleted[$key] = $meta;
                 continue;
             }
@@ -130,7 +134,8 @@ class Tegatai_FIM {
                 $sha = self::hash_file_safely($cur['abs']);
                 $oldsha = (string)($meta['sha'] ?? '');
                 if ($sha !== $oldsha) {
-                    $changed[$key] = ['old'=>$meta, 'new'=>['size'=>$cur['size'],'mtime'=>$cur['mtime'],'sha'=>$sha]];
+                    // TEGATAI_FIX: Absoluten Pfad zum neuen Array hinzufügen
+                    $changed[$key] = ['old'=>$meta, 'new'=>['size'=>$cur['size'],'mtime'=>$cur['mtime'],'sha'=>$sha,'abs'=>$cur['abs']]];
                 }
             }
         }
@@ -138,7 +143,8 @@ class Tegatai_FIM {
         foreach ($current as $key => $cur) {
             if (!isset($old_files[$key])) {
                 $sha = self::hash_file_safely($cur['abs']);
-                $new[$key] = ['root'=>$cur['root'],'rel'=>$cur['rel'],'size'=>$cur['size'],'mtime'=>$cur['mtime'],'sha'=>$sha];
+                // TEGATAI_FIX: Absoluten Pfad hinzufügen
+                $new[$key] = ['root'=>$cur['root'],'rel'=>$cur['rel'],'size'=>$cur['size'],'mtime'=>$cur['mtime'],'sha'=>$sha,'abs'=>$cur['abs']];
             }
         }
 

@@ -21,10 +21,8 @@ class Tegatai_Logger {
         return !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
     }
 
-
-    
     public function __construct() {
-        // TEGATAI_PRO_FEATURE: Admin Audit Trail
+        // Admin Audit Trail
         add_action('activated_plugin', [$this, 'log_plugin_activation'], 10, 2);
         add_action('deactivated_plugin', [$this, 'log_plugin_deactivation'], 10, 2);
         add_action('deleted_post', [$this, 'log_post_deletion'], 10, 2);
@@ -42,7 +40,7 @@ class Tegatai_Logger {
         global $wpdb;
         $table = $wpdb->prefix . 'tegatai_logs';
         
-        if (!$ip) $ip = $_SERVER['REMOTE_ADDR'];
+        if (!$ip) $ip = self::get_ip();
         $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
         $time = current_time('mysql');
 

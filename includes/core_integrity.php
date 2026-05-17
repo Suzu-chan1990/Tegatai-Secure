@@ -1,6 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
+/* TEGATAI_CORE_INTEGRITY_MD5_V1 applied */
 class Tegatai_Core_Integrity {
     public static function check(): array {
         global $wp_version;
@@ -60,7 +61,7 @@ class Tegatai_Core_Integrity {
     }
 
     /**
-     * Lädt die Originaldatei von WP.org herunter und überschreibt die lokale Datei.
+     * Lädt die Originaldatei von WP.org herunter, prüft den MD5-Hash und überschreibt die lokale Datei.
      */
     public static function heal_file($file_path) {
         global $wp_version;
@@ -87,6 +88,29 @@ class Tegatai_Core_Integrity {
         if (empty($body)) {
             return ['ok' => false, 'error' => __('Downloaded file is empty. Aborting.', 'tegatai-secure')];
         }
+
+        // --- NEW: Strict MD5 Checksum Verification ---
+        if (!function_exists('wp_get_core_checksums')) {
+            require_once ABSPATH . 'wp-admin/includes/update.php';
+        }
+        $locale = function_exists('get_locale') ? get_locale() : 'en_US';
+        $checksums = function_exists('wp_get_core_checksums') ? wp_get_core_checksums($wp_version, $locale) : null;
+        if (!is_array($checksums) || empty($checksums)) {
+            $checksums = function_exists('wp_get_core_checksums') ? wp_get_core_checksums($wp_version, 'en_US') : null;
+        }
+
+        if (is_array($checksums) && isset($checksums[$clean_path])) {
+            $expected_hash = $checksums[$clean_path];
+            $downloaded_hash = md5($body);
+            
+            if (strtolower($expected_hash) !== strtolower($downloaded_hash)) {
+                if (class_exists('Tegatai_Logger')) {
+                    Tegatai_Logger::log('SEC-WARN', "Heal aborted: MD5 mismatch for $clean_path. Expected: $expected_hash, Got: $downloaded_hash");
+                }
+                return ['ok' => false, 'error' => __('MD5 checksum mismatch! Downloaded file is corrupted or tampered.', 'tegatai-secure')];
+            }
+        }
+        // ---------------------------------------------
         
         // Zielordner sicherstellen, falls es eine gelöschte Datei war
         $dir = dirname($abs_file);
@@ -101,7 +125,7 @@ class Tegatai_Core_Integrity {
         }
         
         if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('HEAL', sprintf(__('Core file successfully repaired: %s', 'tegatai-secure'), $clean_path));
+            Tegatai_Logger::log('HEAL', sprintf(__('Core file successfully repaired and verified: %s', 'tegatai-secure'), $clean_path));
         }
         
         return ['ok' => true];

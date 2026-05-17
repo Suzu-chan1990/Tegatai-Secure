@@ -1,6 +1,7 @@
 <?php
 
 /* TEGATAI_RECOMMENDATIONS_PATCH_V1 */
+/* TEGATAI_EXTRAS_SAFE_REDIRECT_V1 applied */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
@@ -19,7 +20,7 @@ class Tegatai_Extras {
             add_action('wp_footer', [$this, 'inject_protection_scripts'], 100);
         }
 
-        // --- TEGATAI PRO: Temporäre Support-Zugänge ---
+        // --- TEGATAI: Temporäre Support-Zugänge ---
         add_action('admin_post_tegatai_create_temp_admin', [$this, 'create_temp_admin']);
         add_action('admin_init', [$this, 'cleanup_temp_admins']);
     }
@@ -123,9 +124,12 @@ class Tegatai_Extras {
         
         wp_mail($email, $subject, $message, $headers);
 
-        Tegatai_Logger::log('AUDIT', "Temporärer Admin erstellt: $email ($hours Stunden)");
+        if (class_exists('Tegatai_Logger')) {
+            Tegatai_Logger::log('AUDIT', "Temporärer Admin erstellt: $email ($hours Stunden)");
+        }
 
-        wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=extras&msg=temp_created'));
+        // BEST PRACTICE: Open Redirect Schutz
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-secure&tab=extras&msg=temp_created'));
         exit;
     }
 
@@ -145,7 +149,10 @@ class Tegatai_Extras {
             if ($expiry && time() > intval($expiry)) {
                 require_once(ABSPATH . 'wp-admin/includes/user.php');
                 wp_delete_user($user->ID);
-                Tegatai_Logger::log('AUDIT', "Temporärer Admin automatisch gelöscht: " . $user->user_email);
+                
+                if (class_exists('Tegatai_Logger')) {
+                    Tegatai_Logger::log('AUDIT', "Temporärer Admin automatisch gelöscht: " . $user->user_email);
+                }
             }
         }
     }

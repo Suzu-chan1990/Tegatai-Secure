@@ -1,6 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+/* TEGATAI_BACKUP_ENCRYPTION_V1 applied */
 class Tegatai_Backup {
     private $backup_dir;
 
@@ -8,7 +9,7 @@ class Tegatai_Backup {
         $upload = wp_upload_dir();
         $this->backup_dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
         if (!is_dir($this->backup_dir)) { @wp_mkdir_p($this->backup_dir); }
-        if (!file_exists($this->backup_dir . '.htaccess')) { @file_put_contents($this->backup_dir . '.htaccess', "Require all denied\nDeny from all"); }
+        if (!file_exists($this->backup_dir . '.htaccess')) { @file_put_contents($this->backup_dir . '.htaccess', "Order Deny,Allow\nDeny from all"); }
         if (!file_exists($this->backup_dir . 'index.php')) { @file_put_contents($this->backup_dir . 'index.php', "<?php\n// Silence is golden."); }
         if (!file_exists($this->backup_dir . 'web.config')) { @file_put_contents($this->backup_dir . 'web.config', '<?xml version="1.0" encoding="UTF-8"?><configuration><system.webServer><authorization><deny users="*" /></authorization></system.webServer></configuration>'); }
         
@@ -38,12 +39,23 @@ class Tegatai_Backup {
         exit;
     }
 
+    // --- ENCRYPTION KEY MANAGER ---
+    private function get_encryption_key() {
+        if (defined('TEGATAI_BACKUP_SECRET')) return TEGATAI_BACKUP_SECRET;
+        $secret = get_option('tegatai_backup_secret');
+        if (empty($secret)) {
+            $secret = bin2hex(random_bytes(32));
+            update_option('tegatai_backup_secret', $secret, false);
+        }
+        return $secret;
+    }
+
     private function create_db_backup($type = 'manual') {
         global $wpdb;
         
-        // Ordner + Schutz erstellen
+        // Ordner + Schutz sicherstellen
         if (!file_exists($this->backup_dir)) {
-            mkdir($this->backup_dir, 0755, true);
+            wp_mkdir_p($this->backup_dir);
             if (!file_exists($this->backup_dir . '.htaccess')) file_put_contents($this->backup_dir . '.htaccess', "Order Deny,Allow\nDeny from all");
             if (!file_exists($this->backup_dir . 'index.php')) file_put_contents($this->backup_dir . 'index.php', '<?php // Silence');
         }
@@ -78,21 +90,56 @@ class Tegatai_Backup {
         // SECURITY: Zufalls-Hash im Dateinamen
         $hash = substr(md5(uniqid(rand(), true)), 0, 8);
         $filename = 'db_backup_' . date('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php';
-        $path = $this->backup_dir . $filename;
         
-        // Komprimierung wenn möglich
-        if (function_exists('gzopen')) { 
+        // 1. ZLIB Komprimierung (Verschlüsselte Daten lassen sich nicht gut packen, also erst komprimieren)
+        if (function_exists('gzencode')) { 
+            $sql = gzencode($sql, 9);
             $filename .= '.gz'; 
-            $path .= '.gz'; 
-            $fp = gzopen($path, 'w9'); 
-            gzwrite($fp, $sql); 
-            gzclose($fp); 
-        } else { 
-            file_put_contents($path, $sql); 
+        }
+
+        // 2. AES-256-CBC Data-at-Rest Verschlüsselung
+        if (function_exists('openssl_encrypt')) {
+            $secret = $this->get_encryption_key();
+            $iv = random_bytes(openssl_cipher_iv_length('aes-256-cbc'));
+            $encrypted = openssl_encrypt($sql, 'aes-256-cbc', $secret, OPENSSL_RAW_DATA, $iv);
+            
+            if ($encrypted !== false) {
+                $sql = $iv . $encrypted; // IV direkt vorhängen
+                $filename .= '.enc';
+            } else {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-ERR', "AES Encryption failed. Saving unencrypted.");
+            }
         }
         
-        Tegatai_Logger::log('BACKUP', "Backup erstellt: $filename"); 
+        $path = $this->backup_dir . $filename;
+        file_put_contents($path, $sql); 
+        
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Backup erstellt: $filename"); 
+        
+        // 3. Garbage Collection (Retention Policy)
+        $ops = get_option('tegatai_options');
+        $limit = !empty($ops['backup_retention_limit']) ? intval($ops['backup_retention_limit']) : 7;
+        $this->enforce_retention($limit);
+
         return true;
+    }
+
+    // --- GARBAGE COLLECTION ---
+    private function enforce_retention($limit = 7) {
+        $files = glob($this->backup_dir . 'db_backup_*');
+        if (!$files || count($files) <= $limit) return;
+
+        // Nach modification time absteigend sortieren (neueste zuerst)
+        usort($files, function($a, $b) {
+            return filemtime($b) - filemtime($a); 
+        });
+
+        // Alle Dateien ab dem Index $limit löschen
+        $to_delete = array_slice($files, $limit);
+        foreach ($to_delete as $file) {
+            @unlink($file);
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-GC', "Auto-deleted old backup: " . basename($file));
+        }
     }
 
     public function delete_backup() {
@@ -103,22 +150,18 @@ class Tegatai_Backup {
         $path = $this->backup_dir . $file;
         
         // SECURITY FIX: Robuster Check
-        // 1. Datei muss existieren
         if (!file_exists($path)) {
-            // Könnte schon gelöscht sein -> Redirect ohne Fehler
             wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=backups&msg=deleted'));
             exit;
         }
 
-        // 2. Pfad muss im Backup-Verzeichnis sein. 
-        // sanitize_file_name() entfernt bereits .. und /, daher reicht ein dirname Check zur Sicherheit.
         if (dirname($path) !== rtrim($this->backup_dir, '/')) {
-             Tegatai_Logger::log('SEC-WARN', "Invalid delete path: $path");
+             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SEC-WARN', "Invalid delete path: $path");
              wp_die("Security Check Failed.");
         }
 
         unlink($path); 
-        Tegatai_Logger::log('BACKUP', "Gelöscht: $file"); 
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Gelöscht: $file"); 
         
         wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=backups&msg=deleted')); 
         exit;
@@ -132,10 +175,29 @@ class Tegatai_Backup {
         $path = $this->backup_dir . $file;
         
         if (file_exists($path) && dirname($path) === rtrim($this->backup_dir, '/')) {
+            $data = file_get_contents($path);
+            $dl_name = basename($path);
+            
+            // --- ON-THE-FLY DECRYPTION ---
+            if (substr($path, -4) === '.enc' && function_exists('openssl_decrypt')) {
+                $secret = $this->get_encryption_key();
+                $iv_len = openssl_cipher_iv_length('aes-256-cbc');
+                $iv = substr($data, 0, $iv_len);
+                $encrypted = substr($data, $iv_len);
+                
+                $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', $secret, OPENSSL_RAW_DATA, $iv);
+                if ($decrypted !== false) {
+                    $data = $decrypted;
+                    $dl_name = str_replace('.enc', '', $dl_name); // Originalendung wiederherstellen (.gz oder .sql)
+                } else {
+                    wp_die('Entschlüsselung fehlgeschlagen. Stimmt das TEGATAI_BACKUP_SECRET in der wp-config.php?');
+                }
+            }
+
             header('Content-Type: application/octet-stream'); 
-            header('Content-Disposition: attachment; filename="'.basename($path).'"'); 
-            header('Content-Length: ' . filesize($path)); 
-            readfile($path); 
+            header('Content-Disposition: attachment; filename="'.$dl_name.'"'); 
+            header('Content-Length: ' . strlen($data)); 
+            echo $data; 
             exit;
         } 
         wp_die('File not found or access denied.');
@@ -157,6 +219,12 @@ class Tegatai_Backup {
                 }
             }
         } 
-        return array_reverse($files);
+        
+        // Nach neuestem Datum sortieren
+        usort($files, function($a, $b) {
+            return strtotime($b['date']) - strtotime($a['date']);
+        });
+        
+        return $files;
     }
 }

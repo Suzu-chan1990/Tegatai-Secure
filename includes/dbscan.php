@@ -40,6 +40,19 @@ class Tegatai_DBScan {
             '/atob\s*\(/i',
         ];
 
+        // --- TEGATAI_FIX: Custom Patterns Injection ---
+        $ops = get_option('tegatai_options', []);
+        $extra_patterns_raw = isset($ops['dbscan_extra_patterns']) ? $ops['dbscan_extra_patterns'] : '';
+        if (!empty(trim($extra_patterns_raw))) {
+            $extra_lines = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $extra_patterns_raw))));
+            foreach ($extra_lines as $ep) {
+                if (!empty($ep)) {
+                    $patterns[] = $ep;
+                }
+            }
+        }
+        // ----------------------------------------------
+
         $hits = [];
         $checked = 0;
 
@@ -59,7 +72,8 @@ class Tegatai_DBScan {
 
                     $matched = false;
                     foreach ($patterns as $pat) {
-                        if (preg_match($pat, $val)) { $matched = true; break; }
+                        // @ unterdrückt PHP-Warnings bei fehlerhaften Custom-Regex-Eingaben
+                        if (@preg_match($pat, $val)) { $matched = true; break; }
                     }
                     if (!$matched) continue;
 

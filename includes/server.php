@@ -1,21 +1,26 @@
 <?php
-/* TEGATAI_AUTOPATH_DETECTION_V1 applied 2026-02-26 21:54:52 */
-/* TEGATAI_FORCE_RULES_TO_WP_ROOT_V1 applied 2026-02-26 21:43:03 */
-/* TEGATAI_AUTOWRITE_RULES_AND_LOG_V1 applied 2026-02-26 21:27:35 */
-/* TEGATAI_SERVER_FULL_MULTISTACK_FIX_V1 applied 2026-02-26 20:26:16 */
-/* TEGATAI_APACHE_SUPPORT_PATCH_V1 applied 2026-02-26 19:55:34 */
+/* TEGATAI_AUTOPATH_DETECTION_V1 applied */
+/* TEGATAI_SERVER_FULL_MULTISTACK_FIX_V1 applied */
+/* TEGATAI_NGINX_DYNAMIC_PATHS_AND_BOTS_V1 applied */
+/* TEGATAI_DRY_BOTS_AND_LOOPBACK_V1 applied */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class Tegatai_Server {
+    
+    // ZENTRALE BOT-DATENBANK (DRY-Prinzip)
+    private static $bot_patterns = [
+        'scanners' => 'acunetix|dirbuster|havij|masscan|nikto|nmap|sqlmap|wpscan|zgrab|cgichk|morfeus|netsparker|pangolin|sqli|zmeu',
+        'ai_bots'  => 'anthropic|claude|gptbot|chatgpt-user|openai|cohere|omgili|perplexity|diffbot|amazonbot|bytespider|petalbot',
+        'seo_spam' => 'ahrefsbot|semrushbot|mj12bot|dotbot|rogerbot|blexbot|megaindex|magpie-crawler|scrapy|python-requests|libwww-perl|wget|curl'
+    ];
+
     /**
      * TEGATAI FIX: Dual-Engine Support für Apache & LiteSpeed
-     * Schreibt die Schutzregeln automatisch in die .htaccess
      */
     public static function write_apache_rules() {
         require_once ABSPATH . 'wp-admin/includes/misc.php';
         $ops = get_option('tegatai_options', []);
         
-        // Dynamische Upload-Pfade erkennen (falls du sie umbenannt hast, z.B. /appurodo/)
         $up_url = wp_parse_url(wp_upload_dir()['baseurl'], PHP_URL_PATH);
         $up_dir = ltrim($up_url, '/');
         if (empty($up_dir)) $up_dir = 'wp-content/uploads';
@@ -24,45 +29,41 @@ class Tegatai_Server {
         $rules[] = '<IfModule mod_rewrite.c>';
         $rules[] = 'RewriteEngine On';
         
-        // 1. Blockiere PHP in Uploads (gegen Shell-Uploads)
         $rules[] = '# Tegatai: Block PHP execution in Uploads';
         $rules[] = 'RewriteRule ^' . $up_dir . '/.*\.(php[1-8]?|pht|phtml?|phps|phar)$ - [F,L]';
         
-        // 2. Dotfiles blockieren (z.B. .env, .git)
         if (!empty($ops['block_dotfiles'])) {
             $rules[] = '# Tegatai: Block Dotfiles';
             $rules[] = 'RewriteRule ^\. - [F,L]';
         }
 
-        // 3. Systemdateien blockieren
         if (!empty($ops['block_system_files'])) {
             $rules[] = '# Tegatai: Block System Files';
             $rules[] = 'RewriteRule ^(readme\.html|license\.txt|wp-config\.php) - [F,L]';
             $rules[] = 'RewriteRule \.(sql|bak|log)$ - [F,L]';
         }
 
-        // 4. Bad Bot Blocker (Basic Level)
-        if (!empty($ops['block_bad_bots'])) {
-            $rules[] = '# Tegatai: Block Bad Bots';
-            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (ZmEu|sqlmap|nikto|python|curl|wget|scanner) [NC]';
+        if (!empty($ops['block_bad_bots']) || !empty($ops['server_filter_bad_bots'])) {
+            $rules[] = '# Tegatai: Enterprise Bad Bot & AI Scraper Protection';
+            // Universal Immunity für Apache (IPv4 & IPv6 Loopback Bypass)
+            $rules[] = 'RewriteCond %{REMOTE_ADDR} !^127\.0\.0\.1$';
+            $rules[] = 'RewriteCond %{REMOTE_ADDR} !^::1$';
+            // Kategorisierte Bot-Filter
+            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['scanners'] . ') [NC,OR]';
+            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['ai_bots'] . ') [NC,OR]';
+            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['seo_spam'] . ') [NC]';
             $rules[] = 'RewriteRule ^ - [F,L]';
         }
 
         $rules[] = '</IfModule>';
 
-        // 5. Native .htaccess Absicherung
         $rules[] = '<FilesMatch "^\.">';
         $rules[] = 'Require all denied';
         $rules[] = '</FilesMatch>';
         
-        // Nutzt die sichere WP Core Funktion (erstellt Markierungen: # BEGIN Tegatai-Secure)
         insert_with_markers(ABSPATH . '.htaccess', 'Tegatai-Secure', $rules);
     }
 
-    /**
-     * Strictly sanitize Nginx valid_referers entries.
-     * Allows: example.com, *.example.com
-     */
     private static function tegatai_sanitize_valid_referer_entry($entry) {
         $entry = trim((string)$entry);
         if ($entry === '') { return ''; }
@@ -74,9 +75,7 @@ class Tegatai_Server {
         return strtolower($entry);
     }
 
-
     private static function get_rules_file_path() {
-        // Prefer WP root if writable; fallback to uploads (supports custom wp-content paths).
         $root = ABSPATH . 'tegatai-nginx.conf';
         $root_ok = (is_dir(ABSPATH) && is_writable(ABSPATH)) || (file_exists($root) && is_writable($root));
         if ($root_ok) return $root;
@@ -91,8 +90,6 @@ class Tegatai_Server {
         return (strpos($path, ABSPATH) === 0) ? 'root' : 'uploads';
     }
 
-
-    // WIEDERHERGESTELLT: Diese Funktion wird vom Dashboard benötigt
     public static function detect_server() { 
         $s = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
         if (stripos($s, 'apache') !== false || stripos($s, 'litespeed') !== false) return 'apache';
@@ -100,15 +97,12 @@ class Tegatai_Server {
         return 'unknown'; 
     }
 
-    // Wird beim Klick auf "Regeln schreiben" ausgeführt
     public static function force_update() {
         self::write_nginx_rules();
-        self::write_htaccess(); 
+        self::write_apache_rules(); // BUGFIX: War vorher write_htaccess()
     }
 
-    // Wird bei der Plugin-Deaktivierung aufgerufen
     public static function remove_rules() {
-        // remove both possible locations
         $root = ABSPATH . 'tegatai-nginx.conf';
         if (file_exists($root)) { @unlink($root); }
 
@@ -116,7 +110,6 @@ class Tegatai_Server {
         $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
         if (file_exists($up)) { @unlink($up); }
 
-        // remove root .htaccess block
         $root_file = ABSPATH . '.htaccess';
         if (file_exists($root_file)) {
             $begin = "# BEGIN TEGATAI";
@@ -129,7 +122,6 @@ class Tegatai_Server {
             }
         }
 
-        // remove uploads .htaccess block
         $uploads_ht = trailingslashit($ud['basedir']) . '.htaccess';
         if (file_exists($uploads_ht)) {
             $ubegin = "# BEGIN TEGATAI UPLOADS";
@@ -143,26 +135,27 @@ class Tegatai_Server {
         }
     }
 
-    // --- NGINX SCHREIBEN ---
     private static function write_nginx_rules() {
         $file_path = self::get_rules_file_path();
         $rules = self::generate_nginx_content();
         
-        // Safety: ensure nothing is appended after END marker
         $end_marker = "# --- END TEGATAI RULES ---";
         $pos = strpos($rules, $end_marker);
         if ($pos !== false) {
-            $rules = substr($rules, 0, $pos + strlen($end_marker)) . "
-";
+            $rules = substr($rules, 0, $pos + strlen($end_marker)) . "\n";
         }
 
-@file_put_contents($file_path, $rules);
+        @file_put_contents($file_path, $rules);
     }
 
     private static function generate_nginx_content() {
         $ops = get_option('tegatai_options');
         $date = current_time('mysql');
+        
         $ud = wp_upload_dir();
+        $up_dir = rtrim(wp_parse_url($ud['baseurl'], PHP_URL_PATH), '/');
+        $pl_dir = rtrim(wp_parse_url(plugins_url(), PHP_URL_PATH), '/');
+        $th_dir = rtrim(wp_parse_url(get_theme_root_uri(), PHP_URL_PATH), '/');
         $rel_uploads = str_replace(ABSPATH, '/', $ud['basedir']); 
 
         $lines = [];
@@ -171,8 +164,7 @@ class Tegatai_Server {
         $lines[] = "# include " . ABSPATH . "tegatai-nginx.conf;";
         $lines[] = "";
 
-        // 0. Disable Indexing (X-Robots-Tag)
-if (!empty($ops['server_disable_indexing'])) {
+        if (!empty($ops['server_disable_indexing'])) {
             $lines[] = "# Disable indexing for admin/login cleanly without breaking PHP routing";
             $lines[] = 'set $tegatai_robots "";';
             $lines[] = 'if ($request_uri ~* "^/(wp-admin/|wp-login\.php)") {';
@@ -182,10 +174,8 @@ if (!empty($ops['server_disable_indexing'])) {
             $lines[] = "";
         }
 
-
-        // 0b. Protected Directories (deny access)
         if (!empty($ops['server_protected_dirs'])) {
-            $lines[] = "# Protected directories";
+            $lines[] = "# Protected directories (Deny absolute access)";
             $raw = str_replace([',', ';'], "\n", $ops['server_protected_dirs']);
             $entries = explode("\n", $raw);
             $clean = [];
@@ -197,28 +187,6 @@ if (!empty($ops['server_disable_indexing'])) {
                 $clean[] = $e;
             }
 
-            // IMPORTANT:
-            // Never "deny all" wp-content/plugins/mu-plugins/uploads equivalents – that breaks WP assets.
-            // For those, block PHP execution only (safe hardening).
-            $special = [
-                'kontentsu' => true,            // wp-content (only block PHP in themes)
-                'puraguin' => true,             // wp-content/plugins (block PHP execution)
-                'kontentsu/mu-plugins' => true,  // wp-content/mu-plugins (block PHP execution)
-                'appurodo' => true,             // uploads (block PHP execution)
-            ];
-            $php_only = [];
-
-            $filtered = [];
-            foreach ($clean as $dir) {
-                if (isset($special[$dir])) {
-                    $php_only[$dir] = true;
-                    continue;
-                }
-                $filtered[] = $dir;
-            }
-            $clean = $filtered;
-
-            // Regular protected dirs: deny access completely (ok for private folders like logs/backups)
             if (!empty($clean)) {
                 $re = implode('|', $clean);
                 $lines[] = "location ~* ^/($re)(/|$) {";
@@ -226,31 +194,8 @@ if (!empty($ops['server_disable_indexing'])) {
                 $lines[] = "}";
                 $lines[] = "";
             }
-
-            // PHP-only blocks for WP-content-like dirs (safe, does not block CSS/JS/images)
-            if (!empty($php_only)) {
-                $phpre = '(?:php[1-7]?|pht|phtml?|phps)';
-
-                if (!empty($php_only['appurodo'])) {
-                    $lines[] = "location ~ ^/appurodo/.*\\.{$phpre}$ { deny all; }";
-                }
-                if (!empty($php_only['puraguin'])) {
-                    $lines[] = "location ~ ^/puraguin/.*\\.{$phpre}$ { deny all; }";
-                }
-                if (!empty($php_only['kontentsu/mu-plugins'])) {
-                    $lines[] = "location ~ ^/kontentsu/mu-plugins/.*\\.{$phpre}$ { deny all; }";
-                }
-                if (!empty($php_only['kontentsu'])) {
-                    // Keep theme PHP from being directly executed via URL
-                    $lines[] = "location ~ ^/kontentsu/themes/.*\\.{$phpre}$ { deny all; }";
-                }
-
-                $lines[] = "";
-            }
         }
 
-
-        // 1. Hotlink Protection
         if (!empty($ops['server_hotlink_protection'])) {
             $lines[] = "# Hotlink Protection";
             $lines[] = "location ~* \.(jpg|jpeg|png|gif|webp|svg|mp4|mp3)$ {";
@@ -263,7 +208,7 @@ if (!empty($ops['server_disable_indexing'])) {
                     $entry = trim($entry);
                     if (empty($entry)) continue;
                     $clean = self::tegatai_sanitize_valid_referer_entry($entry);
-                if ($clean !== '') { $valid_referers .= " " . $clean; }
+                    if ($clean !== '') { $valid_referers .= " " . $clean; }
                 }
             }
 
@@ -273,43 +218,42 @@ if (!empty($ops['server_disable_indexing'])) {
             $lines[] = "";
         }
 
-        // 2. Sensitive Files Block
         if (!empty($ops['server_protect_files'])) {
             $lines[] = "location ~* \.(log|ini|sql|env|sh|bak|old|git)$ { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        // 3. System Files
         if (!empty($ops['server_hide_system_files'])) {
             $lines[] = "location ~* /(readme\.html|license\.txt|wp-config\.php|install\.php)$ { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        // 4. Dotfiles
         if (!empty($ops['server_block_dotfiles'])) {
             $lines[] = "location ~ /\. { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        // 5. XMLRPC
         if (!empty($ops['server_block_xmlrpc'])) {
             $lines[] = "location = /xmlrpc.php { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        // 5.5 Protect Tegatai Backups & Logs (TEGATAI_FIX)
         $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-backups/ { deny all; access_log off; log_not_found off; return 403; }";
         $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-logs/ { deny all; access_log off; log_not_found off; return 403; }";
         $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
 
-        // 6. PHP in Uploads
         if (!empty($ops['server_disable_php_uploads'])) {
             $lines[] = "location ~ ^" . $rel_uploads . "/.+\.php$ { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        // 7. Bad Bots
+        // ==========================================
+        // TEGATAI ENTERPRISE BAD BOT RULES (NGINX)
+        // ==========================================
         if (!empty($ops['server_filter_bad_bots'])) {
-            $bots = "sqlmap|nikto|wpscan|python|curl|wget|libwww|acunetix|havij|winhttp|indy|mail.ru|scooter|mj12bot|ahrefs|semalt";
-            $lines[] = "if (\$http_user_agent ~* \"($bots)\") { return 403; }";
+            $lines[] = "# Enterprise Bad Bot & AI Scraper Protection";
+            $combined_bots = self::$bot_patterns['scanners'] . '|' . self::$bot_patterns['ai_bots'] . '|' . self::$bot_patterns['seo_spam'];
+            $lines[] = "if (\$http_user_agent ~* \"($combined_bots)\") {";
+            $lines[] = "    return 403;";
+            $lines[] = "}";
+            $lines[] = "";
         }
 
-        // 8. Custom Protected Files
         if (!empty($ops['server_custom_files_list'])) {
             $lines[] = "# Custom Protected Files";
             $raw_cf = str_replace([',', ';'], "\n", $ops['server_custom_files_list']);
@@ -318,43 +262,32 @@ if (!empty($ops['server_disable_indexing'])) {
                 $cf = trim($cf);
                 if ($cf === '') continue;
                 if (strpos($cf, '/') !== 0) { $cf = '/' . $cf; }
-                
-                // Bereinigung für Nginx-Sicherheit (erlaubt nur Alphanumerisch, Punkte, Striche, Slashes)
                 $cf = preg_replace('/[^A-Za-z0-9_\-\.\/]/', '', $cf);
                 if ($cf === '/' || $cf === '') continue;
-                
                 $lines[] = "location = " . $cf . " { deny all; access_log off; log_not_found off; return 403; }";
             }
         }
 
         $lines[] = "";
-        $up_url = wp_parse_url(wp_upload_dir()['baseurl'], PHP_URL_PATH);
-        $lines[] = "location ^~ " . rtrim($up_url, '/') . "/tegatai-backups/ { deny all; return 403; }";
+        
+        // ==========================================
+        // DYNAMIC PHP EXECUTION BLOCKS
+        // ==========================================
+        $lines[] = "# Dynamically resolved WP paths: Block PHP execution in content directories";
+        $phpre = '(?:php[1-7]?|pht|phtml?|phps|phar)';
+        if (!empty($up_dir)) {
+            $lines[] = "location ~ ^" . $up_dir . "/.*\." . $phpre . "$ { deny all; }";
+        }
+        if (!empty($pl_dir)) {
+            $lines[] = "location ~ ^" . $pl_dir . "/.*\." . $phpre . "$ { deny all; }";
+        }
+        if (!empty($th_dir)) {
+            $lines[] = "location ~ ^" . $th_dir . "/.*\." . $phpre . "$ { deny all; }";
+        }
+
         $lines[] = "";
         $lines[] = "# --- END TEGATAI RULES ---";
-            // Block PHP execution in sensitive content paths (PHP-only, do not break static assets)
-            $lines[] = "location ~ ^/appurodo/.*\\.(?:(?:php[1-7]?|pht|phtml?|phps))$ { deny all; }";
-            $lines[] = "location ~ ^/puraguin/.*\\.(?:(?:php[1-7]?|pht|phtml?|phps))$ { deny all; }";
-            $lines[] = "location ~ ^/kontentsu/themes/.*\\.(?:(?:php[1-7]?|pht|phtml?|phps))$ { deny all; }";
-
-        // Deduplicate lines (preserve order) to avoid duplicate nginx rules
-        $seen = array();
-        $deduped = array();
-        foreach ($lines as $ln) {
-            $k = (string)$ln;
-            if (isset($seen[$k])) { continue; }
-            $seen[$k] = true;
-            $deduped[] = $ln;
-        }
-        $lines = $deduped;
-
-
 
         return implode("\n", $lines);
-    }
-
-    private static function write_htaccess() {
-        $f = ABSPATH . '.htaccess';
-        if (!file_exists($f)) @touch($f);
     }
 }

@@ -38,6 +38,9 @@ wp-config.php
 # bak files
 *.bak
 
+# py files
+*.py
+
 # All plugins
 #
 # Note: If you wish to whitelist plugins,

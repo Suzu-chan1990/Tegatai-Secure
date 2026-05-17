@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, wordpress security, hardening, 2fa
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.x
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,6 +44,84 @@ It can if rules are too aggressive. Use whitelists and safe mode while tuning.
 5. Logs & Timeline
 
 == Changelog ==
+
+## 1.2.0
+
+🎨 Admin Interface & UX
+
+    [NEW] Native Terminal Integration. The Live Terminal is no longer an isolated page but seamlessly integrated into the native WordPress dashboard layout using the new Froxlor Tile-UI.
+    [NEW] GeoIP Interface Restoration. Restored the missing GeoIP configuration tab with a clean, tile-based interface for operational modes and ISO country codes.
+    [NEW] Terminal UX Upgrades. Added interactive "Pause/Resume" keyboard controls (P) and visual "Fetching..." indicators to the Live Terminal stream.
+    [UPDATE] Complete UI Standardization. Successfully rolled out the unified, highly condensed "Tile & Grid" UI across all remaining modules (The Hive, API Guard, Terminal).
+
+🔐 Cryptography & Core Security
+
+    [NEW] Strict MD5 Checksum Verification. The Core Integrity "Heal" function now cryptographically verifies downloaded core files from WordPress.org via MD5 before writing them to the local disk, aborting on mismatch.
+    [FIX] Open Redirect Prevention (CWE-601). Replaced all instances of wp_redirect() with wp_safe_redirect() across the entire suite (Session Guard, User History, Extras, Sessions, Hardening).
+    [FIX] Privilege Escalation Guard Hardening. The escalation interceptor now correctly dispatches strict HTTP 403 Forbidden headers upon blocking unauthorized role upgrades.
+    [FIX] Header Conflict Guard. The system now actively parses existing server headers (via headers_list) before dispatching security headers, effectively preventing duplicate header errors and third-party plugin conflicts.
+    [FIX] Hardened all background static method calls (e.g., Tegatai_Logger) with defensive class_exists() wrappers to prevent fatal errors during plugin initializations or updates.
+
+🌐 Telemetry & Unified Logging
+
+    [NEW] Unified Proxy-Aware IP Routing. Completely eliminated raw $_SERVER['REMOTE_ADDR'] anomalies. Honeypot and Terminal modules now strictly route through the proxy-agnostic Tegatai_Logger::get_ip() method.
+    [NEW] Unified Login Telemetry. Successful logins are now instantly streamed into the central Live Terminal and Database Logger (Type: LOGIN), while maintaining legacy widget array compatibility.
+    [NEW] The Login Honeypot now automatically pushes real-time AUTH-BAN events directly to the central Live Terminal.
+
+🦠 Scanners & Threat Intelligence
+
+    [NEW] Dynamic Database XSS Auditing. The stored XSS scanner now accepts customizable, user-defined Regex patterns directly via the dashboard to actively hunt zero-day payloads.
+    [NEW] Automated Timeline Garbage Collection. Integrated a lightweight 30-day pruning routine into the existing 6-hour cron (tegatai_malware_cron) to keep the wp_options table perfectly clean.
+    [NEW] Absolute Path Tracking. The File Integrity Monitor (FIM) now structurally maps absolute server paths (abs) for changed, new, and deleted files, laying the foundation for future automated file-healing.
+    [FIX] Anti-Spam Client Timer. Injected a missing native JavaScript timer payload into the frontend wp_footer to ensure accurate bot-speed detection without triggering false positives for real users.
+    [FIX] Terminal DDoS Protection. Hardened the Live Terminal AJAX endpoint with strict nonce validation and a 2-second In-Memory Leaky-Bucket Rate Limit (Unified Cache) to prevent database spamming.
+
+## 1.1.1
+
+WAF, Firewall & Server Rules
+
+    [NEW] Enterprise Bad-Bot & AI-Scraper Protection. Server rules (Nginx & Apache) now accurately categorize and block aggressive SEO bots, scanners, and AI crawlers (ChatGPT, Claude, etc.).
+    [NEW] ReDoS Shield (Regular Expression Denial of Service). All regex validations in the WAF, API Guard, and Scanner are now safely caught (@preg_match & preg_last_error()) to prevent server crashes caused by broken custom rules.
+    [NEW] Dynamic path detection for Nginx rules (now uses wp_upload_dir and plugins_url instead of hardcoded paths).
+    [FIX] Added Apache Loopback bypass (127.0.0.1 / ::1) to prevent internal server scripts from accidentally being locked out by bot rules.
+    [FIX] Removed top-level code in the firewall. All checks now safely run via WP hooks (init), preventing issues during plugin deactivation or aggressive caching.
+
+⚡ Core & Performance Engine
+
+    [NEW] Implemented Unified Cache Engine. Modules (Firewall, GeoIP, API Guard, Scanner) now intelligently utilize memory (APCu / Redis / Object Cache) before falling back to transients or file caching.
+    [NEW] Fixed a critical recursion bug in the old Redis class.
+    [NEW] Standardized centralized client IP detection (get_client_ip) and loopback verification (is_protected_ip) across all modules (DRY principle).
+    [NEW] Rate limiting now uses cache keys without query strings to prevent rate-limit bypass exploits (?rand=123).
+
+🌐 The Hive (Threat Intelligence)
+
+    [NEW] Background Retry-Queue via WP-Cron. If a broadcast to a peer node fails (e.g., timeout), the payload enters a queue and is re-signed with a fresh timestamp and resent in the background.
+    [NEW] 24-hour Garbage Collection (GC) for the Hive Queue to protect the database from dead peer nodes.
+    [FIX] Unified Sudo Vault logic. True separation between "Reveal" (showing the current secret) and "Generate" (creating a new secret).
+
+🔑 LoginGuard & 2FA
+
+    [NEW] Advanced Fingerprinting for Trusted Devices. In addition to IP and User-Agent, modern Client Hints (Sec-CH-UA, Platform) are now used for verification.
+    [NEW] Dynamic 2FA interface. The prompt now intelligently adapts depending on whether the user uses "App", "Email", or "Both".
+    [NEW] UX upgrade for the 2FA code input field (centered, increased letter spacing for smartphone users).
+    [NEW] Magic Links now use wp_safe_redirect(admin_url()) for full Multisite compatibility.
+    [FIX] Fixed Mojibake (broken German characters/umlauts) in the 2FA interface and made it fully translation-ready (esc_html__).
+
+🦠 Malware Scanner & Backup
+
+    [NEW] AES-256-CBC "Data-at-Rest" encryption for database backups. Backups are compressed and securely stored on the server, and only decrypted on-the-fly in RAM when "Download" is clicked in the backend.
+    [NEW] Backup Retention Policy. Old backups are automatically deleted via Garbage Collection (Default: keeps the last 7 backups) to save server storage.
+    [NEW] Intelligent CVE validation. The vulnerability scanner now actively compares the installed plugin version with the patch level (fixed_in) from the WP Vulnerability API to eliminate false positives.
+    [NEW] The background scanner is now completely "self-contained" and uses native WP-Crons with an aggressive 1-second chunking for massively faster scans.
+    [NEW]: The scanner snapshot is now held in the Unified Cache (RAM), extremely reducing disk I/O on large sites.
+
+🎨 Admin Interface & UX
+
+    [NEW] Complete dashboard redesign. The interface now uses a highly condensed "Tile Grid" (Froxlor style) to save power users from endless scrolling.
+
+    [NEW] Tooltip system. Long descriptions are now hidden behind clean ? hover icons to maximize information density.
+
+    [NEW] Modern Clipboard API (navigator.clipboard) for all copy buttons, including visual feedback ("✔ Copied!").
 
 = 1.1.0 =
 
