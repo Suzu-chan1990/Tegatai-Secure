@@ -14,7 +14,7 @@ It features a zero-load architecture, multiple deep-scanning engines, cryptograp
 ![Dashboard View](./assets/Dashboard.png)
 ![Terminal View](./assets/Tegatai_Terminal.png)
 ![API-Guard View](./assets/API_Guard.png)
-![Hive View](./assets/The_Hive .png)
+![Hive View](./assets/The_Hive.png)
 
 ---
 
