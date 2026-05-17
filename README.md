@@ -307,7 +307,7 @@ If you discover a vulnerability, please report it privately.
 Contact:
 
 ```text
-security@your-domain.example
+tegatai@anime-mitsuketa.tokyo
 ```
 
 ---
@@ -322,7 +322,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.1.x`
+Current Version: `1.2.x`
 
 See `CHANGELOG.md` for detailed release notes.
 
