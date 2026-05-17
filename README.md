@@ -4,7 +4,7 @@
 ![Security](https://img.shields.io/badge/security-active-red)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
 
-# 🛡️ Tegatai Secure (Enterprise WordPress Security)
+# 🛡️ Tegatai Secure (WordPress Security)
 
 **Tegatai Secure** is a high-performance, enterprise-grade security suite for WordPress. Unlike traditional security plugins that process everything at the PHP level, Tegatai integrates directly with your server (**Nginx, Apache, or LiteSpeed**) to block malicious traffic, bots, and brute-force attacks *before* WordPress is even loaded.
 
