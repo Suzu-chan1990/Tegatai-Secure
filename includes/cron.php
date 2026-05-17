@@ -21,7 +21,7 @@ class Tegatai_Cron {
         if (!isset($schedules['tegatai_6h'])) {
             $schedules['tegatai_6h'] = [
                 'interval' => 6 * HOUR_IN_SECONDS,
-                'display'  => __('Every 6 hours (Tegatai)', 'tegatai-secure'),
+                'display'  => __('Every 6 hours (Tegatai)', 'tegatai-Secure'),
             ];
         }
         return $schedules;
@@ -122,12 +122,12 @@ class Tegatai_Cron {
         $host = preg_replace('/[^a-z0-9\.\-:]/i', '', $host);
 
         $html  = '<div style="margin:14px 0 10px;padding:10px 12px;border:1px solid #dcdcde;border-radius:10px;background:#fff;">';
-        $html .= '<div style="font-weight:800;margin-bottom:4px;">🔒 ' . esc_html__('Verified login page', 'tegatai-secure') . '</div>';
+        $html .= '<div style="font-weight:800;margin-bottom:4px;">🔒 ' . esc_html__('Verified login page', 'tegatai-Secure') . '</div>';
         if ($host !== '') {
-            $html .= '<div style="color:#50575e;font-size:13px;">' . esc_html__('Domain', 'tegatai-secure') . ': <code>' . esc_html($host) . '</code></div>';
+            $html .= '<div style="color:#50575e;font-size:13px;">' . esc_html__('Domain', 'tegatai-Secure') . ': <code>' . esc_html($host) . '</code></div>';
         }
         if ($phrase !== '') {
-            $html .= '<div style="color:#50575e;font-size:13px;margin-top:2px;">' . esc_html__('Seal phrase', 'tegatai-secure') . ': <code>' . esc_html($phrase) . '</code></div>';
+            $html .= '<div style="color:#50575e;font-size:13px;margin-top:2px;">' . esc_html__('Seal phrase', 'tegatai-Secure') . ': <code>' . esc_html($phrase) . '</code></div>';
         }
         $html .= '</div>';
 

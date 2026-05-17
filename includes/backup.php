@@ -32,9 +32,9 @@ class Tegatai_Backup {
         check_admin_referer('teg_backup_nonce');
         
         if ($this->create_db_backup('manual')) { 
-            wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=backups&msg=created')); 
+            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created')); 
         } else { 
-            wp_die(esc_html__('Backup Error.', 'tegatai-secure')); 
+            wp_die(esc_html__('Backup Error.', 'tegatai-Secure')); 
         } 
         exit;
     }
@@ -151,7 +151,7 @@ class Tegatai_Backup {
         
         // SECURITY FIX: Robuster Check
         if (!file_exists($path)) {
-            wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=backups&msg=deleted'));
+            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted'));
             exit;
         }
 
@@ -163,7 +163,7 @@ class Tegatai_Backup {
         unlink($path); 
         if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Gelöscht: $file"); 
         
-        wp_redirect(admin_url('admin.php?page=tegatai-secure&tab=backups&msg=deleted')); 
+        wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted')); 
         exit;
     }
 

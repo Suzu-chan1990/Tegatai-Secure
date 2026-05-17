@@ -33,13 +33,13 @@ class Tegatai_TwoFactor {
         $issuer = rawurlencode(get_bloginfo('name'));
         $url = "otpauth://totp/$name?secret=$secret&issuer=$issuer";
         
-        echo '<h3>🛡️ ' . esc_html__('Tegatai Authenticator (2FA)', 'tegatai-secure') . '</h3>';
-        echo '<table class="form-table"><tr><th>' . esc_html__('QR Code scannen', 'tegatai-secure') . '</th><td>';
-        echo '<p>' . esc_html__('Scanne diesen Code mit Google Authenticator, Authy oder einer anderen TOTP-App, falls du "Authenticator App" als 2FA Methode im Tegatai Dashboard gewählt hast.', 'tegatai-secure') . '</p>';
-        echo '<p><strong>' . esc_html__('QR-Code Hinweis:', 'tegatai-secure') . '</strong> ' . esc_html__('Aus Sicherheitsgründen wird kein externer QR-Code-Dienst verwendet.', 'tegatai-secure') . '</p>';
-        echo '<p>' . esc_html__('Du kannst den folgenden otpauth://-Link in vielen Authenticator-Apps hinzufügen (oder nutze den manuellen Code unten):', 'tegatai-secure') . '</p>';
+        echo '<h3>🛡️ ' . esc_html__('Tegatai Authenticator (2FA)', 'tegatai-Secure') . '</h3>';
+        echo '<table class="form-table"><tr><th>' . esc_html__('QR Code scannen', 'tegatai-Secure') . '</th><td>';
+        echo '<p>' . esc_html__('Scanne diesen Code mit Google Authenticator, Authy oder einer anderen TOTP-App, falls du "Authenticator App" als 2FA Methode im Tegatai Dashboard gewählt hast.', 'tegatai-Secure') . '</p>';
+        echo '<p><strong>' . esc_html__('QR-Code Hinweis:', 'tegatai-Secure') . '</strong> ' . esc_html__('Aus Sicherheitsgründen wird kein externer QR-Code-Dienst verwendet.', 'tegatai-Secure') . '</p>';
+        echo '<p>' . esc_html__('Du kannst den folgenden otpauth://-Link in vielen Authenticator-Apps hinzufügen (oder nutze den manuellen Code unten):', 'tegatai-Secure') . '</p>';
         echo '<p style="word-break:break-all;"><code>'.esc_html($url).'</code></p>';
-        echo '<p>' . esc_html__('Manueller Eingabe-Code:', 'tegatai-secure') . ' <code>'.$secret.'</code></p>';
+        echo '<p>' . esc_html__('Manueller Eingabe-Code:', 'tegatai-Secure') . ' <code>'.$secret.'</code></p>';
         echo '</td></tr></table>';
     }
 
@@ -54,8 +54,8 @@ class Tegatai_TwoFactor {
         if ($mode === 'email' || $mode === 'both') {
             $code = rand(100000, 999999);
             $data['hash'] = wp_hash_password($code);
-            $msg = esc_html__('Dein Tegatai 2FA Code lautet:', 'tegatai-secure') . " $code";
-            if ($mode === 'both') $msg .= "\n\n" . esc_html__('Hinweis: Du kannst alternativ auch den Code aus deiner Authenticator App eingeben.', 'tegatai-secure');
+            $msg = esc_html__('Dein Tegatai 2FA Code lautet:', 'tegatai-Secure') . " $code";
+            if ($mode === 'both') $msg .= "\n\n" . esc_html__('Hinweis: Du kannst alternativ auch den Code aus deiner Authenticator App eingeben.', 'tegatai-Secure');
             wp_mail($user->user_email, '2FA Code', $msg);
         }
         
@@ -71,20 +71,20 @@ class Tegatai_TwoFactor {
         $data = get_transient('teg_2fa_tok_' . $token);
         $mode = isset($data['mode']) ? $data['mode'] : 'both';
         
-        $prompt = esc_html__('Code eingeben:', 'tegatai-secure');
+        $prompt = esc_html__('Code eingeben:', 'tegatai-Secure');
         if ($mode === 'both') {
-            $prompt = esc_html__('Bitte E-Mail-Code oder Authenticator-App-Code eingeben:', 'tegatai-secure');
+            $prompt = esc_html__('Bitte E-Mail-Code oder Authenticator-App-Code eingeben:', 'tegatai-Secure');
         } elseif ($mode === 'app') {
-            $prompt = esc_html__('Bitte Authenticator-App-Code eingeben:', 'tegatai-secure');
+            $prompt = esc_html__('Bitte Authenticator-App-Code eingeben:', 'tegatai-Secure');
         } elseif ($mode === 'email') {
-            $prompt = esc_html__('Bitte den per E-Mail gesendeten Code eingeben:', 'tegatai-secure');
+            $prompt = esc_html__('Bitte den per E-Mail gesendeten Code eingeben:', 'tegatai-Secure');
         }
 
         login_header('2FA', '<p style="font-weight:600; font-size:14px; margin-bottom:15px; color:#3c434a;">' . $prompt . '</p>');
         echo '<form action="'.esc_url(admin_url('admin-post.php')).'" method="post">';
         echo '<input type="hidden" name="action" value="tegatai_2fa_verify">';
         echo '<input name="teg_code" type="text" autocomplete="one-time-code" style="font-size: 22px; letter-spacing: 6px; font-family: monospace; text-align: center; width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #8c8f94;" autofocus required>';
-        echo '<input type="submit" value="' . esc_attr__('Verifizieren', 'tegatai-secure') . '" class="button button-primary button-large" style="width: 100%;">';
+        echo '<input type="submit" value="' . esc_attr__('Verifizieren', 'tegatai-Secure') . '" class="button button-primary button-large" style="width: 100%;">';
         echo '</form>';
         login_footer(); exit;
     }
@@ -148,15 +148,15 @@ class Tegatai_TwoFactor {
                     delete_transient('teg_2fa_tok_' . $token);
                     setcookie('teg_2fa_token', '', time()-3600, COOKIEPATH, COOKIE_DOMAIN, true, true);
                     if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LOCK', "2FA blocked after 3 failed attempts ($ip)");
-                    wp_die(esc_html__('Too many failed attempts. Login locked.', 'tegatai-secure'), 'Security', ['response' => 403]);
+                    wp_die(esc_html__('Too many failed attempts. Login locked.', 'tegatai-Secure'), 'Security', ['response' => 403]);
                 } else {
                     set_transient('teg_2fa_tok_' . $token, $data, 600);
                     if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-FAIL', "2FA Code wrong. Attempt " . $data['fails'] . " ($ip)");
-                    wp_die(esc_html(sprintf(__('Code falsch. Versuch %d von 3.', 'tegatai-secure'), $data['fails'])));
+                    wp_die(esc_html(sprintf(__('Code falsch. Versuch %d von 3.', 'tegatai-Secure'), $data['fails'])));
                 }
             }
         } else {
-            wp_die(esc_html__('Session abgelaufen oder ungültig.', 'tegatai-secure'), esc_html__('Fehler', 'tegatai-secure'), ['response' => 403]);
+            wp_die(esc_html__('Session abgelaufen oder ungültig.', 'tegatai-Secure'), esc_html__('Fehler', 'tegatai-Secure'), ['response' => 403]);
         }
     }
 }

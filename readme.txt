@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, wordpress security, hardening, 2fa
 Requires at least: 6.0
 Tested up to: 6.5
 Requires PHP: 8.x
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -44,6 +44,10 @@ It can if rules are too aggressive. Use whitelists and safe mode while tuning.
 5. Logs & Timeline
 
 == Changelog ==
+
+## 1.2.1
+
+    [FIX] WordPress.WP.I18n.TextDomainMismatch
 
 ## 1.2.0
 

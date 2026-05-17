@@ -52,7 +52,7 @@ class Tegatai_Firewall {
         if (!empty($ops['enable_lockdown']) && !current_user_can('manage_options')) {
             status_header(503);
             nocache_headers();
-            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-secure') . '</p></div>', __('503 Service Unavailable', 'tegatai-secure'), ['response' => 503]);
+            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-Secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-Secure') . '</p></div>', __('503 Service Unavailable', 'tegatai-Secure'), ['response' => 503]);
         }
 
         // Whitelist IPs (Vorrang, inklusive des v1 Patches für WAF Whitelists)
@@ -120,7 +120,7 @@ class Tegatai_Firewall {
             $ip = $this->get_client_ip();
             $k = 'teg_404_' . md5($ip);
             $this->set_hit_count($k, 50, 86400); 
-            wp_die(esc_html__('System Error', 'tegatai-secure'), esc_html__('Trap', 'tegatai-secure'), ['response' => 403]);
+            wp_die(esc_html__('System Error', 'tegatai-Secure'), esc_html__('Trap', 'tegatai-Secure'), ['response' => 403]);
         }
         
         // NEU v1.1: URL Whitelist

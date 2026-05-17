@@ -240,7 +240,7 @@ class Tegatai_Hive {
 
         if (empty($ops['enable_hive']) || empty($secret) || empty($ops['node_urls'])) {
             if (ob_get_length()) { ob_clean(); }
-            wp_send_json_error(__('Hive network is disabled or missing configuration.', 'tegatai-secure'));
+            wp_send_json_error(__('Hive network is disabled or missing configuration.', 'tegatai-Secure'));
         }
 
         $urls = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $ops['node_urls']))));
@@ -278,9 +278,9 @@ class Tegatai_Hive {
             } else {
                 $code = wp_remote_retrieve_response_code($response);
                 if ($code === 200) {
-                    $results[] = ['url' => $url, 'status' => 'success', 'msg' => __('OK - HMAC Verified', 'tegatai-secure')];
+                    $results[] = ['url' => $url, 'status' => 'success', 'msg' => __('OK - HMAC Verified', 'tegatai-Secure')];
                 } elseif ($code === 403) {
-                    $results[] = ['url' => $url, 'status' => 'error', 'msg' => __('HTTP 403 - Invalid Signature or Expired', 'tegatai-secure')];
+                    $results[] = ['url' => $url, 'status' => 'error', 'msg' => __('HTTP 403 - Invalid Signature or Expired', 'tegatai-Secure')];
                 } else {
                     $results[] = ['url' => $url, 'status' => 'error', 'msg' => 'HTTP ' . $code];
                 }
@@ -318,11 +318,11 @@ class Tegatai_Hive {
     }
 
     public function register_page() {
-        add_submenu_page('tegatai-secure', __('The Hive', 'tegatai-secure'), __('The Hive', 'tegatai-secure'), 'manage_options', 'tegatai-hive', [$this, 'render_page']);
+        add_submenu_page('tegatai-Secure', __('The Hive', 'tegatai-Secure'), __('The Hive', 'tegatai-Secure'), 'manage_options', 'tegatai-hive', [$this, 'render_page']);
     }
 
     public function render_page() {
-        if (!current_user_can('manage_options')) wp_die(esc_html__('Access Denied', 'tegatai-secure'));
+        if (!current_user_can('manage_options')) wp_die(esc_html__('Access Denied', 'tegatai-Secure'));
 
         if (isset($_POST['tegatai_hive_nonce']) && wp_verify_nonce($_POST['tegatai_hive_nonce'], 'save_hive_settings')) {
             $current_ops = get_option('tegatai_hive_options', []);
@@ -334,7 +334,7 @@ class Tegatai_Hive {
                 'node_urls' => sanitize_textarea_field($_POST['node_urls'])
             ];
             update_option('tegatai_hive_options', $ops);
-            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-secure') . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-Secure') . '</p></div>';
         }
 
         $ops = get_option('tegatai_hive_options', ['enable_hive' => 0, 'ssl_verify' => 1, 'shared_secret' => '', 'node_urls' => '']);
@@ -400,11 +400,11 @@ class Tegatai_Hive {
             </div>
             
             <div class="teg-inner-nav">
-                <a href="admin.php?page=tegatai-secure&tab=dashboard" class="teg-back-btn">
-                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-secure'); ?>
+                <a href="admin.php?page=tegatai-Secure&tab=dashboard" class="teg-back-btn">
+                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-Secure'); ?>
                 </a>
                 <div class="teg-horizontal-tabs">
-                    <span class="teg-h-tab active"><?php echo esc_html__('Network Setup', 'tegatai-secure'); ?></span>
+                    <span class="teg-h-tab active"><?php echo esc_html__('Network Setup', 'tegatai-Secure'); ?></span>
                 </div>
             </div>
 
@@ -414,34 +414,34 @@ class Tegatai_Hive {
                 
                 <div class="teg-grid">
                     <div class="teg-card" style="grid-column: span 2;">
-                        <h3><span class="dashicons dashicons-info"></span> <?php esc_html_e('Hive Network Status', 'tegatai-secure'); ?></h3>
-                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('The Hive uses HMAC-SHA256 payload signing, strict timestamps, and request IDs to create a zero-trust, replay-resistant defense grid.', 'tegatai-secure'); ?></p>
+                        <h3><span class="dashicons dashicons-info"></span> <?php esc_html_e('Hive Network Status', 'tegatai-Secure'); ?></h3>
+                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('The Hive uses HMAC-SHA256 payload signing, strict timestamps, and request IDs to create a zero-trust, replay-resistant defense grid.', 'tegatai-Secure'); ?></p>
                         
                         <div class="teg-switch-row">
-                            <div><span class="teg-switch-label"><?php esc_html_e('Enable Broadcast & Receive', 'tegatai-secure'); ?></span></div>
+                            <div><span class="teg-switch-label"><?php esc_html_e('Enable Broadcast & Receive', 'tegatai-Secure'); ?></span></div>
                             <label class="switch"><input type="checkbox" name="enable_hive" value="1" <?php checked($ops['enable_hive'], 1); ?>><span class="slider"></span></label>
                         </div>
                         <div class="teg-switch-row">
                             <div>
-                                <span class="teg-switch-label"><?php esc_html_e('Enforce strict SSL verification', 'tegatai-secure'); ?></span>
-                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Uncheck only for self-signed certs/local nodes', 'tegatai-secure'); ?></span>
+                                <span class="teg-switch-label"><?php esc_html_e('Enforce strict SSL verification', 'tegatai-Secure'); ?></span>
+                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Uncheck only for self-signed certs/local nodes', 'tegatai-Secure'); ?></span>
                             </div>
                             <label class="switch"><input type="checkbox" name="ssl_verify" value="1" <?php checked($ops['ssl_verify'], 1); ?>><span class="slider"></span></label>
                         </div>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-secure'); ?></h3>
+                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-Secure'); ?></h3>
                         <?php if (defined('TEGATAI_HIVE_SECRET')) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-secure'); ?></strong><br>
-                                <?php esc_html_e('The secret is active and secured. It is hidden from the UI.', 'tegatai-secure'); ?>
+                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-Secure'); ?></strong><br>
+                                <?php esc_html_e('The secret is active and secured. It is hidden from the UI.', 'tegatai-Secure'); ?>
                             </div>
                         <?php else : ?>
                             <?php if (!empty($ops['shared_secret'])) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend migrating it to wp-config.php.', 'tegatai-secure'); ?>
+                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-Secure'); ?></strong><br>
+                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend migrating it to wp-config.php.', 'tegatai-Secure'); ?>
                                 </div>
                             <?php endif; ?>
                             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
@@ -450,26 +450,26 @@ class Tegatai_Hive {
                             
                             <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
                                 <?php if (!empty($ops['shared_secret'])) : ?>
-                                    <button type="button" class="button button-secondary" id="reveal_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-secure'); ?></button>
+                                    <button type="button" class="button button-secondary" id="reveal_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-Secure'); ?></button>
                                 <?php endif; ?>
-                                <button type="button" class="button button-secondary" id="generate_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-secure'); ?></button>
-                                <button type="button" class="button button-secondary" id="copy_hive_key" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="generate_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-Secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="copy_hive_key" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-Secure'); ?></button>
                             </div>
                             
-                            <p class="teg-switch-desc"><?php esc_html_e('Leave blank to keep current secret.', 'tegatai-secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('Leave blank to keep current secret.', 'tegatai-Secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-secure'); ?></h3>
-                        <p class="teg-switch-desc"><?php esc_html_e('One URL per line.', 'tegatai-secure'); ?></p>
+                        <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-Secure'); ?></h3>
+                        <p class="teg-switch-desc"><?php esc_html_e('One URL per line.', 'tegatai-Secure'); ?></p>
                         <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com&#10;https://another-site.net"><?php echo esc_textarea($ops['node_urls']); ?></textarea>
                     </div>
                 </div>
 
                 <div style="margin-top:20px; display: flex; gap: 10px; align-items: center;">
-                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Hive Configuration', 'tegatai-secure'); ?></button>
-                    <button type="button" class="button button-secondary" id="test_hive_connections"><?php esc_html_e('Test Connections', 'tegatai-secure'); ?></button>
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Hive Configuration', 'tegatai-Secure'); ?></button>
+                    <button type="button" class="button button-secondary" id="test_hive_connections"><?php esc_html_e('Test Connections', 'tegatai-Secure'); ?></button>
                     <span id="test_spinner" class="spinner" style="float: none; margin: 0;"></span>
                 </div>
             </form>
@@ -536,12 +536,12 @@ class Tegatai_Hive {
                         
                         navigator.clipboard.writeText(input.value).then(() => {
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         }).catch(err => {
                             input.type = 'text'; input.select(); document.execCommand('copy'); input.type = 'password';
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         });
                     });
@@ -552,7 +552,7 @@ class Tegatai_Hive {
                         e.preventDefault();
                         spinner.classList.add('is-active');
                         resultsDiv.style.display = 'block';
-                        resultsDiv.innerHTML = '<em style="font-size:13px; color:var(--teg-muted);"><?php esc_html_e('Signing payload and pinging nodes...', 'tegatai-secure'); ?></em>';
+                        resultsDiv.innerHTML = '<em style="font-size:13px; color:var(--teg-muted);"><?php esc_html_e('Signing payload and pinging nodes...', 'tegatai-Secure'); ?></em>';
 
                         const fd = new FormData();
                         fd.append('action', 'tegatai_hive_test');
@@ -577,7 +577,7 @@ class Tegatai_Hive {
                                     resultsDiv.innerHTML = '<span style="color: var(--teg-danger); font-weight:600;">✖ ' + errMsg + '</span>';
                                     return;
                                 }
-                                let html = '<strong style="font-size:14px;"><?php esc_html_e('Cryptographic Handshake Results:', 'tegatai-secure'); ?></strong><br><ul style="margin-top: 8px; margin-bottom: 0; font-size:13px; line-height:1.6;">';
+                                let html = '<strong style="font-size:14px;"><?php esc_html_e('Cryptographic Handshake Results:', 'tegatai-Secure'); ?></strong><br><ul style="margin-top: 8px; margin-bottom: 0; font-size:13px; line-height:1.6;">';
                                 data.data.forEach(item => {
                                     const color = item.status === 'success' ? 'var(--teg-success)' : 'var(--teg-danger)';
                                     const icon = item.status === 'success' ? '✔' : '✖';

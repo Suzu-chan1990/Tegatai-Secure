@@ -79,7 +79,7 @@ class Tegatai_Extras {
         $hours = intval($_POST['temp_hours'] ?? 0);
 
         if (!is_email($email) || $hours < 1) {
-            wp_die(esc_html__('Invalid inputs.', 'tegatai-secure'));
+            wp_die(esc_html__('Invalid inputs.', 'tegatai-Secure'));
         }
 
         $username = 'support_' . wp_generate_password(6, false);
@@ -108,8 +108,8 @@ class Tegatai_Extras {
 
         // E-Mail Formatierung & Versand
         $blog_name = get_bloginfo('name');
-        $subject = sprintf(esc_html__('Temporary Admin Access: %s', 'tegatai-secure'), $blog_name);
-        $message = sprintf(esc_html__("Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %d hour(s).\n\nClick here to log in securely:\n%s\n\nAfter the time expires, this account will be automatically and completely deleted.", 'tegatai-secure'), $hours, $link);
+        $subject = sprintf(esc_html__('Temporary Admin Access: %s', 'tegatai-Secure'), $blog_name);
+        $message = sprintf(esc_html__("Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %d hour(s).\n\nClick here to log in securely:\n%s\n\nAfter the time expires, this account will be automatically and completely deleted.", 'tegatai-Secure'), $hours, $link);
         
         $domain = parse_url(home_url(), PHP_URL_HOST);
         if (!$domain) {
@@ -129,7 +129,7 @@ class Tegatai_Extras {
         }
 
         // BEST PRACTICE: Open Redirect Schutz
-        wp_safe_redirect(admin_url('admin.php?page=tegatai-secure&tab=extras&msg=temp_created'));
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=extras&msg=temp_created'));
         exit;
     }
 

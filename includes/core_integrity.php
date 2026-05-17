@@ -71,7 +71,7 @@ class Tegatai_Core_Integrity {
         
         // Nur absolute WP-Core Pfade zulassen
         if (strpos($clean_path, 'wp-admin/') !== 0 && strpos($clean_path, 'wp-includes/') !== 0 && strpos($clean_path, '.php') === false) {
-            return ['ok' => false, 'error' => __('Security warning: Invalid core path.', 'tegatai-secure')];
+            return ['ok' => false, 'error' => __('Security warning: Invalid core path.', 'tegatai-Secure')];
         }
         
         $abs_file = ABSPATH . $clean_path;
@@ -81,12 +81,12 @@ class Tegatai_Core_Integrity {
         $response = wp_remote_get($url, ['timeout' => 15]);
         
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            return ['ok' => false, 'error' => sprintf(__('Could not load original file from WordPress.org (HTTP %d).', 'tegatai-secure'), wp_remote_retrieve_response_code($response))];
+            return ['ok' => false, 'error' => sprintf(__('Could not load original file from WordPress.org (HTTP %d).', 'tegatai-Secure'), wp_remote_retrieve_response_code($response))];
         }
         
         $body = wp_remote_retrieve_body($response);
         if (empty($body)) {
-            return ['ok' => false, 'error' => __('Downloaded file is empty. Aborting.', 'tegatai-secure')];
+            return ['ok' => false, 'error' => __('Downloaded file is empty. Aborting.', 'tegatai-Secure')];
         }
 
         // --- NEW: Strict MD5 Checksum Verification ---
@@ -107,7 +107,7 @@ class Tegatai_Core_Integrity {
                 if (class_exists('Tegatai_Logger')) {
                     Tegatai_Logger::log('SEC-WARN', "Heal aborted: MD5 mismatch for $clean_path. Expected: $expected_hash, Got: $downloaded_hash");
                 }
-                return ['ok' => false, 'error' => __('MD5 checksum mismatch! Downloaded file is corrupted or tampered.', 'tegatai-secure')];
+                return ['ok' => false, 'error' => __('MD5 checksum mismatch! Downloaded file is corrupted or tampered.', 'tegatai-Secure')];
             }
         }
         // ---------------------------------------------
@@ -121,11 +121,11 @@ class Tegatai_Core_Integrity {
         // Überschreiben
         $put = @file_put_contents($abs_file, $body);
         if ($put === false) {
-            return ['ok' => false, 'error' => __('Missing write permissions. The file could not be overwritten.', 'tegatai-secure')];
+            return ['ok' => false, 'error' => __('Missing write permissions. The file could not be overwritten.', 'tegatai-Secure')];
         }
         
         if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('HEAL', sprintf(__('Core file successfully repaired and verified: %s', 'tegatai-secure'), $clean_path));
+            Tegatai_Logger::log('HEAL', sprintf(__('Core file successfully repaired and verified: %s', 'tegatai-Secure'), $clean_path));
         }
         
         return ['ok' => true];

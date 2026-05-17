@@ -20,7 +20,7 @@ class Tegatai_Honeypot {
         if ($en !== 1) return;
 
         echo '<p style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">';
-        echo '<label>' . esc_html__('Leave this field empty', 'tegatai-secure') . '</label>';
+        echo '<label>' . esc_html__('Leave this field empty', 'tegatai-Secure') . '</label>';
         echo '<input type="text" name="' . esc_attr(self::FIELD) . '" value="" autocomplete="off" tabindex="-1" />';
         echo '</p>';
     }
@@ -44,7 +44,7 @@ class Tegatai_Honeypot {
                 Tegatai_Logger::log('AUTH-BAN', 'Login honeypot triggered.', $ip);
             }
 
-            return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-secure'));
+            return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-Secure'));
         }
         return $user;
     }

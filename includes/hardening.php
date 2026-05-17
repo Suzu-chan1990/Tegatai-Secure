@@ -34,7 +34,7 @@ class Tegatai_Hardening {
         }
         
         if (!empty($ops['hide_login_errors'])) { 
-            add_filter('login_errors', function(){ return __('Login invalid.', 'tegatai-secure'); }); 
+            add_filter('login_errors', function(){ return __('Login invalid.', 'tegatai-Secure'); }); 
         }
         
         // Honeypot Trap in robots.txt
@@ -62,8 +62,8 @@ class Tegatai_Hardening {
             
             // Sofortiger Abbruch und Sperrung des Ziel-Users zur Sicherheit (inkl. 403 Header)
             wp_die(
-                esc_html__('Unauthorized privilege escalation attempt detected and blocked.', 'tegatai-secure'), 
-                esc_html__('Security Alert', 'tegatai-secure'), 
+                esc_html__('Unauthorized privilege escalation attempt detected and blocked.', 'tegatai-Secure'), 
+                esc_html__('Security Alert', 'tegatai-Secure'), 
                 ['response' => 403]
             );
         }

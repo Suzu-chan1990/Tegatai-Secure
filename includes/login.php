@@ -308,7 +308,7 @@ class Tegatai_LoginGuard {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id logged in");
             wp_safe_redirect(admin_url());
             exit;
-        } else { wp_die(esc_html__('Invalid link.', 'tegatai-secure'), esc_html__('Error', 'tegatai-secure'), ['response' => 403]); }
+        } else { wp_die(esc_html__('Invalid link.', 'tegatai-Secure'), esc_html__('Error', 'tegatai-Secure'), ['response' => 403]); }
     }
 
     /**

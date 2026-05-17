@@ -181,7 +181,7 @@ class Tegatai_API_Guard {
     }
 
     public function register_page() {
-        add_submenu_page('tegatai-secure', __('API Guard', 'tegatai-secure'), __('API Guard', 'tegatai-secure'), 'manage_options', 'tegatai-api-guard', [$this, 'render_page']);
+        add_submenu_page('tegatai-Secure', __('API Guard', 'tegatai-Secure'), __('API Guard', 'tegatai-Secure'), 'manage_options', 'tegatai-api-guard', [$this, 'render_page']);
     }
 
     public function render_page() {
@@ -194,7 +194,7 @@ class Tegatai_API_Guard {
                 'enable_rate_limit' => isset($_POST['enable_rate_limit']) ? 1 : 0,
                 'allowlist' => sanitize_textarea_field($_POST['allowlist'])
             ]);
-            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('API Gateway rules updated successfully.', 'tegatai-secure') . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('API Gateway rules updated successfully.', 'tegatai-Secure') . '</p></div>';
         }
         
         $ops = get_option('tegatai_api_guard_options', ['endpoints' => '', 'match_mode' => 'contains', 'auth_mode' => 'static', 'enable_rate_limit' => 0, 'allowlist' => '']);
@@ -262,11 +262,11 @@ class Tegatai_API_Guard {
             </div>
 
             <div class="teg-inner-nav">
-                <a href="admin.php?page=tegatai-secure&tab=dashboard" class="teg-back-btn">
-                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-secure'); ?>
+                <a href="admin.php?page=tegatai-Secure&tab=dashboard" class="teg-back-btn">
+                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-Secure'); ?>
                 </a>
                 <div class="teg-horizontal-tabs">
-                    <span class="teg-h-tab active"><?php echo esc_html__('API Rules', 'tegatai-secure'); ?></span>
+                    <span class="teg-h-tab active"><?php echo esc_html__('API Rules', 'tegatai-Secure'); ?></span>
                 </div>
             </div>
 
@@ -276,17 +276,17 @@ class Tegatai_API_Guard {
                 
                 <div class="teg-grid">
                     <div class="teg-card" style="grid-column: span 2;">
-                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('Master Sync Token', 'tegatai-secure'); ?></h3>
+                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('Master Sync Token', 'tegatai-Secure'); ?></h3>
                         <?php if ($is_locked) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-secure'); ?></strong><br>
-                                <?php esc_html_e('The API token is active and secured. It is completely hidden from the UI.', 'tegatai-secure'); ?>
+                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-Secure'); ?></strong><br>
+                                <?php esc_html_e('The API token is active and secured. It is completely hidden from the UI.', 'tegatai-Secure'); ?>
                             </div>
                         <?php else: ?>
                             <?php if (!empty($secret)) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in wp-config.php to lock it.', 'tegatai-secure'); ?>
+                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-Secure'); ?></strong><br>
+                                    <?php esc_html_e('An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in wp-config.php to lock it.', 'tegatai-Secure'); ?>
                                 </div>
                             <?php endif; ?>
                             
@@ -296,47 +296,47 @@ class Tegatai_API_Guard {
                             
                             <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
                                 <?php if (!empty($secret)) : ?>
-                                    <button type="button" class="button button-secondary" id="reveal_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-secure'); ?></button>
+                                    <button type="button" class="button button-secondary" id="reveal_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-Secure'); ?></button>
                                 <?php endif; ?>
-                                <button type="button" class="button button-secondary" id="generate_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-secure'); ?></button>
-                                <button type="button" class="button button-secondary" id="copy_api_btn" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="generate_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-Secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="copy_api_btn" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-Secure'); ?></button>
                             </div>
-                            <p class="teg-switch-desc"><?php esc_html_e('Generate a new key only if you need to copy it to your wp-config.php or client applications.', 'tegatai-secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('Generate a new key only if you need to copy it to your wp-config.php or client applications.', 'tegatai-Secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-randomize"></span> <?php esc_html_e('Routing & Authentication', 'tegatai-secure'); ?></h3>
+                        <h3><span class="dashicons dashicons-randomize"></span> <?php esc_html_e('Routing & Authentication', 'tegatai-Secure'); ?></h3>
                         
-                        <label class="teg-switch-label"><?php esc_html_e('Match Mode', 'tegatai-secure'); ?></label>
+                        <label class="teg-switch-label"><?php esc_html_e('Match Mode', 'tegatai-Secure'); ?></label>
                         <select name="match_mode" class="teg-form-input">
-                            <option value="contains" <?php selected($ops['match_mode'], 'contains'); ?>><?php esc_html_e('Contains (e.g. sync.php)', 'tegatai-secure'); ?></option>
-                            <option value="exact" <?php selected($ops['match_mode'], 'exact'); ?>><?php esc_html_e('Exact Match (e.g. /wp-json/sync/start)', 'tegatai-secure'); ?></option>
-                            <option value="regex" <?php selected($ops['match_mode'], 'regex'); ?>><?php esc_html_e('Regex (ReDoS protected)', 'tegatai-secure'); ?></option>
+                            <option value="contains" <?php selected($ops['match_mode'], 'contains'); ?>><?php esc_html_e('Contains (e.g. sync.php)', 'tegatai-Secure'); ?></option>
+                            <option value="exact" <?php selected($ops['match_mode'], 'exact'); ?>><?php esc_html_e('Exact Match (e.g. /wp-json/sync/start)', 'tegatai-Secure'); ?></option>
+                            <option value="regex" <?php selected($ops['match_mode'], 'regex'); ?>><?php esc_html_e('Regex (ReDoS protected)', 'tegatai-Secure'); ?></option>
                         </select>
                         
-                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('Protected Endpoints', 'tegatai-secure'); ?></label>
+                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('Protected Endpoints', 'tegatai-Secure'); ?></label>
                         <textarea name="endpoints" class="teg-form-input" placeholder="/api/v1/sync"><?php echo esc_textarea($ops['endpoints']); ?></textarea>
                         
-                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('Auth Mode', 'tegatai-secure'); ?></label>
+                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('Auth Mode', 'tegatai-Secure'); ?></label>
                         <select name="auth_mode" id="auth_mode_selector" class="teg-form-input">
-                            <option value="static" <?php selected($ops['auth_mode'], 'static'); ?>><?php esc_html_e('Static Token (Header / GET)', 'tegatai-secure'); ?></option>
-                            <option value="hmac" <?php selected($ops['auth_mode'], 'hmac'); ?>><?php esc_html_e('HMAC v2 (Timestamp + Req ID)', 'tegatai-secure'); ?></option>
+                            <option value="static" <?php selected($ops['auth_mode'], 'static'); ?>><?php esc_html_e('Static Token (Header / GET)', 'tegatai-Secure'); ?></option>
+                            <option value="hmac" <?php selected($ops['auth_mode'], 'hmac'); ?>><?php esc_html_e('HMAC v2 (Timestamp + Req ID)', 'tegatai-Secure'); ?></option>
                         </select>
-                        <p class="teg-switch-desc"><?php esc_html_e('HMAC enforces a 60-second rolling window signature.', 'tegatai-secure'); ?></p>
+                        <p class="teg-switch-desc"><?php esc_html_e('HMAC enforces a 60-second rolling window signature.', 'tegatai-Secure'); ?></p>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-shield"></span> <?php esc_html_e('Traffic Control & Firewall', 'tegatai-secure'); ?></h3>
+                        <h3><span class="dashicons dashicons-shield"></span> <?php esc_html_e('Traffic Control & Firewall', 'tegatai-Secure'); ?></h3>
                         
                         <div class="teg-switch-row">
-                            <div><span class="teg-switch-label"><?php esc_html_e('Rate Limit (10/min, 50/hr)', 'tegatai-secure'); ?></span></div>
+                            <div><span class="teg-switch-label"><?php esc_html_e('Rate Limit (10/min, 50/hr)', 'tegatai-Secure'); ?></span></div>
                             <label class="switch"><input type="checkbox" name="enable_rate_limit" value="1" <?php checked($ops['enable_rate_limit'], 1); ?>><span class="slider"></span></label>
                         </div>
                         
-                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('IP / CIDR Allowlist', 'tegatai-secure'); ?></label>
+                        <label class="teg-switch-label" style="margin-top:10px;"><?php esc_html_e('IP / CIDR Allowlist', 'tegatai-Secure'); ?></label>
                         <textarea name="allowlist" class="teg-form-input" placeholder="192.168.1.1&#10;10.0.0.0/24"><?php echo esc_textarea($ops['allowlist']); ?></textarea>
-                        <p class="teg-switch-desc"><?php esc_html_e('Optional. If defined, ONLY these IPs can hit the endpoints. Everything else is dropped immediately.', 'tegatai-secure'); ?></p>
+                        <p class="teg-switch-desc"><?php esc_html_e('Optional. If defined, ONLY these IPs can hit the endpoints. Everything else is dropped immediately.', 'tegatai-Secure'); ?></p>
                     </div>
 
                     <div class="teg-card" style="grid-column: 1 / -1; background: #fafafa;">
@@ -366,7 +366,7 @@ curl_exec($ch);</pre>
                 </div>
 
                 <div style="margin-top:20px;">
-                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Gateway Rules', 'tegatai-secure'); ?></button>
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Gateway Rules', 'tegatai-Secure'); ?></button>
                 </div>
             </form>
             
@@ -433,12 +433,12 @@ curl_exec($ch);</pre>
                         
                         navigator.clipboard.writeText(input.value).then(() => {
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         }).catch(err => {
                             input.type = 'text'; input.select(); document.execCommand('copy'); input.type = 'password';
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         });
                     });
