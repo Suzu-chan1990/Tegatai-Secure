@@ -6,7 +6,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class Tegatai_SessionManager {
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (!empty($ops['enable_single_session'])) {
             add_action('wp_login', [$this, 'destroy_other_sessions'], 10, 2);
         }

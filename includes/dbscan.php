@@ -41,7 +41,7 @@ class Tegatai_DBScan {
         ];
 
         // --- TEGATAI_FIX: Custom Patterns Injection ---
-        $ops = get_option('tegatai_options', []);
+        $ops = tegatai_get_setting('tegatai_options', []);
         $extra_patterns_raw = isset($ops['dbscan_extra_patterns']) ? $ops['dbscan_extra_patterns'] : '';
         if (!empty(trim($extra_patterns_raw))) {
             $extra_lines = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $extra_patterns_raw))));

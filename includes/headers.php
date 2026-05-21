@@ -21,7 +21,7 @@ class Tegatai_Headers {
     
     public function set_headers() {
         if (headers_sent()) return;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         
         if (!empty($ops['header_xfo']) && !tegatai_header_present('X-Frame-Options')) {
             header('X-Frame-Options: SAMEORIGIN');

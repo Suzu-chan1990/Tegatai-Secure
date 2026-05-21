@@ -35,7 +35,7 @@ class Tegatai_Option_Scanner {
             $whitelist = ['_transient_', 'elementor_', 'wp_rocket', 'et_builder', 'litespeed', 'astra_', 'smush_'];
             
             // Eigene Ausnahmen aus dem Dashboard laden
-            $ops = get_option('tegatai_options', []);
+            $ops = tegatai_get_setting('tegatai_options', []);
             if (!empty($ops['option_whitelist_names'])) {
                 $custom = explode("\n", str_replace(["\r\n", "\r"], "\n", $ops['option_whitelist_names']));
                 foreach ($custom as $c) {

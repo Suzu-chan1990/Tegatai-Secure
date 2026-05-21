@@ -76,12 +76,12 @@ class Tegatai_Admin {
         if (!current_user_can('manage_options')) wp_send_json_error('Forbidden');
         $key = sanitize_text_field($_POST['key'] ?? ''); $val = sanitize_text_field($_POST['val'] ?? '');
         if (!$key || !in_array($key, $this->all_fields, true)) { wp_send_json_error('Invalid key'); }
-        $ops = get_option($this->options_slug, []); $ops[$key] = ($val === '1') ? 1 : 0;
+        $ops = tegatai_get_setting($this->options_slug, []); $ops[$key] = ($val === '1') ? 1 : 0;
         if ($key === 'enable_trusted_devices' || $key === 'trusted_devices') {
             $ops['enable_trusted_devices'] = ($val === '1') ? 1 : 0;
             $ops['trusted_devices'] = ($val === '1') ? 1 : 0;
         }
-        update_option($this->options_slug, $ops);
+        tegatai_update_setting($this->options_slug, $ops);
         if (strpos($key, 'server_') === 0) Tegatai_Server::force_update();
         wp_send_json_success(['message' => __('Saved successfully', 'tegatai-Secure')]);
     }
@@ -90,7 +90,7 @@ class Tegatai_Admin {
         check_ajax_referer('teg_ajax_nonce', 'nonce');
         if (!current_user_can('manage_options')) wp_send_json_error('Forbidden');
         parse_str($_POST['form_data'] ?? '', $form_vars);
-        $current_ops = get_option($this->options_slug, []); if (!is_array($current_ops)) $current_ops = [];
+        $current_ops = tegatai_get_setting($this->options_slug, []); if (!is_array($current_ops)) $current_ops = [];
         $new_data = isset($form_vars['tegatai_options']) ? $form_vars['tegatai_options'] : [];
         if (!empty($new_data) && is_array($new_data)) {
             foreach ($new_data as $key => $value) {
@@ -98,13 +98,13 @@ class Tegatai_Admin {
                 else $value = (strpos($key, 'ips') !== false || strpos($key, 'list') !== false || strpos($key, 'urls') !== false || strpos($key, 'whitelist') !== false || strpos($key, 'dirs') !== false || strpos($key, 'exclusions') !== false) ? sanitize_textarea_field($value) : sanitize_text_field($value);
                 $current_ops[$key] = $value;
             }
-            update_option($this->options_slug, $current_ops);
+            tegatai_update_setting($this->options_slug, $current_ops);
             wp_send_json_success(['message' => __('Data saved!', 'tegatai-Secure')]);
         } else wp_send_json_error(['message' => __('No data provided.', 'tegatai-Secure')]);
     }
 
     private function get_opt($key, $default = 0) {
-        $ops = get_option($this->options_slug, []);
+        $ops = tegatai_get_setting($this->options_slug, []);
         return isset($ops[$key]) ? $ops[$key] : $default;
     }
 
@@ -324,7 +324,7 @@ class Tegatai_Admin {
                 <h2 style="font-size: 18px; margin-bottom: 0;">System Overview</h2>
 
                 <?php
-                  $ops = get_option($this->options_slug, []);
+                  $ops = tegatai_get_setting($this->options_slug, []);
                   if (!is_array($ops)) { $ops = []; }
 
                   $pill = function($on) {
@@ -1253,7 +1253,7 @@ onclick="return confirm(\'' . esc_js(__('Save current state as a safe baseline?'
     
     public function export_config() {
         if (!current_user_can('manage_options') || !isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'teg_export_nonce')) wp_die('Forbidden');
-        $ops = get_option($this->options_slug, []);
+        $ops = tegatai_get_setting($this->options_slug, []);
         header('Content-Type: application/json');
         header('Content-Disposition: attachment; filename="tegatai-config-'.date('Y-m-d').'.json"');
         echo wp_json_encode($ops);
@@ -1266,7 +1266,7 @@ onclick="return confirm(\'' . esc_js(__('Save current state as a safe baseline?'
         $json = stripslashes($_POST['json'] ?? '');
         $data = json_decode($json, true);
         if (!$data || !is_array($data)) wp_send_json_error(['msg' => __('Invalid JSON format.', 'tegatai-Secure')]);
-        update_option($this->options_slug, $data);
+        tegatai_update_setting($this->options_slug, $data);
         wp_send_json_success();
     }
 

@@ -5,7 +5,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /* TEGATAI_TWOFA_UX_REFINEMENT_V1 applied */
 class Tegatai_TwoFactor {
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (!empty($ops['enable_2fa'])) {
             add_filter('authenticate', [$this, 'check_login'], 100, 3);
             add_action('login_form_tegatai_2fa', [$this, 'render_form']);
@@ -45,7 +45,7 @@ class Tegatai_TwoFactor {
 
     public function check_login($user, $username, $password) {
         if (is_wp_error($user) || !is_a($user, 'WP_User')) return $user;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $mode = isset($ops['twofa_mode']) ? $ops['twofa_mode'] : 'both';
         
         $token = bin2hex(random_bytes(32));

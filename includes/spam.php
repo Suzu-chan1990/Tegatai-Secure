@@ -6,7 +6,7 @@ class Tegatai_Spam {
     private $trash_domains = ['yopmail.com', 'mailinator.com', 'guerrillamail.com', 'sharklasers.com', 'trashmail.com', '10minutemail.com', 'temp-mail.org', 'throwawaymail.com'];
     
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         
         if (!empty($ops['enable_honeypot'])) { 
             add_action('comment_form_default_fields', [$this, 'add_honeypot_field']); 
@@ -47,7 +47,7 @@ class Tegatai_Spam {
     }
     
     public function turnstile_field() { 
-        $ops = get_option('tegatai_options'); 
+        $ops = tegatai_get_setting('tegatai_options'); 
         if(!empty($ops['turnstile_site_key'])) {
             echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px;"></div>'; 
         }
@@ -55,7 +55,7 @@ class Tegatai_Spam {
     
     public function turnstile_verify_comment($commentdata) {
         if (current_user_can('moderate_comments')) return $commentdata;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['turnstile_secret_key'])) return $commentdata;
         
         $response = $_POST['cf-turnstile-response'] ?? '';
@@ -151,7 +151,7 @@ class Tegatai_Spam {
 
     public function check_link_limit($d) {
         if (current_user_can('moderate_comments')) return $d;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $m = intval($ops['spam_max_links'] ?? 0);
         
         if ($m > 0 && preg_match_all('/(http|https|ftp):\/\//i', $d['comment_content'], $x) > $m) {

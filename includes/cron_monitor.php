@@ -40,7 +40,7 @@ class Tegatai_Cron_Monitor {
         $whitelist = ['akismet', 'antispam', 'mailpoet', 'smtp', 'fluent', 'action_scheduler', 'woocommerce', 'exec_dir'];
         
         // Eigene Ausnahmen aus dem Dashboard laden
-        $ops = get_option('tegatai_options', []);
+        $ops = tegatai_get_setting('tegatai_options', []);
         if (!empty($ops['cron_whitelist_hooks'])) {
             $custom = explode("\n", str_replace(["\r\n", "\r"], "\n", $ops['cron_whitelist_hooks']));
             foreach ($custom as $c) {

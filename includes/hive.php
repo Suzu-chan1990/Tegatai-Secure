@@ -85,13 +85,13 @@ class Tegatai_Hive {
             return new WP_Error('protected_ip', 'System critical IP addresses cannot be banned.', ['status' => 403]);
         }
 
-        $teg_ops = get_option('tegatai_options', []);
+        $teg_ops = tegatai_get_setting('tegatai_options', []);
         $blacklist = isset($teg_ops['blacklist_ips']) ? $teg_ops['blacklist_ips'] : '';
         
         if (strpos($blacklist, $ip) === false) {
             $blacklist .= "\n" . $ip;
             $teg_ops['blacklist_ips'] = trim($blacklist);
-            update_option('tegatai_options', $teg_ops);
+            tegatai_update_setting('tegatai_options', $teg_ops);
             
             if (class_exists('Tegatai_Logger')) {
                 Tegatai_Logger::log('HIVE-SYNC', "Applied network ban for $ip. Level: [$level]. Reason: $reason");

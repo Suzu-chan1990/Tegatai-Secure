@@ -59,7 +59,7 @@ class Tegatai_Logger {
         );
 
         // --- WEBHOOK ALERTS ---
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (!empty($ops['alert_webhook_url']) && in_array($type, ['BAN-404', 'FLOOD', 'AUTH-BAN', 'SEC-WARN'])) {
             $msg_json = wp_json_encode([
                 'content' => "🚨 **Tegatai Security Alert**",

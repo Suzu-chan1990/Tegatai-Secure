@@ -20,7 +20,7 @@ class Tegatai_Backup {
     }
 
     public function cron_job() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['enable_auto_backup'])) return;
         $freq = isset($ops['backup_frequency']) ? $ops['backup_frequency'] : 'daily';
         if ($freq === 'weekly' && date('N') != 1) return;
@@ -117,7 +117,7 @@ class Tegatai_Backup {
         if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Backup erstellt: $filename"); 
         
         // 3. Garbage Collection (Retention Policy)
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $limit = !empty($ops['backup_retention_limit']) ? intval($ops['backup_retention_limit']) : 7;
         $this->enforce_retention($limit);
 

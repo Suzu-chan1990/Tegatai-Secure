@@ -4,7 +4,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 /* TEGATAI_HARDENING_REFINEMENT_V1 applied */
 class Tegatai_Hardening {
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         add_action('set_user_role', [$this, 'check_privilege_escalation'], 10, 3);
         
         if (!empty($ops['hide_wp_version'])) { 
@@ -49,7 +49,7 @@ class Tegatai_Hardening {
      * Verhindert unbefugte Rechte-Upgrades zum Administrator.
      */
     public function check_privilege_escalation($user_id, $role, $old_roles) {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['enable_role_guard']) || $role !== 'administrator') {
             return;
         }

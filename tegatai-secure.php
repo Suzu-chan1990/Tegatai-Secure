@@ -9,14 +9,92 @@ add_action('plugins_loaded', function () {
 Plugin Name: Tegatai Security
 Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
 Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
-Version: 1.2.1
+Version: 1.3.0
 Author: すずちゃん
 License: GPL2
 */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'TEGATAI_VERSION', '1.2.1' );
+// =================================================================
+// HIGH-SPEED DATENBANK & RAM CACHE FÜR TEGATAI OPTIONS
+// =================================================================
+function tegatai_get_setting( $key, $default = false ) {
+    static $tegatai_cache = null;
+    
+    if ( $tegatai_cache === null ) {
+        $cached = wp_cache_get( 'tegatai_core_settings', 'tegatai' );
+        if ( $cached !== false ) {
+            $tegatai_cache = $cached;
+        } else {
+            global $wpdb;
+            $table_name = $wpdb->prefix . 'tegatai_settings';
+            
+            if ( $wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name ) {
+                return get_option( $key, $default );
+            }
+            
+            $results = $wpdb->get_results( "SELECT setting_key, setting_value FROM $table_name" );
+            $tegatai_cache = [];
+            foreach ( $results as $row ) {
+                $tegatai_cache[ $row->setting_key ] = maybe_unserialize( $row->setting_value );
+            }
+            wp_cache_set( 'tegatai_core_settings', $tegatai_cache, 'tegatai', 3600 );
+        }
+    }
+    
+    if ( isset( $tegatai_cache[ $key ] ) ) {
+        return $tegatai_cache[ $key ];
+    }
+    
+    $old_value = get_option( $key );
+    if ( $old_value !== false ) {
+        tegatai_update_setting( $key, $old_value );
+        $tegatai_cache[ $key ] = $old_value;
+        return $old_value;
+    }
+    
+    return $default;
+}
+
+function tegatai_update_setting( $key, $value ) {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'tegatai_settings';
+    
+    if ( $wpdb->get_var("SHOW TABLES LIKE '$table_name'") != $table_name ) {
+        return update_option( $key, $value );
+    }
+    
+    $wpdb->replace( 
+        $table_name, 
+        [ 'setting_key' => $key, 'setting_value' => maybe_serialize( $value ) ], 
+        [ '%s', '%s' ] 
+    );
+    
+    wp_cache_delete( 'tegatai_core_settings', 'tegatai' );
+    return true;
+}
+
+function tegatai_install_db() {
+    global $wpdb;
+    $table_name = $wpdb->prefix . 'tegatai_settings';
+    $charset_collate = $wpdb->get_charset_collate();
+    
+    $sql = "CREATE TABLE $table_name (
+        id mediumint(9) NOT NULL AUTO_INCREMENT,
+        setting_key varchar(100) NOT NULL,
+        setting_value longtext NOT NULL,
+        PRIMARY KEY  (id),
+        UNIQUE KEY setting_key (setting_key)
+    ) $charset_collate;";
+    
+    require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
+    dbDelta( $sql );
+}
+register_activation_hook( __FILE__, 'tegatai_install_db' );
+
+
+define( 'TEGATAI_VERSION', '1.3.0' );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 require_once TEGATAI_PATH . 'includes/honeypot.php';
 require_once TEGATAI_PATH . 'includes/perm_monitor.php';
@@ -118,7 +196,7 @@ Require all denied");
 Require all denied");
         if (!file_exists($back_dir . '/index.php')) file_put_contents($back_dir . '/index.php', '<?php // Silence');
         
-        if (!get_option('tegatai_options')) update_option('tegatai_options', []);
+        if (!tegatai_get_setting('tegatai_options')) tegatai_update_setting('tegatai_options', []);
         
         if (!wp_next_scheduled('tegatai_daily_backup_event')) {
             wp_schedule_event(time(), 'daily', 'tegatai_daily_backup_event');

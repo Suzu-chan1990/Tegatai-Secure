@@ -19,7 +19,7 @@ class Tegatai_Server {
      */
     public static function write_apache_rules() {
         require_once ABSPATH . 'wp-admin/includes/misc.php';
-        $ops = get_option('tegatai_options', []);
+        $ops = tegatai_get_setting('tegatai_options', []);
         
         $up_url = wp_parse_url(wp_upload_dir()['baseurl'], PHP_URL_PATH);
         $up_dir = ltrim($up_url, '/');
@@ -149,7 +149,7 @@ class Tegatai_Server {
     }
 
     private static function generate_nginx_content() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $date = current_time('mysql');
         
         $ud = wp_upload_dir();
@@ -273,13 +273,14 @@ class Tegatai_Server {
         // ==========================================
         // DYNAMIC PHP EXECUTION BLOCKS
         // ==========================================
-        $lines[] = "# Dynamically resolved WP paths: Block PHP execution in content directories";
+		$lines[] = "# Dynamically resolved WP paths: Block PHP execution in content directories";
         $phpre = '(?:php[1-7]?|pht|phtml?|phps|phar)';
         if (!empty($up_dir)) {
             $lines[] = "location ~ ^" . $up_dir . "/.*\." . $phpre . "$ { deny all; }";
         }
         if (!empty($pl_dir)) {
-            $lines[] = "location ~ ^" . $pl_dir . "/.*\." . $phpre . "$ { deny all; }";
+            // FIX: Erlaubt Anzen die Ausfuehrung der serve.php, blockt alle anderen PHP-Dateien im Plugin-Ordner
+            $lines[] = "location ~ ^" . $pl_dir . "/(?!anzen/serve\.php).*\." . $phpre . "$ { deny all; }";
         }
         if (!empty($th_dir)) {
             $lines[] = "location ~ ^" . $th_dir . "/.*\." . $phpre . "$ { deny all; }";

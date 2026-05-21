@@ -33,7 +33,7 @@ class Tegatai_UserHistory {
     }
 
     public function custom_cookie_expiration($expiration, $user_id, $remember) {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (!empty($ops['session_max_lifetime']) && intval($ops['session_max_lifetime']) > 0) {
             return intval($ops['session_max_lifetime']) * 60;
         }

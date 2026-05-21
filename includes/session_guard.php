@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class Tegatai_SessionGuard {
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         add_action('set_logged_in_cookie', [$this, 'save_session_data'], 10, 4);
         
         if (!empty($ops['enable_ip_guard']) || !empty($ops['enable_browser_guard'])) {
@@ -22,7 +22,7 @@ class Tegatai_SessionGuard {
     public function validate_session() {
         if (!is_user_logged_in()) return; 
         
-        $ops = get_option('tegatai_options'); 
+        $ops = tegatai_get_setting('tegatai_options'); 
         $uid = get_current_user_id();
         $token = wp_get_session_token();
         

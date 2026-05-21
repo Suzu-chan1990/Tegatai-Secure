@@ -56,7 +56,7 @@ class Tegatai_LoginGuard {
 
     // --- OPTIONS SYNC ---
     private function sync_options() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (!is_array($ops)) { $ops = []; }
         
         $td_a = array_key_exists('enable_trusted_devices', $ops) ? $ops['enable_trusted_devices'] : null;
@@ -80,7 +80,7 @@ class Tegatai_LoginGuard {
         }
 
         if (($td_a === null && $td_b !== null) || ($td_b === null && $td_a !== null)) {
-            update_option('tegatai_options', $ops);
+            tegatai_update_setting('tegatai_options', $ops);
         }
         return $ops;
     }
@@ -105,10 +105,10 @@ class Tegatai_LoginGuard {
 
     // --- TURNSTILE LOGIC ---
     public function turnstile_script() { echo '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'; }
-    public function turnstile_field() { $ops = get_option('tegatai_options'); if(!empty($ops['turnstile_site_key'])) echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px; display:flex; justify-content:center;"></div>'; }
+    public function turnstile_field() { $ops = tegatai_get_setting('tegatai_options'); if(!empty($ops['turnstile_site_key'])) echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px; display:flex; justify-content:center;"></div>'; }
     public function turnstile_verify_login($user, $username, $password) {
         if (empty($username) || empty($password)) return $user;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['turnstile_secret_key'])) return $user;
         $response = $_POST['cf-turnstile-response'] ?? '';
         $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', ['body' => ['secret' => $ops['turnstile_secret_key'], 'response' => $response]]);
@@ -127,13 +127,13 @@ class Tegatai_LoginGuard {
         
         // Custom Slug Check
         if (!$is_login && isset($_SERVER['REQUEST_URI'])) {
-            $ops = get_option('tegatai_options');
+            $ops = tegatai_get_setting('tegatai_options');
             if (!empty($ops['custom_login_slug']) && strpos($_SERVER['REQUEST_URI'], $ops['custom_login_slug']) !== false) {
                 $is_login = true;
             }
         }
 
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $only_protect_login = !empty($ops['geoip_login_only']); 
         
         if (!$is_login && !isset($_GET['teg_magic_login'])) {
@@ -190,7 +190,7 @@ class Tegatai_LoginGuard {
     }
 
     // Standard Helpers
-    public function check_custom_slug() { $s = ((get_option('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'); if ($s && $path === $s) { if (!defined('TEGATAI_LOGIN_PAGE')) define('TEGATAI_LOGIN_PAGE', true); global $user_login, $error, $action; if (!isset($user_login)) $user_login = ''; if (!isset($error)) $error = ''; if (!isset($action)) $action = 'login'; require_once ABSPATH.'wp-login.php'; exit; } }
+    public function check_custom_slug() { $s = ((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'); if ($s && $path === $s) { if (!defined('TEGATAI_LOGIN_PAGE')) define('TEGATAI_LOGIN_PAGE', true); global $user_login, $error, $action; if (!isset($user_login)) $user_login = ''; if (!isset($error)) $error = ''; if (!isset($action)) $action = 'login'; require_once ABSPATH.'wp-login.php'; exit; } }
     
     public function alert_admin_login($user_login, $user) { 
         if (in_array('administrator', (array) $user->roles)) {
@@ -243,18 +243,18 @@ class Tegatai_LoginGuard {
         }
     }
 
-    private function send_alert($subj, $msg) { $ops=get_option('tegatai_options'); $to=!empty($ops['alert_email'])?$ops['alert_email']:get_option('admin_email'); $domain = parse_url(home_url(), PHP_URL_HOST);
+    private function send_alert($subj, $msg) { $ops=tegatai_get_setting('tegatai_options'); $to=!empty($ops['alert_email'])?$ops['alert_email']:get_option('admin_email'); $domain = parse_url(home_url(), PHP_URL_HOST);
         if (!$domain) $domain = 'localhost'; if (substr($domain, 0, 4) == 'www.') $domain = substr($domain, 4); $headers = [ "From: Tegatai Security <wordpress@$domain>" ]; wp_mail($to,"[Tegatai] $subj", $msg, $headers); }
     
     public function check_login_attempts($u, $n, $p) { if(get_transient('teg_login_lock_'.md5($this->get_client_ip()))){ if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LOCK',"Locked IP"); return new WP_Error('teg_locked','IP Locked (60min)'); } return $u; }
     
-    public function log_failed_attempt($u) { $ip=$this->get_client_ip(); $k='teg_login_count_'.md5($ip); $c=get_transient($k); if($c===false) set_transient($k,1,900); else { $c++; set_transient($k,$c,900); if($c>=5) { set_transient('teg_login_lock_'.md5($ip),1,3600); if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BAN',"IP Banned 60m"); $ops=get_option('tegatai_options'); if(!empty($ops['enable_email_alerts'])) $this->send_alert("IP Blockiert: $ip", "5 Fehlversuche."); } } }
+    public function log_failed_attempt($u) { $ip=$this->get_client_ip(); $k='teg_login_count_'.md5($ip); $c=get_transient($k); if($c===false) set_transient($k,1,900); else { $c++; set_transient($k,$c,900); if($c>=5) { set_transient('teg_login_lock_'.md5($ip),1,3600); if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BAN',"IP Banned 60m"); $ops=tegatai_get_setting('tegatai_options'); if(!empty($ops['enable_email_alerts'])) $this->send_alert("IP Blockiert: $ip", "5 Fehlversuche."); } } }
     
     public function hide_wp_admin_access() { if(is_user_logged_in()||(defined('DOING_AJAX')&&DOING_AJAX)) return; if(strpos($_SERVER['REQUEST_URI'], 'admin-post.php') !== false) return; if(strpos($_SERVER['REQUEST_URI'],'wp-admin')!==false) { if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-ADMIN',"Blocked wp-admin"); global $wp_query; $wp_query->set_404(); status_header(404); nocache_headers(); if(defined('TEGATAI_PATH')&&file_exists(TEGATAI_PATH.'templates/404.php')) include(TEGATAI_PATH.'templates/404.php'); else echo "<h1>404</h1>"; exit; } }
     
-    public function rewrite_login_link($u,$p) { $s=((get_option('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($s&&strpos($u,'wp-login.php')!==false)?str_replace('wp-login.php',$s,$u):$u; }
+    public function rewrite_login_link($u,$p) { $s=((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($s&&strpos($u,'wp-login.php')!==false)?str_replace('wp-login.php',$s,$u):$u; }
     
-    public function filter_redirects($l,$s) { $sl=((get_option('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($sl&&strpos($l,'wp-login.php')!==false)?str_replace('wp-login.php',$sl,$l):$l; }
+    public function filter_redirects($l,$s) { $sl=((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($sl&&strpos($l,'wp-login.php')!==false)?str_replace('wp-login.php',$sl,$l):$l; }
     
     public function block_wp_login_direct() { global $pagenow; if($pagenow!=='wp-login.php'||defined('TEGATAI_LOGIN_PAGE')) return; if(in_array($_GET['action']??'',['postpass','logout','lostpassword','rp','resetpass','teg_magic_send'])) return; if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-LOGIN',"Blocked wp-login.php"); wp_die('404 Not Found','Not Found',['response'=>404]); }
     
@@ -318,7 +318,7 @@ class Tegatai_LoginGuard {
     public function check_admin_attempts($user, $username, $password) {
         if (empty($username)) return $user;
 
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $forbidden_names = ['admin', 'administrator', 'root', 'webmaster'];
         
         if (!empty($ops['enable_admin_honeypot'])) {

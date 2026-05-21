@@ -8,7 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class Tegatai_Extras {
     
     public function __construct() {
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
 
         // 1. REST API Guard
         if (!empty($ops['disable_rest_api'])) {
@@ -40,7 +40,7 @@ class Tegatai_Extras {
 
     public function inject_protection_scripts() {
         if (current_user_can('manage_options')) return;
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         
         echo "<script type='text/javascript'>\ndocument.addEventListener('DOMContentLoaded', function() {\n";
         

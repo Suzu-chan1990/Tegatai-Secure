@@ -61,7 +61,7 @@ class Tegatai_Scanner {
         }
         
         if (!empty($state['bad_files'])) {
-            $ops = get_option('tegatai_options');
+            $ops = tegatai_get_setting('tegatai_options');
             $to = !empty($ops['alert_email']) ? $ops['alert_email'] : get_option('admin_email');
             $msg = "🚨 Tegatai Auto-Scan Alarm!\n\nFolgende Dateien wurden modifiziert oder sind verdächtig:\n\n";
             foreach ($state['bad_files'] as $b) {
@@ -178,7 +178,7 @@ class Tegatai_Scanner {
         $iterator = new RecursiveIteratorIterator($dir_iterator);
         
         // Exclusions holen
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         $excludes = [];
         if (!empty($ops['scanner_exclusions'])) {
             $lines = explode("\n", $ops['scanner_exclusions']);
@@ -268,7 +268,7 @@ class Tegatai_Scanner {
                 $this->add_bad($state, $path, $desc);
                 
                 // --- TEGATAI PRO: Auto-Quarantäne (IPS) ---
-                $ops = get_option('tegatai_options');
+                $ops = tegatai_get_setting('tegatai_options');
                 
                 // Wir verschieben nur Dateien aus dem Upload-Ordner in Quarantäne (Schutz vor Zerstörung des WP-Cores)
                 if (!empty($ops['enable_auto_quarantine']) && strpos($path, wp_upload_dir()['basedir']) !== false) {

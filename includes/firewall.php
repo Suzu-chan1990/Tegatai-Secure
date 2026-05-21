@@ -46,7 +46,7 @@ class Tegatai_Firewall {
         if (php_sapi_name() === 'cli' || (defined('WP_CLI') && WP_CLI)) return;
         if ($this->is_protected_ip()) return;
 
-        $ops = get_option('tegatai_options', []);
+        $ops = tegatai_get_setting('tegatai_options', []);
 
         // --- 🚨 PANIC BUTTON (LOCKDOWN MODUS) ---
         if (!empty($ops['enable_lockdown']) && !current_user_can('manage_options')) {
@@ -85,7 +85,7 @@ class Tegatai_Firewall {
     }
 
     private function run_waf() { 
-        $ops = get_option('tegatai_options');
+        $ops = tegatai_get_setting('tegatai_options');
         if(current_user_can('manage_options')) return;
         
         // CUSTOM RULES CHECK with ReDoS Shield
