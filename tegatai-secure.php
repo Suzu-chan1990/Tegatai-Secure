@@ -9,7 +9,7 @@ add_action('plugins_loaded', function () {
 Plugin Name: Tegatai Security
 Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
 Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
-Version: 1.3.0
+Version: 1.4.1
 Author: すずちゃん
 License: GPL2
 */
@@ -94,7 +94,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '1.3.0' );
+define( 'TEGATAI_VERSION', '1.4.2' );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 require_once TEGATAI_PATH . 'includes/honeypot.php';
 require_once TEGATAI_PATH . 'includes/perm_monitor.php';

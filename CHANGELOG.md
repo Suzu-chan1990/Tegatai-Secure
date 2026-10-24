@@ -1,3 +1,30 @@
+## 1.4.2 – Actionable Security Recommendations
+
+- Added dynamic recommendations to the Security Status card based on the actual Tegatai configuration.
+- Distinguishes important, recommended, and optional actions instead of treating every disabled feature as a security problem.
+- Added direct links from recommendations to the relevant Tegatai module.
+- Added an expandable “Why this score?” breakdown showing how the dashboard score is composed.
+- Shows a positive “No action required” state when no configuration issue needs attention.
+- No security engine, database schema, request handling, scanner, or module logic changed.
+
+## 1.4.1 – Security Cockpit UI Polish
+
+- Redesigned the Security Cockpit dashboard for a compact, professional WordPress admin layout.
+- Added complete styling for status, activity, metrics, protection modules, top sources, and navigation cards.
+- Added responsive layouts for tablet and mobile admin screens.
+- No security, database, request, scanner, or module logic changed.
+
+## 1.4.0 – Security Cockpit UI
+
+- Redesigned the Tegatai admin dashboard as a security cockpit.
+- Added a clear protection status and calculated security score.
+- Added recent security activity / “While you were away” panel.
+- Added compact 24-hour threat metrics.
+- Added protection module status overview.
+- Added top security-event sources for the last 24 hours.
+- Kept existing module pages, settings, AJAX handlers, database tables, and security logic unchanged.
+- No new frontend tracking or additional request-time work was introduced.
+
 # Changelog
 
 ## 1.2.1 
