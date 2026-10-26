@@ -1,11 +1,39 @@
-## 1.4.2 – Actionable Security Recommendations
+## 1.4.2 – Security Fixes
 
-- Added dynamic recommendations to the Security Status card based on the actual Tegatai configuration.
-- Distinguishes important, recommended, and optional actions instead of treating every disabled feature as a security problem.
-- Added direct links from recommendations to the relevant Tegatai module.
-- Added an expandable “Why this score?” breakdown showing how the dashboard score is composed.
-- Shows a positive “No action required” state when no configuration issue needs attention.
-- No security engine, database schema, request handling, scanner, or module logic changed.
+- **Client IP detection:** Proxy headers (`CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For`) are no longer trusted blindly. Previously `X-Forwarded-For: 127.0.0.1` bypassed the whole firewall, the API Guard allowlist and rate limits. Only `REMOTE_ADDR` counts unless the request comes from a trusted proxy (`TEGATAI_TRUSTED_PROXIES` or the `tegatai_trusted_proxies` filter). Local reverse proxies (loopback/`SERVER_ADDR`) are trusted for `X-Forwarded-For` automatically.
+- **Activation/deactivation:** Hooks are now registered at file level. Previously `activate()` never ran, so the daily maintenance, backup, malware and FIM cron events were never scheduled. Existing installs are repaired automatically on the next admin or cron request.
+- **Deactivation:** `.htaccess` rules are now removed (marker mismatch `TEGATAI` vs. `Tegatai-Secure`); all Tegatai cron events are cleared.
+- **Log/backup directories:** `.htaccess` now works on Apache 2.2 and 2.4 (no more 500 without `mod_access_compat`); `tegatai-logs/` is protected as well.
+- **API Guard HMAC v2 (breaking):** Signature is now `METHOD|URI|timestamp|req_id|sha256(body)`. Request IDs are claimed atomically and kept for the full timestamp window (also for Hive), closing a replay window.
+- **Tarpit:** At most 2 concurrent delayed responses (filter `tegatai_api_tarpit_max_concurrent`), 2–4 s instead of unbounded 6–10 s, to avoid exhausting PHP-FPM workers.
+- **Translations:** Text domain unified to `tegatai-secure`; German translations now load. Plugin header version aligned to 1.4.2.
+- **The Hive:** Outgoing broadcasts were never triggered (no `do_action('tegatai_ip_banned')` anywhere); the firewall and login traps now fire it, sending happens asynchronously via WP-Cron. Per-peer secrets (`URL | secret`), optional strict peer mode, expiring bans (default 24 h) stored outside the manual blacklist, a never-ban allowlist (incl. whitelists, private ranges, recent admin IPs) and a per-peer rate limit.
+- **Log maintenance:** `prune_logs()` received `''` from `do_action()` and deleted nothing; the transient cleanup query failed with MySQL error 1093. Log table IDs are now `bigint unsigned`, the zero-date default is gone, `time` is indexed.
+- **Settings:** No more `SHOW TABLES` per request (table state is stored as an option). New values are stored as JSON, legacy serialized values are read with `allowed_classes => false`.
+- **Backups:** New backups use AES-256-GCM (authenticated) with a properly derived 256-bit key; existing CBC backups can still be downloaded.
+- **Removed:** The non-functional "Remote FTP" card (no upload or save handler existed; it echoed decrypted credentials into the page). Stored FTP credentials are deleted.
+- **Admin links:** Redirects and the Terminal submenu used the slug `tegatai-secure` instead of `tegatai-Secure`.
+- **Bans:** New central, expiring ban list (`Tegatai_Bans`) enforced on every request. Previously trap/404 bans were only checked on 404 pages, the admin-username trap created a permanent autoloaded option per IP and banned real accounts named "admin". Without Redis/APCu a 24 h ban expired after 5 minutes.
+- **Login:** Turnstile and the login honeypot now really block (they ran before core's password check and were ignored). Idle logout no longer locks users out after a long break and writes at most once per minute. Custom login slug works on subdirectory installs. GeoIP failures are cached, `CF-IPCountry` is only trusted from configured proxies, GeoIP also applies to XML-RPC/REST logins.
+- **Magic links:** One-time, rate-limited (per IP and user), go through 2FA, fire `wp_login`; temp-admin links work without the magic-link option.
+- **2FA:** `wp_login` fires after the code step, `remember`/`redirect_to` are kept, the cookie works on HTTP sites, cookie re-auth and application passwords are not challenged, XML-RPC/REST with a plain password are rejected (use application passwords). Users without a TOTP secret get e-mail codes instead of being locked out; secrets are only shown to the user themself. Codes use `random_int`; wrong codes count towards the login limit.
+- **Sessions:** Single session no longer logs the user out right after login, IP/Browser Guard now actually stores and checks the session, "Kill session" works.
+- **Spam:** Server-side signed timer (no bypass via `teg_js_time`), logged-in commenters and pingbacks are no longer blocked, case-insensitive trash-mail check, exact referrer host check.
+- **Hardening:** Privilege guard restores the previous roles (the role used to stay saved) and allows promotions by users with `promote_users` (REST, CLI); user enumeration via `?author=` is blocked before core's canonical redirect.
+- **Firewall:** Lockdown keeps the login page and whitelisted IPs reachable. Rate limit and WAF exempt users with `edit_posts`; guest limits raised to 60/min (API/AJAX) and 180/min. WAF patterns use word boundaries ("medieval (" no longer blocked). `curl`/`wget` are no longer blocked (system cron, monitors). Good-bot rDNS verdicts are cached, IPv6 bots supported. Redis connects lazily, no DB write per new visitor. Nested upload arrays no longer cause a fatal error.
+- **Server rules:** nginx/Apache rules use URL paths (subdirectory installs, quarantine dir covered); `/.well-known/` stays reachable. Existing rules are regenerated once on update.
+- **Scanners:** The malware cron rescans after a finished pass and no longer stores the file list in an option; hex detection compiles again; Tegatai's own files are skipped; WP_Filesystem/retrieval false positives removed. The content scanner always progresses and skips unreadable directories; an interrupted scan can be resumed or reset. FIM snapshot is stored as a protected file instead of a multi-MB option. Uploads monitor ignores "Silence is golden" index files and has a time budget.
+- **Quarantine:** Removed a restore endpoint without nonce (CSRF); protection files are written correctly; a failed quarantine is reported; core-file healing only accepts paths from the official checksums.
+- **Admin:** Settings are validated against a schema (unknown keys dropped, WAF regexes kept intact and validated, login slug sanitized), server rules are regenerated after save/import, exports contain no secrets. Missing toggles added (Upload Guard, hide login errors, dashboard block, single session). Deep Clean only optimizes this site's tables. Temp admins are cleaned up daily, their content is reassigned, expired accounts can no longer log in. Copy protection no longer blocks pasting or image links. Terminal polling no longer triggers FLOOD alerts. HSTS `includeSubDomains` is opt-in; the CSP is labeled as a permissive baseline.
+
+- **Actionable Security Recommendations
+
+- **Added dynamic recommendations to the Security Status card based on the actual Tegatai configuration.
+- **Distinguishes important, recommended, and optional actions instead of treating every disabled feature as a security problem.
+- **Added direct links from recommendations to the relevant Tegatai module.
+- **Added an expandable “Why this score?” breakdown showing how the dashboard score is composed.
+- **Shows a positive “No action required” state when no configuration issue needs attention.
+- **No security engine, database schema, request handling, scanner, or module logic changed.
 
 ## 1.4.1 – Security Cockpit UI Polish
 

@@ -8,10 +8,7 @@ class Tegatai_Backup {
     public function __construct() {
         $upload = wp_upload_dir();
         $this->backup_dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
-        if (!is_dir($this->backup_dir)) { @wp_mkdir_p($this->backup_dir); }
-        if (!file_exists($this->backup_dir . '.htaccess')) { @file_put_contents($this->backup_dir . '.htaccess', "Order Deny,Allow\nDeny from all"); }
-        if (!file_exists($this->backup_dir . 'index.php')) { @file_put_contents($this->backup_dir . 'index.php', "<?php\n// Silence is golden."); }
-        if (!file_exists($this->backup_dir . 'web.config')) { @file_put_contents($this->backup_dir . 'web.config', '<?xml version="1.0" encoding="UTF-8"?><configuration><system.webServer><authorization><deny users="*" /></authorization></system.webServer></configuration>'); }
+        if (!is_dir($this->backup_dir)) { tegatai_protect_directory($this->backup_dir); }
         
         add_action('admin_post_tegatai_create_backup', [$this, 'create_backup_action']);
         add_action('admin_post_tegatai_delete_backup', [$this, 'delete_backup']);
@@ -34,7 +31,7 @@ class Tegatai_Backup {
         if ($this->create_db_backup('manual')) { 
             wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created')); 
         } else { 
-            wp_die(esc_html__('Backup Error.', 'tegatai-Secure')); 
+            wp_die(esc_html__('Backup Error.', 'tegatai-secure')); 
         } 
         exit;
     }
@@ -50,15 +47,38 @@ class Tegatai_Backup {
         return $secret;
     }
 
+    const ENC_MAGIC = 'TGB2';
+
+    // Raw 32-byte key. The stored secret is 64 hex chars; passing it directly made OpenSSL
+    // silently truncate it to 32 characters (128 bit).
+    private function derive_key($purpose) {
+        return hash_hmac('sha256', 'tegatai-backup-' . $purpose, $this->get_encryption_key(), true);
+    }
+
+    // Format v2: "TGB2" | 12-byte nonce | 16-byte GCM tag | ciphertext
+    private function encrypt($plain) {
+        $nonce = random_bytes(12);
+        $tag = '';
+        $cipher = openssl_encrypt($plain, 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, $nonce, $tag, self::ENC_MAGIC, 16);
+        return $cipher === false ? false : self::ENC_MAGIC . $nonce . $tag . $cipher;
+    }
+
+    private function decrypt($data) {
+        if (strncmp($data, self::ENC_MAGIC, 4) === 0) {
+            $nonce = substr($data, 4, 12);
+            $tag = substr($data, 16, 16);
+            return openssl_decrypt(substr($data, 32), 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, $nonce, $tag, self::ENC_MAGIC);
+        }
+        // Legacy v1 files: AES-256-CBC, IV prepended, hex secret used as key (unauthenticated)
+        $iv_len = openssl_cipher_iv_length('aes-256-cbc');
+        return openssl_decrypt(substr($data, $iv_len), 'aes-256-cbc', $this->get_encryption_key(), OPENSSL_RAW_DATA, substr($data, 0, $iv_len));
+    }
+
     private function create_db_backup($type = 'manual') {
         global $wpdb;
         
         // Ordner + Schutz sicherstellen
-        if (!file_exists($this->backup_dir)) {
-            wp_mkdir_p($this->backup_dir);
-            if (!file_exists($this->backup_dir . '.htaccess')) file_put_contents($this->backup_dir . '.htaccess', "Order Deny,Allow\nDeny from all");
-            if (!file_exists($this->backup_dir . 'index.php')) file_put_contents($this->backup_dir . 'index.php', '<?php // Silence');
-        }
+        tegatai_protect_directory($this->backup_dir);
         
         // Tabellen exportieren
         $tables = $wpdb->get_results('SHOW TABLES', ARRAY_N);
@@ -97,14 +117,12 @@ class Tegatai_Backup {
             $filename .= '.gz'; 
         }
 
-        // 2. AES-256-CBC Data-at-Rest Verschlüsselung
-        if (function_exists('openssl_encrypt')) {
-            $secret = $this->get_encryption_key();
-            $iv = random_bytes(openssl_cipher_iv_length('aes-256-cbc'));
-            $encrypted = openssl_encrypt($sql, 'aes-256-cbc', $secret, OPENSSL_RAW_DATA, $iv);
+        // 2. AES-256-GCM data-at-rest encryption (authenticated, tampering is detected on decrypt)
+        if (function_exists('openssl_encrypt') && in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) {
+            $encrypted = $this->encrypt($sql);
             
             if ($encrypted !== false) {
-                $sql = $iv . $encrypted; // IV direkt vorhängen
+                $sql = $encrypted;
                 $filename .= '.enc';
             } else {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-ERR', "AES Encryption failed. Saving unencrypted.");
@@ -180,17 +198,12 @@ class Tegatai_Backup {
             
             // --- ON-THE-FLY DECRYPTION ---
             if (substr($path, -4) === '.enc' && function_exists('openssl_decrypt')) {
-                $secret = $this->get_encryption_key();
-                $iv_len = openssl_cipher_iv_length('aes-256-cbc');
-                $iv = substr($data, 0, $iv_len);
-                $encrypted = substr($data, $iv_len);
-                
-                $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', $secret, OPENSSL_RAW_DATA, $iv);
+                $decrypted = $this->decrypt($data);
                 if ($decrypted !== false) {
                     $data = $decrypted;
                     $dl_name = str_replace('.enc', '', $dl_name); // Originalendung wiederherstellen (.gz oder .sql)
                 } else {
-                    wp_die('Entschlüsselung fehlgeschlagen. Stimmt das TEGATAI_BACKUP_SECRET in der wp-config.php?');
+                    wp_die(esc_html__('Decryption failed: wrong TEGATAI_BACKUP_SECRET or the file was modified.', 'tegatai-secure'));
                 }
             }
 
@@ -210,7 +223,7 @@ class Tegatai_Backup {
         
         if (file_exists($dir)) {
             foreach (scandir($dir) as $file) {
-                if ($file !== '.' && $file !== '..' && $file !== '.htaccess' && $file !== 'index.php') {
+                if (!in_array($file, ['.', '..', '.htaccess', 'index.php', 'web.config'], true)) {
                     $files[] = [
                         'name' => $file, 
                         'size' => round(filesize($dir . $file) / 1024, 2) . ' KB', 

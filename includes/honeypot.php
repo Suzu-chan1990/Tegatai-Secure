@@ -12,7 +12,8 @@ class Tegatai_Honeypot {
         if ($en === null) { update_option(self::OPT_ENABLED, 1, false); }
 
         add_action('login_form', [__CLASS__, 'render_field']);
-        add_filter('authenticate', [__CLASS__, 'check_field'], 2, 3);
+        // After core's password check (20), otherwise a valid password overwrites the error
+        add_filter('authenticate', [__CLASS__, 'check_field'], 25, 3);
     }
 
     public static function render_field(): void {
@@ -20,7 +21,7 @@ class Tegatai_Honeypot {
         if ($en !== 1) return;
 
         echo '<p style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;">';
-        echo '<label>' . esc_html__('Leave this field empty', 'tegatai-Secure') . '</label>';
+        echo '<label>' . esc_html__('Leave this field empty', 'tegatai-secure') . '</label>';
         echo '<input type="text" name="' . esc_attr(self::FIELD) . '" value="" autocomplete="off" tabindex="-1" />';
         echo '</p>';
     }
@@ -43,8 +44,9 @@ class Tegatai_Honeypot {
             if (class_exists('Tegatai_Logger')) {
                 Tegatai_Logger::log('AUTH-BAN', 'Login honeypot triggered.', $ip);
             }
+            Tegatai_Bans::ban_and_broadcast($ip, DAY_IN_SECONDS, 'Login form honeypot', 'critical');
 
-            return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-Secure'));
+            return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-secure'));
         }
         return $user;
     }

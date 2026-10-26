@@ -40,7 +40,8 @@ class Tegatai_Headers {
         }
         
         if (!empty($ops['header_hsts']) && is_ssl() && !tegatai_header_present('Strict-Transport-Security')) {
-            header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+            // includeSubDomains is opt-in: it breaks subdomains that are not reachable via HTTPS.
+            header('Strict-Transport-Security: max-age=31536000' . (!empty($ops['header_hsts_subdomains']) ? '; includeSubDomains' : ''));
         }
         
         if (!empty($ops['header_permissions']) && !tegatai_header_present('Permissions-Policy')) {
@@ -48,7 +49,8 @@ class Tegatai_Headers {
         }
         
         if (!empty($ops['header_csp']) && !tegatai_header_present('Content-Security-Policy')) {
-            header("Content-Security-Policy: default-src 'self' https: data: 'unsafe-inline' 'unsafe-eval';");
+            // Permissive baseline (HTTPS/same-origin only); it allows inline scripts/eval and is no XSS protection.
+            header("Content-Security-Policy: default-src 'self' https: wss: data: blob: 'unsafe-inline' 'unsafe-eval';");
         }
     }
 }

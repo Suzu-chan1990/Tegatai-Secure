@@ -4,15 +4,15 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 class Tegatai_SessionGuard {
     public function __construct() {
         $ops = tegatai_get_setting('tegatai_options');
-        add_action('set_logged_in_cookie', [$this, 'save_session_data'], 10, 4);
-        
+        add_action('set_logged_in_cookie', [$this, 'save_session_data'], 10, 6);
+
         if (!empty($ops['enable_ip_guard']) || !empty($ops['enable_browser_guard'])) {
             add_action('init', [$this, 'validate_session']);
         }
     }
 
-    public function save_session_data($logged_in_cookie, $expire, $expiration, $user_id) {
-        $token = wp_get_session_token();
+    public function save_session_data($logged_in_cookie, $expire, $expiration, $user_id, $scheme = 'logged_in', $token = '') {
+        // Use the token of the cookie being set; wp_get_session_token() still reads the old request cookie
         if ($token) {
             update_user_meta($user_id, 'teg_sess_ip_' . md5($token), Tegatai_Logger::get_ip());
             update_user_meta($user_id, 'teg_sess_ua_' . md5($token), md5($_SERVER['HTTP_USER_AGENT'] ?? ''));

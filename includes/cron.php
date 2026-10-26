@@ -21,7 +21,7 @@ class Tegatai_Cron {
         if (!isset($schedules['tegatai_6h'])) {
             $schedules['tegatai_6h'] = [
                 'interval' => 6 * HOUR_IN_SECONDS,
-                'display'  => __('Every 6 hours (Tegatai)', 'tegatai-Secure'),
+                'display'  => __('Every 6 hours (Tegatai)', 'tegatai-secure'),
             ];
         }
         return $schedules;
@@ -29,6 +29,15 @@ class Tegatai_Cron {
 
     public static function activate(): void {
         self::maybe_seed_seal_phrase();
+        self::schedule_events();
+    }
+
+    public static function schedule_events(): void {
+        // During activation init() has not run yet (plugins_loaded is already over),
+        // without the filter the custom 'tegatai_6h' recurrence is unknown and scheduling fails.
+        if (!has_filter('cron_schedules', [__CLASS__, 'add_schedules'])) {
+            add_filter('cron_schedules', [__CLASS__, 'add_schedules']);
+        }
 
         if (!wp_next_scheduled('tegatai_malware_cron')) {
             wp_schedule_event(time() + 300, 'tegatai_6h', 'tegatai_malware_cron');
@@ -67,7 +76,7 @@ class Tegatai_Cron {
         if (!class_exists('Tegatai_FIM')) return;
 
         // Only if baseline exists
-        $snap = get_option(Tegatai_FIM::OPT_SNAPSHOT, []);
+        $snap = Tegatai_FIM::get_snapshot();
         if (empty($snap) || empty($snap['files'])) return;
 
         $res = Tegatai_FIM::check_integrity();
@@ -122,12 +131,12 @@ class Tegatai_Cron {
         $host = preg_replace('/[^a-z0-9\.\-:]/i', '', $host);
 
         $html  = '<div style="margin:14px 0 10px;padding:10px 12px;border:1px solid #dcdcde;border-radius:10px;background:#fff;">';
-        $html .= '<div style="font-weight:800;margin-bottom:4px;">🔒 ' . esc_html__('Verified login page', 'tegatai-Secure') . '</div>';
+        $html .= '<div style="font-weight:800;margin-bottom:4px;">🔒 ' . esc_html__('Verified login page', 'tegatai-secure') . '</div>';
         if ($host !== '') {
-            $html .= '<div style="color:#50575e;font-size:13px;">' . esc_html__('Domain', 'tegatai-Secure') . ': <code>' . esc_html($host) . '</code></div>';
+            $html .= '<div style="color:#50575e;font-size:13px;">' . esc_html__('Domain', 'tegatai-secure') . ': <code>' . esc_html($host) . '</code></div>';
         }
         if ($phrase !== '') {
-            $html .= '<div style="color:#50575e;font-size:13px;margin-top:2px;">' . esc_html__('Seal phrase', 'tegatai-Secure') . ': <code>' . esc_html($phrase) . '</code></div>';
+            $html .= '<div style="color:#50575e;font-size:13px;margin-top:2px;">' . esc_html__('Seal phrase', 'tegatai-secure') . ': <code>' . esc_html($phrase) . '</code></div>';
         }
         $html .= '</div>';
 

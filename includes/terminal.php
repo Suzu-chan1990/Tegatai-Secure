@@ -29,7 +29,7 @@ class Tegatai_Terminal {
 
     public function register_page() {
         // Versteckte Seite (kein Menü-Eintrag links)
-        add_submenu_page('tegatai-secure', 'Tegatai Terminal', 'Terminal', 'manage_options', 'tegatai-terminal', [$this, 'render_terminal']);
+        add_submenu_page('tegatai-Secure', 'Tegatai Terminal', 'Terminal', 'manage_options', 'tegatai-terminal', [$this, 'render_terminal']);
     }
 
     public function ajax_fetch() {
@@ -44,12 +44,10 @@ class Tegatai_Terminal {
         
         // Maximal 1 Request alle 2 Sekunden erlaubt
         if ($this->get_cache($rl_key)) {
-            // Loggt den Flood-Versuch, falls es ein manueller Spam-Angriff ist
-            if (class_exists('Tegatai_Logger')) {
-                Tegatai_Logger::log('FLOOD', "Terminal API rate limit hit by $ip");
-            }
-            echo "<div class='log-row warn'>[SYS] Rate limit exceeded. Polling too fast...</div>";
-            wp_die();
+            // No FLOOD log/webhook alert here: this endpoint is admin-only, a fast refresh is not an attack.
+            // 429 tells the client to keep the current output.
+            status_header(429);
+            wp_die('', '', ['response' => 429]);
         }
         $this->set_cache($rl_key, 1, 2);
 
@@ -67,8 +65,8 @@ class Tegatai_Terminal {
         } else {
             foreach ($logs as $log) {
                 $time = date('H:i:s', strtotime($log['time']));
-                $ip_str = str_pad($log['ip'], 15, ' ');
-                $type = str_pad($log['type'], 12, ' ');
+                $ip_str = esc_html(str_pad((string)$log['ip'], 15, ' '));
+                $type = esc_html(str_pad((string)$log['type'], 12, ' '));
                 $msg = esc_html($log['message']);
                 
                 // Color coding based on event type
@@ -148,7 +146,7 @@ class Tegatai_Terminal {
             </div>
 
             <div class="teg-inner-nav">
-                <a href="<?php echo esc_url(admin_url('admin.php?page=tegatai-secure&tab=logs')); ?>" class="teg-back-btn">
+                <a href="<?php echo esc_url(admin_url('admin.php?page=tegatai-Secure&tab=logs')); ?>" class="teg-back-btn">
                     <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Back to Logs', 'tegatai-secure'); ?>
                 </a>
                 <div class="teg-horizontal-tabs">
@@ -196,9 +194,10 @@ class Tegatai_Terminal {
                     fd.append('security', '<?php echo wp_create_nonce('teg_terminal_nonce'); ?>');
 
                     fetch(ajaxurl, { method: 'POST', body: fd })
-                        .then(res => res.text())
+                        .then(res => res.status === 429 ? null : res.text())
                         .then(data => {
                             if (isPaused) return; // Verhindert Update, falls während des Fetches pausiert wurde
+                            if (data === null) { status.innerText = '[ IDLE ]'; status.style.color = '#34d399'; return; } // Rate limited: keep output
                             output.innerHTML = data;
                             status.innerText = '[ IDLE ]';
                             status.style.color = '#34d399';
@@ -249,7 +248,7 @@ class Tegatai_Terminal {
                         output.innerHTML = '<div class="log-row info">[SYS] Console cleared. Waiting for new events...</div>';
                     }
                     if (e.key === 'Escape') {
-                        window.location.href = '<?php echo esc_url(admin_url('admin.php?page=tegatai-secure&tab=logs')); ?>';
+                        window.location.href = '<?php echo esc_url(admin_url('admin.php?page=tegatai-Secure&tab=logs')); ?>';
                     }
                 });
             </script>

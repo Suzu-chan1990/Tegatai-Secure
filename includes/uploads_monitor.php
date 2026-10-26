@@ -16,11 +16,20 @@ class Tegatai_Uploads_Monitor {
         $hits = [];
         $bad_ext = '/\.(php[1-8]?|pht|phtml?|phps|phar|cgi|pl|asp|aspx|jsp)$/i';
 
-        $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS));
+        $complete = true;
+        $time_start = microtime(true);
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($base, FilesystemIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::LEAVES_ONLY,
+            RecursiveIteratorIterator::CATCH_GET_CHILD // skip unreadable directories instead of throwing
+        );
         foreach ($it as $f) {
+            // Time budget: large media libraries must not run into max_execution_time
+            if ((microtime(true) - $time_start) > 20) { $complete = false; break; }
             if (!$f->isFile()) continue;
             $p = $f->getPathname();
             if (preg_match($bad_ext, $p)) {
+                if (self::is_silence_file($p)) continue;
                 $rel = ltrim(str_replace('\\', '/', str_replace($base, '', $p)), '/');
                 $hits[] = 'uploads:' . $rel;
                 if (count($hits) >= $limit) break;
@@ -32,7 +41,18 @@ class Tegatai_Uploads_Monitor {
             Tegatai_Timeline::add('uploads', 'Uploads suspicious files: ' . count($hits));
         }
 
-        return ['ok'=>true, 'hits'=>$hits];
+        return ['ok'=>true, 'hits'=>$hits, 'complete'=>$complete];
+    }
+
+    // "Silence is golden" index.php files (WordPress, WooCommerce and many plugins put them into uploads).
+    private static function is_silence_file(string $path): bool {
+        if (strtolower(basename($path)) !== 'index.php') return false;
+        $size = @filesize($path);
+        if (!is_int($size) || $size > 512) return false;
+        $code = (string)@file_get_contents($path);
+        // Strip open/close tags, comments and whitespace: nothing executable may remain
+        $code = preg_replace(['#<\?(php)?#i', '#\?>#', '#/\*.*?\*/#s', '#(//|\#)[^\n]*#', '#\s+#'], '', $code);
+        return $code === '' || $code === 'exit;' || $code === 'die;';
     }
 
     public static function quarantine_hits(int $max = 50): array {

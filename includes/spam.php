@@ -14,7 +14,9 @@ class Tegatai_Spam {
         }
         
         if (!empty($ops['enable_bot_timer'])) { 
-            add_action('comment_form_default_fields', [$this, 'add_timestamp_field']); 
+            add_action('comment_form_default_fields', [$this, 'add_timestamp_field']);
+            // Default fields are only rendered for guests; logged-in commenters need the fields too
+            add_action('comment_form_logged_in_after', [$this, 'render_timestamp_field']);
             add_action('wp_footer', [$this, 'inject_bot_timer_js']);
             add_filter('preprocess_comment', [$this, 'check_timestamp']); 
         }
@@ -53,8 +55,13 @@ class Tegatai_Spam {
         }
     }
     
+    // Pingbacks/trackbacks also pass preprocess_comment but can never carry form fields
+    private function is_ping($d) {
+        return in_array($d['comment_type'] ?? '', ['pingback', 'trackback'], true);
+    }
+
     public function turnstile_verify_comment($commentdata) {
-        if (current_user_can('moderate_comments')) return $commentdata;
+        if (current_user_can('moderate_comments') || $this->is_ping($commentdata)) return $commentdata;
         $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['turnstile_secret_key'])) return $commentdata;
         
@@ -84,15 +91,18 @@ class Tegatai_Spam {
     }
     
     private function is_trash_mail($e) { 
-        $p=explode('@',$e); 
-        return count($p)===2 && in_array($p[1], $this->trash_domains); 
+        $p=explode('@',strtolower(trim((string)$e)));
+        return count($p)===2 && in_array($p[1], $this->trash_domains, true);
     }
-    
-    public function check_referrer($d) { 
-        if (current_user_can('moderate_comments')) return $d; 
-        $r=$_SERVER['HTTP_REFERER']??''; 
-        if(empty($r)||strpos($r,home_url())===false) wp_die('Invalid Referrer.', 'Spam', ['response'=>403]); 
-        return $d; 
+
+    public function check_referrer($d) {
+        if (current_user_can('moderate_comments') || $this->is_ping($d)) return $d;
+        $r=$_SERVER['HTTP_REFERER']??'';
+        // Compare hosts exactly ("site.com.evil.tld" must not match), scheme does not matter
+        $rh=strtolower((string)wp_parse_url($r, PHP_URL_HOST));
+        $hh=strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST));
+        if($rh===''||$rh!==$hh) wp_die('Invalid Referrer.', 'Spam', ['response'=>403]);
+        return $d;
     }
     
     public function add_honeypot_field($f) { 
@@ -110,13 +120,25 @@ class Tegatai_Spam {
     }
 
     // --- BOT TIMER LOGIC ---
-    public function add_timestamp_field($f) { 
-        $ts = time(); 
-        $h = wp_hash($ts.'teg_salt'); 
-        $f['teg_ts'] = '<input type="hidden" name="teg_ts_val" value="'.$ts.'"/>' . 
-                       '<input type="hidden" name="teg_ts_hash" value="'.$h.'"/>' . 
-                       '<input type="hidden" name="teg_js_time" value="0"/>'; 
-        return $f; 
+    private function timestamp_fields_html() {
+        // Both hooks can fire for the same form (e.g. block themes); render the fields only once.
+        static $rendered = false;
+        if ($rendered) return '';
+        $rendered = true;
+        $ts = time();
+        $h = wp_hash($ts.'teg_salt');
+        return '<input type="hidden" name="teg_ts_val" value="'.$ts.'"/>' .
+               '<input type="hidden" name="teg_ts_hash" value="'.esc_attr($h).'"/>' .
+               '<input type="hidden" name="teg_js_time" value="0"/>';
+    }
+
+    public function add_timestamp_field($f) {
+        $f['teg_ts'] = $this->timestamp_fields_html();
+        return $f;
+    }
+
+    public function render_timestamp_field() {
+        echo $this->timestamp_fields_html();
     }
 
     public function inject_bot_timer_js() {
@@ -138,8 +160,16 @@ class Tegatai_Spam {
     }
 
     public function check_timestamp($d) {
-        if (current_user_can('moderate_comments')) return $d;
-        
+        if (current_user_can('moderate_comments') || $this->is_ping($d)) return $d;
+
+        // Server-side check: signed render timestamp, cannot be faked by posting teg_js_time
+        $ts = isset($_POST['teg_ts_val']) && is_string($_POST['teg_ts_val']) ? (int) $_POST['teg_ts_val'] : 0;
+        $h  = isset($_POST['teg_ts_hash']) && is_string($_POST['teg_ts_hash']) ? $_POST['teg_ts_hash'] : '';
+        if (!$ts || !hash_equals(wp_hash($ts.'teg_salt'), $h) || (time() - $ts) < 3) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SPAM', 'Bot Timer (Missing/invalid or too fast timestamp)');
+            wp_die('Spam detected. Please enable JavaScript or type slower.', 'Spam', ['response'=>403]);
+        }
+
         $time_spent = intval($_POST['teg_js_time'] ?? 0);
         // Falls kein JS aktiviert ist, ist der Wert 0. Wenn zu schnell getippt wird (< 3 Sekunden), blockiert.
         if ($time_spent < 3000) {

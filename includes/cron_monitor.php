@@ -3,7 +3,8 @@ if (!defined('ABSPATH')) { exit; }
 
 class Tegatai_Cron_Monitor {
     public static function init(): void {
-        add_action('init', [__CLASS__, 'maybe_log_once_daily']);
+        // Daily cron instead of 'init': the non-autoloaded timestamp option cost a DB query on every request.
+        add_action('tegatai_daily_maintenance', [__CLASS__, 'maybe_log_once_daily']);
     }
 
     public static function inspect(): array {
@@ -60,7 +61,8 @@ class Tegatai_Cron_Monitor {
     public static function maybe_log_once_daily(): void {
         $k = 'teg_cron_monitor_lastlog_v1';
         $last = (int)get_option($k, 0);
-        if ($last > (time() - DAY_IN_SECONDS)) return;
+        // Half a day: daily cron runs can start slightly earlier than 24h after the previous one.
+        if ($last > (time() - DAY_IN_SECONDS / 2)) return;
 
         $res = self::inspect();
         $hits = $res['hits'] ?? [];

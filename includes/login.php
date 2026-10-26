@@ -33,24 +33,33 @@ class Tegatai_LoginGuard {
         if (!empty($ops['disable_app_passwords'])) add_filter('wp_is_application_passwords_available', '__return_false');
         if (!empty($ops['block_wp_admin_hide'])) add_action('init', [$this, 'hide_wp_admin_access']);
         if (!empty($ops['block_dash_access'])) add_action('admin_init', [$this, 'restrict_admin']);
-        if (!empty($ops['enable_idle_logout'])) add_action('init', [$this, 'check_idle_timeout']);
+        if (!empty($ops['enable_idle_logout'])) {
+            add_action('init', [$this, 'check_idle_timeout']);
+            // Every new auth cookie starts a fresh activity window (otherwise a stale value logs out right after login)
+            add_action('set_logged_in_cookie', [$this, 'reset_idle_timer'], 10, 4);
+        }
 
         // GEOIP LOGIK
         add_action('login_init', [$this, 'enforce_geoip_blocking']);
         add_action('wp', [$this, 'enforce_geoip_blocking']);
+        // XML-RPC and REST never fire login_init / wp, so check their logins directly
+        add_filter('authenticate', [$this, 'geoip_verify_login'], 25, 3);
+        add_action('wp_authenticate_application_password_errors', [$this, 'geoip_verify_app_password'], 10, 2);
 
         // MAGIC LINKS
         if (!empty($ops['enable_magic_links'])) {
             add_action('login_footer', [$this, 'render_magic_link_form']);
             add_action('login_form_teg_magic_send', [$this, 'process_magic_link_request']);
-            add_action('init', [$this, 'process_magic_link_login']);
         }
+        // Always hooked: temporary admin links (extras.php) work without enable_magic_links
+        add_action('init', [$this, 'process_magic_link_login']);
 
         // TURNSTILE
         if (!empty($ops['enable_turnstile'])) {
             add_action('login_enqueue_scripts', [$this, 'turnstile_script']);
             add_action('login_form', [$this, 'turnstile_field']);
-            add_filter('authenticate', [$this, 'turnstile_verify_login'], 15, 3);
+            // After core's password check (20), otherwise a valid password overwrites the error
+            add_filter('authenticate', [$this, 'turnstile_verify_login'], 25, 3);
         }
     }
 
@@ -108,6 +117,10 @@ class Tegatai_LoginGuard {
     public function turnstile_field() { $ops = tegatai_get_setting('tegatai_options'); if(!empty($ops['turnstile_site_key'])) echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px; display:flex; justify-content:center;"></div>'; }
     public function turnstile_verify_login($user, $username, $password) {
         if (empty($username) || empty($password)) return $user;
+        // Failed credentials need no captcha round trip
+        if (!($user instanceof WP_User)) return $user;
+        // The widget is only rendered on wp-login.php; other login endpoints cannot send a token
+        if (!did_action('login_init')) return $user;
         $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['turnstile_secret_key'])) return $user;
         $response = $_POST['cf-turnstile-response'] ?? '';
@@ -147,20 +160,7 @@ class Tegatai_LoginGuard {
         $ip = $this->get_client_ip();
         $country = $this->get_country_code($ip);
 
-        if ($country === 'LO') return;
-        if ($country === 'XX') return; // Fail Open
-
-        $list_raw = isset($ops['geoip_list']) ? strtoupper($ops['geoip_list']) : '';
-        $countries = array_filter(array_map('trim', explode(',', $list_raw)));
-        $blocked = false;
-
-        if ($ops['geoip_mode'] === 'blacklist') {
-            if (in_array($country, $countries)) $blocked = true;
-        } elseif ($ops['geoip_mode'] === 'whitelist') {
-            if (empty($countries) || !in_array($country, $countries)) $blocked = true;
-        }
-
-        if ($blocked) {
+        if ($this->is_country_blocked($ops, $country)) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked IP $ip (Country: $country)");
             // Stealth 404
             status_header(404);
@@ -172,25 +172,79 @@ class Tegatai_LoginGuard {
         }
     }
 
+    private function is_country_blocked($ops, $country) {
+        if (empty($ops['geoip_mode']) || $ops['geoip_mode'] === 'off') return false;
+        if ($country === 'LO') return false;
+        if ($country === 'XX') return false; // Fail Open
+
+        $list_raw = isset($ops['geoip_list']) ? strtoupper($ops['geoip_list']) : '';
+        $countries = array_filter(array_map('trim', explode(',', $list_raw)));
+
+        if ($ops['geoip_mode'] === 'blacklist') {
+            return in_array($country, $countries, true);
+        } elseif ($ops['geoip_mode'] === 'whitelist') {
+            return empty($countries) || !in_array($country, $countries, true);
+        }
+        return false;
+    }
+
+    private function is_ip_geo_blocked($ip) {
+        $ops = tegatai_get_setting('tegatai_options');
+        if (empty($ops['geoip_mode']) || $ops['geoip_mode'] === 'off') return false;
+        return $this->is_country_blocked($ops, $this->get_country_code($ip));
+    }
+
+    public function geoip_verify_login($user, $username, $password) {
+        if (empty($username) || is_wp_error($user)) return $user;
+        $ip = $this->get_client_ip();
+        if ($this->is_ip_geo_blocked($ip)) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked login from IP $ip");
+            return new WP_Error('teg_geo_blocked', __('Login not allowed from your location.', 'tegatai-secure'));
+        }
+        return $user;
+    }
+
+    public function geoip_verify_app_password($error, $user) {
+        $ip = $this->get_client_ip();
+        if ($this->is_ip_geo_blocked($ip)) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked application password login from IP $ip");
+            $error->add('teg_geo_blocked', __('Login not allowed from your location.', 'tegatai-secure'));
+        }
+    }
+
     private function get_country_code($ip) {
-        if (in_array($ip, ['127.0.0.1', '::1'])) return 'LO';
+        // Local, private and reserved addresses cannot be located
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return 'LO';
+
+        // Country header from a configured proxy (e.g. Cloudflare) avoids the external lookup
+        if (class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'is_trusted_proxy_request') && Tegatai_Logger::is_trusted_proxy_request()) {
+            $hdr = isset($_SERVER['HTTP_CF_IPCOUNTRY']) ? strtoupper(trim((string) $_SERVER['HTTP_CF_IPCOUNTRY'])) : '';
+            if (preg_match('/^[A-Z]{2}$/', $hdr) && $hdr !== 'XX') return $hdr;
+        }
+
         $cache_key = 'teg_geo_v2_' . md5($ip);
-        
+
         $cached = $this->get_cache($cache_key);
         if ($cached) return $cached;
-        
+
         $response = wp_remote_get("https://get.geojs.io/v1/ip/country/{$ip}.json", ['timeout' => 3]);
         if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) == 200) {
             $body = json_decode(wp_remote_retrieve_body($response), true);
-            $cc = isset($body['countryCode']) ? strtoupper($body['countryCode']) : 'XX';
-            $this->set_cache($cache_key, $cc, 3600); 
+            $cc = isset($body['countryCode']) && is_string($body['countryCode']) ? strtoupper($body['countryCode']) : 'XX';
+            $this->set_cache($cache_key, $cc, 3600);
             return $cc;
         }
+        // Cache failures briefly so an unreachable API does not add a timeout to every request
+        $this->set_cache($cache_key, 'XX', 300);
         return 'XX';
     }
 
     // Standard Helpers
-    public function check_custom_slug() { $s = ((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'); if ($s && $path === $s) { if (!defined('TEGATAI_LOGIN_PAGE')) define('TEGATAI_LOGIN_PAGE', true); global $user_login, $error, $action; if (!isset($user_login)) $user_login = ''; if (!isset($error)) $error = ''; if (!isset($action)) $action = 'login'; require_once ABSPATH.'wp-login.php'; exit; } }
+    public function check_custom_slug() { $s = ((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        // Subdirectory installs: compare relative to the home path ("blog/slug" -> "slug")
+        $home_path = trim((string) parse_url(home_url(), PHP_URL_PATH), '/');
+        if ($home_path !== '' && strpos($path . '/', $home_path . '/') === 0) $path = trim(substr($path, strlen($home_path)), '/');
+        if ($s && $path === $s) { if (!defined('TEGATAI_LOGIN_PAGE')) define('TEGATAI_LOGIN_PAGE', true); global $user_login, $error, $action; if (!isset($user_login)) $user_login = ''; if (!isset($error)) $error = ''; if (!isset($action)) $action = 'login'; require_once ABSPATH.'wp-login.php'; exit; } }
     
     public function alert_admin_login($user_login, $user) { 
         if (in_array('administrator', (array) $user->roles)) {
@@ -260,7 +314,11 @@ class Tegatai_LoginGuard {
     
     public function restrict_admin() { if(defined('DOING_AJAX')&&DOING_AJAX) return; $u=wp_get_current_user(); if(!empty($u)&&!in_array('administrator',(array)$u->roles)&&!in_array('editor',(array)$u->roles)) { wp_redirect(home_url()); exit; } }
     
-    public function check_idle_timeout() { if(!is_user_logged_in()) return; $uid=get_current_user_id(); $l=get_user_meta($uid,'teg_last_activity',true); if($l&&(time()-$l>3600)) { wp_logout(); wp_redirect(home_url()); exit; } update_user_meta($uid,'teg_last_activity',time()); }
+    public function check_idle_timeout() { if(!is_user_logged_in()) return; $uid=get_current_user_id(); $l=(int)get_user_meta($uid,'teg_last_activity',true); if($l&&(time()-$l>3600)) { wp_logout(); wp_redirect(home_url()); exit; }
+        // Throttled: one write per minute instead of one per request
+        if(time()-$l>=60) update_user_meta($uid,'teg_last_activity',time()); }
+
+    public function reset_idle_timer($logged_in_cookie, $expire, $expiration, $user_id) { update_user_meta((int)$user_id,'teg_last_activity',time()); }
     
     public function render_magic_link_form() {
         ?>
@@ -270,10 +328,28 @@ class Tegatai_LoginGuard {
         <?php
     }
     
+    // Fixed-window counter, returns true once $limit hits within $window seconds are exceeded
+    private function rate_limited($key, $limit, $window) {
+        $k = 'teg_rl_' . md5($key);
+        $c = (int) get_transient($k);
+        if ($c >= $limit) return true;
+        set_transient($k, $c + 1, $window);
+        return false;
+    }
+
     public function process_magic_link_request() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        $input = sanitize_text_field($_POST['magic_user_email'] ?? '');
-        $user = is_email($input) ? get_user_by('email', $input) : get_user_by('login', $input);
+        $input = isset($_POST['magic_user_email']) && is_string($_POST['magic_user_email']) ? sanitize_text_field(wp_unslash($_POST['magic_user_email'])) : '';
+        $ip = $this->get_client_ip();
+        $user = false;
+        if ($input !== '' && !$this->rate_limited('magic_ip_' . $ip, 5, 900)) {
+            $user = is_email($input) ? get_user_by('email', $input) : get_user_by('login', $input);
+            // Per user limit against mail bombing from many IPs; same response either way (no enumeration)
+            if ($user && $this->rate_limited('magic_user_' . $user->ID, 3, 900)) {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LIMIT', "Magic link rate limit for User ID {$user->ID} ($ip)");
+                $user = false;
+            }
+        }
         if ($user) {
             $token = bin2hex(random_bytes(32));
             $hash = hash('sha256', $token);
@@ -299,16 +375,40 @@ class Tegatai_LoginGuard {
     }
     
     public function process_magic_link_login() {
-        if (!isset($_GET['teg_magic_login']) || !isset($_GET['token'])) return;
-        $hash = hash('sha256', $_GET['token']);
-        $user_id = get_transient('teg_magic_' . $hash);
-        if ($user_id) {
-            delete_transient('teg_magic_' . $hash);
-            wp_set_auth_cookie($user_id);
-            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id logged in");
-            wp_safe_redirect(admin_url());
-            exit;
-        } else { wp_die(esc_html__('Invalid link.', 'tegatai-Secure'), esc_html__('Error', 'tegatai-Secure'), ['response' => 403]); }
+        if (!isset($_GET['teg_magic_login'], $_GET['token'])) return;
+        $invalid = function () { wp_die(esc_html__('Invalid link.', 'tegatai-secure'), esc_html__('Error', 'tegatai-secure'), ['response' => 403]); };
+
+        $ip = $this->get_client_ip();
+        if ($this->rate_limited('magic_login_ip_' . $ip, 10, 900)) {
+            wp_die(esc_html__('Too many attempts. Please try again later.', 'tegatai-secure'), esc_html__('Error', 'tegatai-secure'), ['response' => 429]);
+        }
+
+        // Runs on init, before the 'wp' GeoIP check would fire
+        if ($this->is_ip_geo_blocked($ip)) $invalid();
+
+        $token = is_string($_GET['token']) ? $_GET['token'] : '';
+        if (!preg_match('/^[a-f0-9]{64}$/', $token)) $invalid();
+
+        $key = 'teg_magic_' . hash('sha256', $token);
+        $user_id = (int) get_transient($key);
+        // One-time use: only the request that actually deletes the token may log in
+        if (!$user_id || !delete_transient($key)) $invalid();
+
+        $user = get_userdata($user_id);
+        if (!$user) $invalid();
+
+        // Users with 2FA must complete the second factor; the link only replaces the password
+        if (class_exists('Tegatai_TwoFactor') && Tegatai_TwoFactor::is_enabled()) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id magic link accepted, 2FA pending ($ip)");
+            Tegatai_TwoFactor::start_challenge($user, false, admin_url());
+        }
+
+        wp_set_current_user($user_id);
+        wp_set_auth_cookie($user_id);
+        do_action('wp_login', $user->user_login, $user);
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id logged in");
+        wp_safe_redirect(admin_url());
+        exit;
     }
 
     /**
@@ -322,13 +422,13 @@ class Tegatai_LoginGuard {
         $forbidden_names = ['admin', 'administrator', 'root', 'webmaster'];
         
         if (!empty($ops['enable_admin_honeypot'])) {
-            if (in_array(strtolower($username), $forbidden_names)) {
+            // Only a trap if no such account exists, otherwise the real "admin" user would ban itself.
+            if (is_string($username) && in_array(strtolower($username), $forbidden_names, true) && !username_exists($username)) {
                 $ip = $this->get_client_ip();
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BAN-TRAP', "Honeypot Login-Versuch: $username von $ip");
                 
-                // Permanente Sperre via Transient (Level 100 markiert Bot-Status)
-                $k = 'teg_404_' . md5($ip);
-                set_transient($k, 100, 0); // 0 = permanent
+                // Expiring ban instead of a permanent, autoloaded transient per IP
+                Tegatai_Bans::ban_and_broadcast($ip, DAY_IN_SECONDS, "Admin username honeypot: $username", 'critical');
                 
                 wp_die('Access Denied.', 'Security Block', ['response' => 403]);
             }

@@ -2,18 +2,103 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class Tegatai_Logger {
-    // FIX: Zentrale IP-Ermittlung (Webserver- und Proxy-agnostisch)
+    // Central client IP detection.
+    // REMOTE_ADDR is the only value that cannot be forged by the client. Proxy headers
+    // (CF-Connecting-IP, X-Real-IP, X-Forwarded-For) are only honored when the request
+    // actually comes from a configured trusted proxy, see get_trusted_proxies().
     public static function get_ip() {
-        $keys = ['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP', 'HTTP_CLIENT_IP', 'HTTP_X_FORWARDED_FOR', 'REMOTE_ADDR'];
-        foreach ($keys as $key) {
-            if (!empty($_SERVER[$key])) {
-                $ip = trim(explode(',', $_SERVER[$key])[0]);
-                if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_IPV6)) {
-                    return $ip;
+        static $resolved = null;
+        if ($resolved !== null) return $resolved;
+
+        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string)$_SERVER['REMOTE_ADDR']) : '';
+        if (!filter_var($remote, FILTER_VALIDATE_IP)) {
+            // No usable peer address (e.g. CLI). Must not map to a whitelisted loopback address.
+            return $resolved = '0.0.0.0';
+        }
+
+        // A local reverse proxy (nginx -> Apache/PHP on the same host, loopback or SERVER_ADDR) is trusted implicitly,
+        // but only for X-Forwarded-For, which is evaluated from the right.
+        $explicit = self::get_trusted_proxies();
+        $local    = ['127.0.0.1', '::1'];
+        if (!empty($_SERVER['SERVER_ADDR']) && filter_var($_SERVER['SERVER_ADDR'], FILTER_VALIDATE_IP)) {
+            $local[] = (string)$_SERVER['SERVER_ADDR'];
+        }
+        $proxies  = array_merge($explicit, $local);
+        if (!self::ip_matches_any($remote, $proxies)) {
+            return $resolved = $remote;
+        }
+
+        // Single-value headers are passed through unchanged by misconfigured proxies,
+        // so they are only accepted from explicitly configured proxies.
+        if (!empty($explicit) && self::ip_matches_any($remote, $explicit)) {
+            foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP'] as $key) {
+                if (!empty($_SERVER[$key])) {
+                    $ip = trim((string)$_SERVER[$key]);
+                    if (filter_var($ip, FILTER_VALIDATE_IP)) return $resolved = $ip;
                 }
             }
         }
-        return '127.0.0.1';
+
+        // X-Forwarded-For: walk from right to left, skip our own proxies, the first
+        // untrusted hop is the client. Entries left of it are client-controlled.
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $hops = array_reverse(array_map('trim', explode(',', (string)$_SERVER['HTTP_X_FORWARDED_FOR'])));
+            foreach ($hops as $hop) {
+                if (!filter_var($hop, FILTER_VALIDATE_IP)) break;
+                if (!self::ip_matches_any($hop, $proxies)) return $resolved = $hop;
+            }
+        }
+
+        return $resolved = $remote;
+    }
+
+    /**
+     * Trusted reverse proxies (IPs or CIDR ranges).
+     * Configure via wp-config.php: define('TEGATAI_TRUSTED_PROXIES', '10.0.0.0/8, 192.168.1.5');
+     * or the 'tegatai_trusted_proxies' filter.
+     */
+    public static function get_trusted_proxies() {
+        $list = defined('TEGATAI_TRUSTED_PROXIES') ? TEGATAI_TRUSTED_PROXIES : [];
+        if (is_string($list)) $list = preg_split('/[\s,;]+/', $list);
+        if (!is_array($list)) $list = [];
+        if (function_exists('apply_filters')) $list = (array) apply_filters('tegatai_trusted_proxies', $list);
+        return array_values(array_filter(array_map('trim', $list)));
+    }
+
+    /**
+     * Whether the direct peer (REMOTE_ADDR) is an explicitly configured proxy, i.e. headers it
+     * adds such as CF-IPCountry can be trusted.
+     */
+    public static function is_trusted_proxy_request() {
+        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string)$_SERVER['REMOTE_ADDR']) : '';
+        $explicit = self::get_trusted_proxies();
+        return $remote !== '' && !empty($explicit) && self::ip_matches_any($remote, $explicit);
+    }
+
+    private static function ip_matches_any($ip, array $ranges) {
+        foreach ($ranges as $range) {
+            if (self::ip_in_range($ip, $range)) return true;
+        }
+        return false;
+    }
+
+    public static function ip_in_range($ip, $range) {
+        if (strpos($range, '/') === false) {
+            $a = @inet_pton($ip); $b = @inet_pton($range);
+            return $a !== false && $b !== false && $a === $b;
+        }
+        list($subnet, $bits) = explode('/', $range, 2);
+        $ip_bin = @inet_pton($ip); $sub_bin = @inet_pton($subnet);
+        if ($ip_bin === false || $sub_bin === false || strlen($ip_bin) !== strlen($sub_bin)) return false;
+        $bits = (int)$bits;
+        $len = strlen($ip_bin);
+        if ($bits < 0 || $bits > $len * 8) return false;
+        $mask = '';
+        for ($i = 0; $i < $len; $i++) {
+            $take = max(0, min(8, $bits - $i * 8));
+            $mask .= chr($take ? (0xFF << (8 - $take)) & 0xFF : 0);
+        }
+        return ($ip_bin & $mask) === ($sub_bin & $mask);
     }
 
     private static function tegatai_is_private_ip($ip) {
@@ -116,9 +201,12 @@ class Tegatai_Logger {
     public static function prune_logs($days = 30) {
         global $wpdb;
         $table = $wpdb->prefix . 'tegatai_logs';
-        
-        // 1. Lösche Einträge älter als X Tage
-        $time_limit = date('Y-m-d H:i:s', strtotime("-$days days"));
+
+        // do_action() without arguments passes '' as first argument.
+        $days = (int)$days > 0 ? (int)$days : 30;
+
+        // 1. Delete entries older than X days. Log times are stored in site-local time (current_time('mysql')).
+        $time_limit = gmdate('Y-m-d H:i:s', current_time('timestamp') - $days * DAY_IN_SECONDS);
         $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE time < %s", $time_limit));
         
         // 2. Hard Limit (Max 5000 Einträge behalten, Überlaufschutz)
@@ -128,9 +216,10 @@ class Tegatai_Logger {
             $wpdb->query("DELETE FROM $table ORDER BY id ASC LIMIT $limit");
         }
 
-        // 3. CLEANUP: Alte Tegatai Transients aus wp_options entfernen
-        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_timeout\_teg\_%' AND option_value < '" . time() . "'");
-        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_teg\_%' AND option_name NOT IN (SELECT CONCAT('_transient_', SUBSTRING(option_name, 20)) FROM {$wpdb->options} WHERE option_name LIKE '\_transient\_timeout\_teg\_%')");
+        // 3. CLEANUP: expired transients (rate-limit counters, nonces). The previous custom query
+        // used a subquery on the same table, which MySQL rejects (error 1093). Core's helper
+        // removes expired value/timeout pairs and keeps transients without expiry (permanent bans).
+        delete_expired_transients();
 
         // 4. CLEANUP: Veraltete RAM-First Cache-Files löschen (DDoS-Trap Cleanup)
         $cache_dir = wp_upload_dir()['basedir'] . '/tegatai-logs/cache/';

@@ -2,15 +2,19 @@
 if (!defined('ABSPATH')) { exit; }
 
 class Tegatai_Hive {
+    const MAX_RETRIES  = 4;
+
     public function __construct() {
         add_action('rest_api_init', [$this, 'register_rest_route']);
         add_action('admin_menu', [$this, 'register_page'], 20);
         add_action('tegatai_ip_banned', [$this, 'broadcast_ban'], 10, 3);
         add_action('wp_ajax_tegatai_hive_test', [$this, 'ajax_test_connection']);
         add_action('wp_ajax_tegatai_sudo_hive', [$this, 'ajax_sudo_hive']);
+        add_action('wp_login', [$this, 'remember_admin_ip'], 10, 2);
 
         // Background Worker Queue
         add_action('tegatai_hive_retry_cron', [$this, 'process_retry_queue']);
+        add_action('tegatai_hive_flush', [$this, 'process_retry_queue']);
         add_action('init', [$this, 'init_cron']);
     }
 
@@ -28,25 +32,135 @@ class Tegatai_Hive {
         ]);
     }
 
-    // DRY: Zentrale Immunitäts-Prüfung für eingehende und ausgehende Bans
-    private function is_protected_ip($ip) {
-        $server_ip = isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : '';
-        return in_array($ip, ['127.0.0.1', '::1', $server_ip]);
+    // --- Configuration helpers ---
+
+    private static function get_options() {
+        $ops = get_option('tegatai_hive_options', []);
+        return is_array($ops) ? $ops : [];
     }
 
+    private static function get_shared_secret($ops) {
+        return defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
+    }
+
+    /**
+     * Peers are configured one per line as "URL" or "URL | pair-secret".
+     * A pair secret is shared only between this node and that peer, so a compromised
+     * peer cannot impersonate any other node and can be revoked individually.
+     * Peers without their own secret fall back to the network-wide shared secret.
+     */
+    public static function get_peers($ops = null) {
+        $ops = $ops ?? self::get_options();
+        $raw = isset($ops['node_urls']) ? (string)$ops['node_urls'] : '';
+        $peers = [];
+        foreach (explode("\n", str_replace(["\r\n", "\r"], "\n", $raw)) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] === '#') continue;
+            $parts = array_map('trim', explode('|', $line, 2));
+            $url = esc_url_raw($parts[0]);
+            if (!$url) continue;
+            $peers[self::normalize_node($url)] = [
+                'url'    => untrailingslashit($url),
+                'secret' => isset($parts[1]) ? $parts[1] : '',
+            ];
+        }
+        return $peers;
+    }
+
+    private static function normalize_node($url) {
+        $url = strtolower(trim((string)$url));
+        $url = preg_replace('#^https?://#', '', $url);
+        return untrailingslashit($url);
+    }
+
+    private static function secret_for_peer($peer, $ops) {
+        if (!empty($peer['secret'])) return $peer['secret'];
+        return self::get_shared_secret($ops);
+    }
+
+    // --- Never-ban protection ---
+
+    public function remember_admin_ip($user_login, $user) {
+        if (!($user instanceof WP_User) || !user_can($user, 'manage_options')) return;
+        $ip = Tegatai_Logger::get_ip();
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) return;
+        $ips = get_option('tegatai_hive_admin_ips', []);
+        if (!is_array($ips)) $ips = [];
+        $ips[$ip] = time();
+        $cutoff = time() - 30 * DAY_IN_SECONDS;
+        $ips = array_filter($ips, function ($t) use ($cutoff) { return $t >= $cutoff; });
+        arsort($ips);
+        update_option('tegatai_hive_admin_ips', array_slice($ips, 0, 20, true), false);
+    }
+
+    /**
+     * IPs that the Hive never bans and never broadcasts: loopback, this server, private/reserved
+     * ranges, the firewall whitelists, the Hive allowlist, and IPs admins logged in from (30 days).
+     */
+    public static function is_protected_ip($ip, $ops = null) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) return true;
+        if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return true;
+        if (!empty($_SERVER['SERVER_ADDR']) && $ip === $_SERVER['SERVER_ADDR']) return true;
+
+        $ops = $ops ?? self::get_options();
+        $teg = tegatai_get_setting('tegatai_options', []);
+        $lists = [
+            $ops['protected_ips'] ?? '',
+            is_array($teg) ? ($teg['whitelist_ips'] ?? '') : '',
+            is_array($teg) ? ($teg['waf_whitelist_ips'] ?? '') : '',
+        ];
+        foreach ($lists as $list) {
+            foreach (preg_split('/[\s,;]+/', (string)$list) as $entry) {
+                if ($entry !== '' && Tegatai_Logger::ip_in_range($ip, $entry)) return true;
+            }
+        }
+
+        $admin_ips = get_option('tegatai_hive_admin_ips', []);
+        return is_array($admin_ips) && isset($admin_ips[$ip]);
+    }
+
+    // --- Ban storage (expiring, separate from the manual blacklist) ---
+
+    private static function store_ban($ip, $node, $reason, $level, $ttl) {
+        // Shared, expiring ban list enforced by the firewall; does not re-broadcast.
+        return Tegatai_Bans::add($ip, $ttl, $reason, 'hive:' . $node, $level);
+    }
+
+    private static function ban_ttl($ops) {
+        $hours = isset($ops['ban_ttl_hours']) ? (int)$ops['ban_ttl_hours'] : 24;
+        return max(1, min(720, $hours)) * HOUR_IN_SECONDS;
+    }
+
+    // --- Inbound ---
+
     public function receive_ban(WP_REST_Request $request) {
-        $ops = get_option('tegatai_hive_options', []);
-        $secret = defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
-        
-        if (empty($ops['enable_hive']) || empty($secret)) {
+        $ops = self::get_options();
+        if (empty($ops['enable_hive'])) {
             return new WP_Error('disabled', 'Hive network is disabled on this node.', ['status' => 403]);
         }
 
         $raw_body = $request->get_body();
-        $signature = $request->get_header('X-Tegatai-Signature');
+        $signature = (string)$request->get_header('X-Tegatai-Signature');
+        $claimed_node = self::normalize_node((string)$request->get_header('X-Tegatai-Node'));
 
-        if (empty($raw_body) || empty($signature)) {
+        if (empty($raw_body) || $signature === '') {
             return new WP_Error('bad_request', 'Missing payload or signature.', ['status' => 400]);
+        }
+
+        // Pick the key by the claimed sender. Unknown or anonymous senders are only accepted
+        // with the shared secret, and only while strict peer mode is off (legacy nodes).
+        $peers = self::get_peers($ops);
+        if ($claimed_node !== '' && isset($peers[$claimed_node])) {
+            $secret = self::secret_for_peer($peers[$claimed_node], $ops);
+            $node_label = $peers[$claimed_node]['url'];
+        } elseif (empty($ops['strict_peers'])) {
+            $secret = self::get_shared_secret($ops);
+            $node_label = 'legacy:' . ($claimed_node !== '' ? $claimed_node : 'unknown');
+        } else {
+            return new WP_Error('unknown_peer', 'Sender is not a configured peer.', ['status' => 403]);
+        }
+        if (empty($secret)) {
+            return new WP_Error('disabled', 'No secret configured for this peer.', ['status' => 403]);
         }
 
         $expected_signature = hash_hmac('sha256', $raw_body, $secret);
@@ -59,15 +173,19 @@ class Tegatai_Hive {
             return new WP_Error('invalid_payload', 'Malformed payload data.', ['status' => 400]);
         }
 
+        // The signed node must match the header, otherwise a peer could relay foreign payloads.
+        if (isset($data['node']) && self::normalize_node($data['node']) !== $claimed_node) {
+            return new WP_Error('invalid_payload', 'Node mismatch.', ['status' => 403]);
+        }
+
         if (abs(time() - intval($data['timestamp'])) > 60) {
             return new WP_Error('replay_attack', 'Request expired (Time drift > 60s).', ['status' => 403]);
         }
 
-        $transient_key = 'tg_hive_req_' . md5($data['req_id']);
-        if (get_transient($transient_key)) {
+        // Atomic claim; the nonce outlives the full ±60 s timestamp window.
+        if (!tegatai_claim_nonce('tg_hive_req_' . md5((string)$data['req_id']), 180)) {
             return new WP_Error('duplicate_request', 'Request ID already processed.', ['status' => 429]);
         }
-        set_transient($transient_key, 1, 60);
 
         if (!empty($data['is_test'])) {
             return rest_ensure_response(['success' => true, 'message' => 'HMAC Verified. Connection successful.']);
@@ -81,152 +199,127 @@ class Tegatai_Hive {
             return new WP_Error('invalid_ip', 'Invalid IP address format.', ['status' => 400]);
         }
 
-        if ($this->is_protected_ip($ip)) {
-            return new WP_Error('protected_ip', 'System critical IP addresses cannot be banned.', ['status' => 403]);
+        if (self::is_protected_ip($ip, $ops)) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-DENY', "Ignored ban for protected IP $ip from $node_label");
+            return new WP_Error('protected_ip', 'This IP address is protected on this node.', ['status' => 403]);
         }
 
-        $teg_ops = tegatai_get_setting('tegatai_options', []);
-        $blacklist = isset($teg_ops['blacklist_ips']) ? $teg_ops['blacklist_ips'] : '';
-        
-        if (strpos($blacklist, $ip) === false) {
-            $blacklist .= "\n" . $ip;
-            $teg_ops['blacklist_ips'] = trim($blacklist);
-            tegatai_update_setting('tegatai_options', $teg_ops);
-            
-            if (class_exists('Tegatai_Logger')) {
-                Tegatai_Logger::log('HIVE-SYNC', "Applied network ban for $ip. Level: [$level]. Reason: $reason");
-            }
+        // Cap bans per peer, so a compromised peer cannot flood the ban list.
+        $limit = (int) apply_filters('tegatai_hive_max_bans_per_peer_hour', 100);
+        $rate_key = 'tg_hive_rate_' . md5($node_label);
+        $count = (int) get_transient($rate_key);
+        if ($count >= $limit) {
+            return new WP_Error('rate_limited', 'Too many bans from this peer.', ['status' => 429]);
+        }
+        set_transient($rate_key, $count + 1, HOUR_IN_SECONDS);
+
+        if (self::store_ban($ip, $node_label, $reason, $level, self::ban_ttl($ops)) && class_exists('Tegatai_Logger')) {
+            Tegatai_Logger::log('HIVE-SYNC', "Applied network ban for $ip from $node_label. Level: [$level]. Reason: $reason");
         }
 
         return rest_ensure_response(['success' => true, 'message' => 'Threat successfully synced to local node.']);
     }
 
+    // --- Outbound ---
+
+    /**
+     * Fired via do_action('tegatai_ip_banned', $ip, $reason, $level) by the firewall and login traps.
+     * Never blocks the current request: payloads are queued and sent by a cron worker.
+     */
     public function broadcast_ban($ip, $reason = 'Malicious Activity', $level = 'critical') {
-        $ops = get_option('tegatai_hive_options', []);
-        $secret = defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
-        
-        if (empty($ops['enable_hive']) || empty($secret) || empty($ops['node_urls'])) return;
-        if (!filter_var($ip, FILTER_VALIDATE_IP) || $this->is_protected_ip($ip)) return;
+        $ops = self::get_options();
+        if (empty($ops['enable_hive'])) return;
+        if (self::is_protected_ip($ip, $ops)) return;
 
-        $urls = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $ops['node_urls']))));
-        if (empty($urls)) return;
-        
-        $ssl_verify = isset($ops['ssl_verify']) ? (bool) $ops['ssl_verify'] : true;
-        $failed_queue = get_option('tegatai_hive_queue', []);
-        $has_failures = false;
+        $peers = self::get_peers($ops);
+        if (empty($peers)) return;
 
-        foreach ($urls as $url) {
-            if (empty($url)) continue;
-            $endpoint = rtrim($url, '/') . '/wp-json/tegatai/v1/hive/receive';
-            
-            $payload = [
-                'ip' => $ip,
-                'reason' => $reason,
-                'level' => $level,
-                'timestamp' => time(),
-                'req_id' => bin2hex(random_bytes(16))
+        // One broadcast per IP and hour, repeated hits of the same attacker are not re-sent.
+        if (!tegatai_claim_nonce('tg_hive_out_' . md5($ip), HOUR_IN_SECONDS)) return;
+
+        $queue = get_option('tegatai_hive_queue', []);
+        if (!is_array($queue)) $queue = [];
+        foreach ($peers as $key => $peer) {
+            $queue[] = [
+                'peer' => $key,
+                'url' => $peer['url'] . '/wp-json/tegatai/v1/hive/receive',
+                'payload' => ['ip' => $ip, 'reason' => (string)$reason, 'level' => (string)$level],
+                'retries' => 0,
+                'queued_at' => time(),
             ];
-            
-            $json_payload = wp_json_encode($payload);
-            $signature = hash_hmac('sha256', $json_payload, $secret);
-
-            $response = wp_remote_post($endpoint, [
-                'blocking' => true,
-                'timeout' => 2, // Live-Request kurz halten
-                'sslverify' => $ssl_verify,
-                'headers' => [
-                    'X-Tegatai-Signature' => $signature,
-                    'Content-Type' => 'application/json; charset=utf-8'
-                ],
-                'body' => $json_payload
-            ]);
-
-            if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-                // Bei Timeout oder Fehler: Payload in Queue ablegen für WP-Cron
-                $failed_queue[] = [
-                    'url' => $endpoint,
-                    'payload' => $payload, 
-                    'retries' => 0,
-                    'queued_at' => time() // GC Timestamp
-                ];
-                $has_failures = true;
-                
-                if (class_exists('Tegatai_Logger')) {
-                    $err = is_wp_error($response) ? $response->get_error_message() : wp_remote_retrieve_response_code($response);
-                    Tegatai_Logger::log('HIVE-QUEUE', "Failed to broadcast to $endpoint ($err). Queued for retry.");
-                }
-            }
         }
+        update_option('tegatai_hive_queue', array_slice($queue, -500), false);
 
-        if ($has_failures) {
-            update_option('tegatai_hive_queue', $failed_queue, false);
+        if (!wp_next_scheduled('tegatai_hive_flush')) {
+            wp_schedule_single_event(time(), 'tegatai_hive_flush');
         }
+    }
+
+    private static function send_signed($url, array $payload, $secret, $ssl_verify, $timeout) {
+        $payload['node'] = home_url();
+        $payload['timestamp'] = time();
+        $payload['req_id'] = bin2hex(random_bytes(16));
+        $json_payload = wp_json_encode($payload);
+
+        return wp_remote_post($url, [
+            'blocking' => true,
+            'timeout' => $timeout,
+            'sslverify' => $ssl_verify,
+            'headers' => [
+                'X-Tegatai-Signature' => hash_hmac('sha256', $json_payload, $secret),
+                'X-Tegatai-Node' => home_url(),
+                'Content-Type' => 'application/json; charset=utf-8'
+            ],
+            'body' => $json_payload
+        ]);
     }
 
     public function process_retry_queue() {
         $queue = get_option('tegatai_hive_queue', []);
-        if (empty($queue)) return;
+        if (empty($queue) || !is_array($queue)) return;
 
-        $ops = get_option('tegatai_hive_options', []);
-        $secret = defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
-        if (empty($secret)) return;
-
+        $ops = self::get_options();
+        $peers = self::get_peers($ops);
         $ssl_verify = isset($ops['ssl_verify']) ? (bool) $ops['ssl_verify'] : true;
         $new_queue = [];
-        $queue_changed = false;
 
         foreach ($queue as $item) {
-            // Garbage Collection: Verwerfe Einträge, die älter als 24 Stunden sind
+            // Garbage Collection: drop entries older than 24 hours or after too many attempts
             $queued_at = isset($item['queued_at']) ? intval($item['queued_at']) : 0;
-            if ($queued_at > 0 && (time() - $queued_at > 86400)) {
-                $queue_changed = true;
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-GC', "Dropped expired queue item for " . $item['url']);
-                continue; 
+            $retries = isset($item['retries']) ? (int)$item['retries'] : 0;
+            if (($queued_at > 0 && time() - $queued_at > DAY_IN_SECONDS) || $retries >= self::MAX_RETRIES) {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-GC', "Dropped queue item for " . $item['url'] . " after $retries attempts.");
+                continue;
             }
 
-            if (!isset($item['retries'])) $item['retries'] = 0;
-            if ($item['retries'] >= 3) {
-                $queue_changed = true;
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-GC', "Dropped queue item for " . $item['url'] . " after 3 failed retries.");
-                continue; // Nach 3 Versuchen aufgeben
-            }
+            $peer = isset($item['peer'], $peers[$item['peer']]) ? $peers[$item['peer']] : null;
+            $secret = $peer ? self::secret_for_peer($peer, $ops) : self::get_shared_secret($ops);
+            if (empty($secret) || empty($item['payload']) || !is_array($item['payload'])) continue;
 
-            $queue_changed = true; // Queue wird definitiv aktualisiert (entweder gelöscht oder retries erhöht)
+            $payload = array_intersect_key($item['payload'], array_flip(['ip', 'reason', 'level']));
+            $response = self::send_signed($item['url'], $payload, $secret, $ssl_verify, 5);
+            $code = is_wp_error($response) ? 0 : wp_remote_retrieve_response_code($response);
 
-            // WICHTIG: Timestamp erneuern, damit das Zielsystem den 60s Drift Check passiert!
-            $item['payload']['timestamp'] = time();
-            $item['payload']['req_id'] = bin2hex(random_bytes(16));
-            
-            $json_payload = wp_json_encode($item['payload']);
-            $signature = hash_hmac('sha256', $json_payload, $secret);
-
-            $response = wp_remote_post($item['url'], [
-                'blocking' => true,
-                'timeout' => 5, // Im Cron dürfen wir länger warten
-                'sslverify' => $ssl_verify,
-                'headers' => [
-                    'X-Tegatai-Signature' => $signature,
-                    'Content-Type' => 'application/json; charset=utf-8'
-                ],
-                'body' => $json_payload
-            ]);
-
-            if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-                $item['retries']++;
-                $new_queue[] = $item; // Wieder in die Queue
-            } else {
-                if (class_exists('Tegatai_Logger')) {
+            // 403 protected_ip / 429 duplicate are final answers, retrying would not help.
+            if ($code === 200 || $code === 403 || $code === 429) {
+                if ($retries > 0 && $code === 200 && class_exists('Tegatai_Logger')) {
                     Tegatai_Logger::log('HIVE-RETRY', "Successfully delivered delayed payload to " . $item['url']);
                 }
+                continue;
+            }
+
+            $item['retries'] = $retries + 1;
+            $new_queue[] = $item;
+            if (class_exists('Tegatai_Logger')) {
+                $err = is_wp_error($response) ? $response->get_error_message() : $code;
+                Tegatai_Logger::log('HIVE-QUEUE', "Failed to deliver to {$item['url']} ($err). Will retry.");
             }
         }
 
-        if ($queue_changed) {
-            if (empty($new_queue)) {
-                delete_option('tegatai_hive_queue');
-            } else {
-                update_option('tegatai_hive_queue', $new_queue, false);
-            }
+        if (empty($new_queue)) {
+            delete_option('tegatai_hive_queue');
+        } else {
+            update_option('tegatai_hive_queue', $new_queue, false);
         }
     }
 
@@ -235,58 +328,44 @@ class Tegatai_Hive {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_ajax_referer('tegatai_hive_test_nonce', 'security');
 
-        $ops = get_option('tegatai_hive_options', []);
-        $secret = defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
+        $ops = self::get_options();
+        $peers = self::get_peers($ops);
 
-        if (empty($ops['enable_hive']) || empty($secret) || empty($ops['node_urls'])) {
+        if (empty($ops['enable_hive']) || empty($peers)) {
             if (ob_get_length()) { ob_clean(); }
-            wp_send_json_error(__('Hive network is disabled or missing configuration.', 'tegatai-Secure'));
+            wp_send_json_error(__('Hive network is disabled or missing configuration.', 'tegatai-secure'));
         }
 
-        $urls = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $ops['node_urls']))));
         $ssl_verify = isset($ops['ssl_verify']) ? (bool) $ops['ssl_verify'] : true;
         $results = [];
 
-        foreach ($urls as $url) {
-            if (empty($url)) continue;
-            $endpoint = rtrim($url, '/') . '/wp-json/tegatai/v1/hive/receive';
-            
-            $payload = [
-                'ip' => '127.0.0.1', 
+        foreach ($peers as $peer) {
+            $secret = self::secret_for_peer($peer, $ops);
+            if (empty($secret)) {
+                $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => __('No secret configured for this peer', 'tegatai-secure')];
+                continue;
+            }
+            $response = self::send_signed($peer['url'] . '/wp-json/tegatai/v1/hive/receive', [
+                'ip' => '127.0.0.1',
                 'reason' => 'Connection Test',
                 'level' => 'low',
                 'is_test' => true,
-                'timestamp' => time(),
-                'req_id' => bin2hex(random_bytes(16))
-            ];
-            $json_payload = wp_json_encode($payload);
-            $signature = hash_hmac('sha256', $json_payload, $secret);
-
-            $response = wp_remote_post($endpoint, [
-                'blocking' => true,
-                'timeout' => 5,
-                'sslverify' => $ssl_verify,
-                'headers' => [
-                    'X-Tegatai-Signature' => $signature,
-                    'Content-Type' => 'application/json; charset=utf-8'
-                ],
-                'body' => $json_payload
-            ]);
+            ], $secret, $ssl_verify, 5);
 
             if (is_wp_error($response)) {
-                $results[] = ['url' => $url, 'status' => 'error', 'msg' => $response->get_error_message()];
+                $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $response->get_error_message()];
             } else {
                 $code = wp_remote_retrieve_response_code($response);
                 if ($code === 200) {
-                    $results[] = ['url' => $url, 'status' => 'success', 'msg' => __('OK - HMAC Verified', 'tegatai-Secure')];
+                    $results[] = ['url' => $peer['url'], 'status' => 'success', 'msg' => __('OK - HMAC Verified', 'tegatai-secure')];
                 } elseif ($code === 403) {
-                    $results[] = ['url' => $url, 'status' => 'error', 'msg' => __('HTTP 403 - Invalid Signature or Expired', 'tegatai-Secure')];
+                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => __('HTTP 403 - Invalid Signature, unknown peer or expired', 'tegatai-secure')];
                 } else {
-                    $results[] = ['url' => $url, 'status' => 'error', 'msg' => 'HTTP ' . $code];
+                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => 'HTTP ' . $code];
                 }
             }
         }
-        
+
         if (ob_get_length()) { ob_clean(); }
         wp_send_json_success($results);
     }
@@ -310,7 +389,7 @@ class Tegatai_Hive {
         if ($mode === 'generate') {
             $key = 'tg_hmac_' . bin2hex(random_bytes(32));
         } else {
-            $ops = get_option('tegatai_hive_options', []);
+            $ops = self::get_options();
             $key = !empty($ops['shared_secret']) ? $ops['shared_secret'] : '';
         }
 
@@ -318,11 +397,11 @@ class Tegatai_Hive {
     }
 
     public function register_page() {
-        add_submenu_page('tegatai-Secure', __('The Hive', 'tegatai-Secure'), __('The Hive', 'tegatai-Secure'), 'manage_options', 'tegatai-hive', [$this, 'render_page']);
+        add_submenu_page('tegatai-Secure', __('The Hive', 'tegatai-secure'), __('The Hive', 'tegatai-secure'), 'manage_options', 'tegatai-hive', [$this, 'render_page']);
     }
 
     public function render_page() {
-        if (!current_user_can('manage_options')) wp_die(esc_html__('Access Denied', 'tegatai-Secure'));
+        if (!current_user_can('manage_options')) wp_die(esc_html__('Access Denied', 'tegatai-secure'));
 
         if (isset($_POST['tegatai_hive_nonce']) && wp_verify_nonce($_POST['tegatai_hive_nonce'], 'save_hive_settings')) {
             $current_ops = get_option('tegatai_hive_options', []);
@@ -331,13 +410,17 @@ class Tegatai_Hive {
                 'enable_hive' => isset($_POST['enable_hive']) ? 1 : 0,
                 'ssl_verify' => isset($_POST['ssl_verify']) ? 1 : 0,
                 'shared_secret' => !empty($new_secret) ? $new_secret : (isset($current_ops['shared_secret']) ? $current_ops['shared_secret'] : ''),
-                'node_urls' => sanitize_textarea_field($_POST['node_urls'])
+                'node_urls' => sanitize_textarea_field($_POST['node_urls']),
+                'strict_peers' => isset($_POST['strict_peers']) ? 1 : 0,
+                'ban_ttl_hours' => max(1, min(720, (int)($_POST['ban_ttl_hours'] ?? 24))),
+                'protected_ips' => sanitize_textarea_field($_POST['protected_ips'] ?? ''),
             ];
             update_option('tegatai_hive_options', $ops);
-            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-Secure') . '</p></div>';
+            echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-secure') . '</p></div>';
         }
 
-        $ops = get_option('tegatai_hive_options', ['enable_hive' => 0, 'ssl_verify' => 1, 'shared_secret' => '', 'node_urls' => '']);
+        $ops = array_merge(['enable_hive' => 0, 'ssl_verify' => 1, 'shared_secret' => '', 'node_urls' => '', 'strict_peers' => 0, 'ban_ttl_hours' => 24, 'protected_ips' => ''], self::get_options());
+        $active_bans = array_filter(Tegatai_Bans::active(), function ($b) { return strpos((string)($b['source'] ?? ''), 'hive:') === 0; });
         
         ?>
         <style>
@@ -401,10 +484,10 @@ class Tegatai_Hive {
             
             <div class="teg-inner-nav">
                 <a href="admin.php?page=tegatai-Secure&tab=dashboard" class="teg-back-btn">
-                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-Secure'); ?>
+                    <span class="dashicons dashicons-arrow-left-alt" style="margin-top:2px;"></span> <?php echo esc_html__('Dashboard', 'tegatai-secure'); ?>
                 </a>
                 <div class="teg-horizontal-tabs">
-                    <span class="teg-h-tab active"><?php echo esc_html__('Network Setup', 'tegatai-Secure'); ?></span>
+                    <span class="teg-h-tab active"><?php echo esc_html__('Network Setup', 'tegatai-secure'); ?></span>
                 </div>
             </div>
 
@@ -414,34 +497,34 @@ class Tegatai_Hive {
                 
                 <div class="teg-grid">
                     <div class="teg-card" style="grid-column: span 2;">
-                        <h3><span class="dashicons dashicons-info"></span> <?php esc_html_e('Hive Network Status', 'tegatai-Secure'); ?></h3>
-                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('The Hive uses HMAC-SHA256 payload signing, strict timestamps, and request IDs to create a zero-trust, replay-resistant defense grid.', 'tegatai-Secure'); ?></p>
+                        <h3><span class="dashicons dashicons-info"></span> <?php esc_html_e('Hive Network Status', 'tegatai-secure'); ?></h3>
+                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('The Hive uses HMAC-SHA256 payload signing, strict timestamps, and request IDs to create a zero-trust, replay-resistant defense grid.', 'tegatai-secure'); ?></p>
                         
                         <div class="teg-switch-row">
-                            <div><span class="teg-switch-label"><?php esc_html_e('Enable Broadcast & Receive', 'tegatai-Secure'); ?></span></div>
+                            <div><span class="teg-switch-label"><?php esc_html_e('Enable Broadcast & Receive', 'tegatai-secure'); ?></span></div>
                             <label class="switch"><input type="checkbox" name="enable_hive" value="1" <?php checked($ops['enable_hive'], 1); ?>><span class="slider"></span></label>
                         </div>
                         <div class="teg-switch-row">
                             <div>
-                                <span class="teg-switch-label"><?php esc_html_e('Enforce strict SSL verification', 'tegatai-Secure'); ?></span>
-                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Uncheck only for self-signed certs/local nodes', 'tegatai-Secure'); ?></span>
+                                <span class="teg-switch-label"><?php esc_html_e('Enforce strict SSL verification', 'tegatai-secure'); ?></span>
+                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Uncheck only for self-signed certs/local nodes', 'tegatai-secure'); ?></span>
                             </div>
                             <label class="switch"><input type="checkbox" name="ssl_verify" value="1" <?php checked($ops['ssl_verify'], 1); ?>><span class="slider"></span></label>
                         </div>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-Secure'); ?></h3>
+                        <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-secure'); ?></h3>
                         <?php if (defined('TEGATAI_HIVE_SECRET')) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-Secure'); ?></strong><br>
-                                <?php esc_html_e('The secret is active and secured. It is hidden from the UI.', 'tegatai-Secure'); ?>
+                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-secure'); ?></strong><br>
+                                <?php esc_html_e('The secret is active and secured. It is hidden from the UI.', 'tegatai-secure'); ?>
                             </div>
                         <?php else : ?>
                             <?php if (!empty($ops['shared_secret'])) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-Secure'); ?></strong><br>
-                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend migrating it to wp-config.php.', 'tegatai-Secure'); ?>
+                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
+                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend migrating it to wp-config.php.', 'tegatai-secure'); ?>
                                 </div>
                             <?php endif; ?>
                             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
@@ -450,26 +533,43 @@ class Tegatai_Hive {
                             
                             <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
                                 <?php if (!empty($ops['shared_secret'])) : ?>
-                                    <button type="button" class="button button-secondary" id="reveal_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-Secure'); ?></button>
+                                    <button type="button" class="button button-secondary" id="reveal_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Reveal (Sudo)', 'tegatai-secure'); ?></button>
                                 <?php endif; ?>
-                                <button type="button" class="button button-secondary" id="generate_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-Secure'); ?></button>
-                                <button type="button" class="button button-secondary" id="copy_hive_key" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-Secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="generate_hive_key" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-secure'); ?></button>
+                                <button type="button" class="button button-secondary" id="copy_hive_key" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
                             </div>
                             
-                            <p class="teg-switch-desc"><?php esc_html_e('Leave blank to keep current secret.', 'tegatai-Secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('Leave blank to keep current secret.', 'tegatai-secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
                     <div class="teg-card">
-                        <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-Secure'); ?></h3>
-                        <p class="teg-switch-desc"><?php esc_html_e('One URL per line.', 'tegatai-Secure'); ?></p>
-                        <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com&#10;https://another-site.net"><?php echo esc_textarea($ops['node_urls']); ?></textarea>
+                        <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-secure'); ?></h3>
+                        <p class="teg-switch-desc"><?php esc_html_e('One peer per line: "URL" or "URL | pair secret". A pair secret is shared only with that peer (configure the same value on both sides); peers without one use the shared secret.', 'tegatai-secure'); ?></p>
+                        <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com | tg_hmac_...&#10;https://another-site.net"><?php echo esc_textarea($ops['node_urls']); ?></textarea>
+                        <div class="teg-switch-row">
+                            <div>
+                                <span class="teg-switch-label"><?php esc_html_e('Strict peer mode', 'tegatai-secure'); ?></span>
+                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Only accept bans from listed peers that identify themselves (requires the current Tegatai version on all nodes).', 'tegatai-secure'); ?></span>
+                            </div>
+                            <label class="switch"><input type="checkbox" name="strict_peers" value="1" <?php checked($ops['strict_peers'], 1); ?>><span class="slider"></span></label>
+                        </div>
+                    </div>
+
+                    <div class="teg-card">
+                        <h3><span class="dashicons dashicons-clock"></span> <?php esc_html_e('Ban Policy', 'tegatai-secure'); ?></h3>
+                        <label class="teg-switch-label"><?php esc_html_e('Network ban duration (hours)', 'tegatai-secure'); ?></label>
+                        <input type="number" name="ban_ttl_hours" min="1" max="720" value="<?php echo esc_attr((int)$ops['ban_ttl_hours']); ?>" class="teg-form-input">
+                        <label class="teg-switch-label"><?php esc_html_e('Never-ban allowlist (IP / CIDR)', 'tegatai-secure'); ?></label>
+                        <textarea name="protected_ips" class="teg-form-input" placeholder="203.0.113.10&#10;66.249.64.0/19"><?php echo esc_textarea($ops['protected_ips']); ?></textarea>
+                        <p class="teg-switch-desc"><?php esc_html_e('Always protected as well: firewall whitelists, private ranges, this server and IPs admins logged in from (30 days).', 'tegatai-secure'); ?></p>
+                        <p class="teg-switch-desc"><?php echo esc_html(sprintf(__('Active network bans: %d', 'tegatai-secure'), count($active_bans))); ?></p>
                     </div>
                 </div>
 
                 <div style="margin-top:20px; display: flex; gap: 10px; align-items: center;">
-                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Hive Configuration', 'tegatai-Secure'); ?></button>
-                    <button type="button" class="button button-secondary" id="test_hive_connections"><?php esc_html_e('Test Connections', 'tegatai-Secure'); ?></button>
+                    <button type="submit" class="button button-primary"><?php esc_html_e('Save Hive Configuration', 'tegatai-secure'); ?></button>
+                    <button type="button" class="button button-secondary" id="test_hive_connections"><?php esc_html_e('Test Connections', 'tegatai-secure'); ?></button>
                     <span id="test_spinner" class="spinner" style="float: none; margin: 0;"></span>
                 </div>
             </form>
@@ -536,12 +636,12 @@ class Tegatai_Hive {
                         
                         navigator.clipboard.writeText(input.value).then(() => {
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         }).catch(err => {
                             input.type = 'text'; input.select(); document.execCommand('copy'); input.type = 'password';
                             const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-Secure'); ?>';
+                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
                             setTimeout(() => btnCop.innerText = orig, 2000);
                         });
                     });
@@ -552,7 +652,7 @@ class Tegatai_Hive {
                         e.preventDefault();
                         spinner.classList.add('is-active');
                         resultsDiv.style.display = 'block';
-                        resultsDiv.innerHTML = '<em style="font-size:13px; color:var(--teg-muted);"><?php esc_html_e('Signing payload and pinging nodes...', 'tegatai-Secure'); ?></em>';
+                        resultsDiv.innerHTML = '<em style="font-size:13px; color:var(--teg-muted);"><?php esc_html_e('Signing payload and pinging nodes...', 'tegatai-secure'); ?></em>';
 
                         const fd = new FormData();
                         fd.append('action', 'tegatai_hive_test');
@@ -577,7 +677,7 @@ class Tegatai_Hive {
                                     resultsDiv.innerHTML = '<span style="color: var(--teg-danger); font-weight:600;">✖ ' + errMsg + '</span>';
                                     return;
                                 }
-                                let html = '<strong style="font-size:14px;"><?php esc_html_e('Cryptographic Handshake Results:', 'tegatai-Secure'); ?></strong><br><ul style="margin-top: 8px; margin-bottom: 0; font-size:13px; line-height:1.6;">';
+                                let html = '<strong style="font-size:14px;"><?php esc_html_e('Cryptographic Handshake Results:', 'tegatai-secure'); ?></strong><br><ul style="margin-top: 8px; margin-bottom: 0; font-size:13px; line-height:1.6;">';
                                 data.data.forEach(item => {
                                     const color = item.status === 'success' ? 'var(--teg-success)' : 'var(--teg-danger)';
                                     const icon = item.status === 'success' ? '✔' : '✖';

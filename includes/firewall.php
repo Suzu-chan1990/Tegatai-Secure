@@ -2,8 +2,10 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 class Tegatai_Firewall {
-    private $patterns = ['/union\s+select/i', '/eval\s*\(/i', '/base64_decode/i', '/<script>/i', '/(\.\.\/)/', '/1=1/', '/javascript:/i', '/onload=/', '/wp-config\.php/i'];
-    private $bad_agents = ['curl', 'wget', 'python-requests', 'libwww-perl', 'sqlmap', 'nikto', 'masscan'];
+    // Word boundaries keep normal prose ("medieval (", "Retrieval (", "javascript: tips") from matching.
+    private $patterns = ['/\bunion\s+(all\s+)?select\b/i', '/\beval\s*\(/i', '/\bbase64_decode\s*\(/i', '/<script\b/i', '/(\.\.\/)/', '/\b(or|and)\s+[\'"]?1[\'"]?\s*=\s*[\'"]?1\b/i', '/\bjavascript:(?!\s)/i', '/\bonload\s*=/i', '/wp-config\.php/i'];
+    // curl/wget are not listed: system cron jobs (wget -q -O - .../wp-cron.php) and uptime monitors use them.
+    private $bad_agents = ['python-requests', 'libwww-perl', 'sqlmap', 'nikto', 'masscan'];
     private $ai_bots = ['gptbot', 'chatgpt-user', 'anthropic', 'claude', 'cohere', 'perplexity', 'omgili'];
     private $seo_bots = ['semrush', 'ahrefs', 'majestic', 'screaming frog', 'dotbot', 'rogerbot', 'bytespider'];
     private $sensitive_files = ['.env', '.git', 'wp-config.php.bak', 'debug.log', '.htaccess'];
@@ -11,13 +13,17 @@ class Tegatai_Firewall {
     // Unified Cache Engine
     private $redis = null;
 
+    private $redis_tried = false;
+
     public function __construct() {
-        $this->init_redis();
         // Priority 1: Die Firewall muss vor allem anderen (Plugins, Themes) feuern
-        add_action('init', [$this, 'run_checks'], 1); 
+        add_action('init', [$this, 'run_checks'], 1);
     }
 
-    private function init_redis() {
+    // Lazy: only connect when a feature actually needs the cache.
+    private function get_redis() {
+        if ($this->redis_tried) return $this->redis;
+        $this->redis_tried = true;
         if (class_exists('Redis')) {
             try {
                 $this->redis = new Redis();
@@ -27,6 +33,21 @@ class Tegatai_Firewall {
                 }
             } catch (Exception $e) { $this->redis = null; }
         }
+        return $this->redis;
+    }
+
+    // Login page (wp-login.php or the custom login slug), must stay reachable during lockdown.
+    private function is_login_request() {
+        global $pagenow;
+        if ($pagenow === 'wp-login.php' || defined('TEGATAI_LOGIN_PAGE')) return true;
+        $ops = tegatai_get_setting('tegatai_options', []);
+        $slug = is_array($ops) ? ($ops['custom_login_slug'] ?? '') : '';
+        if (!is_string($slug) || $slug === '') return false;
+        $path = trim((string)wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        // Subdirectory installs: compare relative to the home path
+        $home = trim((string)wp_parse_url(home_url(), PHP_URL_PATH), '/');
+        if ($home !== '' && strpos($path . '/', $home . '/') === 0) $path = trim(substr($path, strlen($home)), '/');
+        return $path === trim($slug, '/');
     }
 
     // DRY: Zentrale Client-IP Ermittlung
@@ -48,16 +69,19 @@ class Tegatai_Firewall {
 
         $ops = tegatai_get_setting('tegatai_options', []);
 
-        // --- 🚨 PANIC BUTTON (LOCKDOWN MODUS) ---
-        if (!empty($ops['enable_lockdown']) && !current_user_can('manage_options')) {
-            status_header(503);
-            nocache_headers();
-            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-Secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-Secure') . '</p></div>', __('503 Service Unavailable', 'tegatai-Secure'), ['response' => 503]);
-        }
-
         // Whitelist IPs (Vorrang, inklusive des v1 Patches für WAF Whitelists)
+        // Checked before the lockdown so whitelisted admins are never locked out.
         if (!empty($ops['whitelist_ips']) && $this->check_whitelist($ops['whitelist_ips'])) return;
         if (!empty($ops['waf_whitelist_ips']) && $this->check_whitelist($ops['waf_whitelist_ips'])) return;
+
+        // --- 🚨 PANIC BUTTON (LOCKDOWN MODUS) ---
+        // The login page stays reachable, otherwise a logged-out admin could never disable it again.
+        // Logged-in admins (incl. their admin-ajax/REST calls, cookie auth is resolved here) pass.
+        if (!empty($ops['enable_lockdown']) && !current_user_can('manage_options') && !$this->is_login_request()) {
+            status_header(503);
+            nocache_headers();
+            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-secure') . '</p></div>', __('503 Service Unavailable', 'tegatai-secure'), ['response' => 503]);
+        }
 
         // 1. VIP SPUR: Echte Suchmaschinen durchwinken (Bypass für WAF & Rate Limit via rDNS)
         if ($this->verify_good_bot()) return;
@@ -68,6 +92,12 @@ class Tegatai_Firewall {
 
         // Blacklist IPs
         if (!empty($ops['blacklist_ips'])) $this->check_blacklist($ops['blacklist_ips']);
+
+        // Expiring bans (firewall traps, login honeypots, Hive peers)
+        if (Tegatai_Bans::is_banned($this->get_client_ip())) {
+            status_header(403);
+            wp_die('Banned', '403', ['response' => 403]);
+        }
 
         // GeoIP
         if (!empty($ops['geoip_mode']) && $ops['geoip_mode'] !== 'off') {
@@ -86,7 +116,9 @@ class Tegatai_Firewall {
 
     private function run_waf() { 
         $ops = tegatai_get_setting('tegatai_options');
-        if(current_user_can('manage_options')) return;
+        // Content authors (edit_posts) legitimately submit markup, scripts and relative links.
+        // Guests, subscribers and customers (self-registered accounts) are still inspected.
+        if(current_user_can('edit_posts')) return;
         
         // CUSTOM RULES CHECK with ReDoS Shield
         if (!empty($ops['custom_waf_blocklist'])) {
@@ -117,10 +149,8 @@ class Tegatai_Firewall {
         if (strpos($_SERVER['REQUEST_URI'] ?? '', '/secret-backup-db/') !== false) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BAN-TRAP', "Honeypot ausgelöst: secret-backup-db");
             // Setze Ban-Counter sofort auf Maximum (50) -> 24h Sperre
-            $ip = $this->get_client_ip();
-            $k = 'teg_404_' . md5($ip);
-            $this->set_hit_count($k, 50, 86400); 
-            wp_die(esc_html__('System Error', 'tegatai-Secure'), esc_html__('Trap', 'tegatai-Secure'), ['response' => 403]);
+            Tegatai_Bans::ban_and_broadcast($this->get_client_ip(), DAY_IN_SECONDS, 'Honeypot URL', 'critical');
+            wp_die(esc_html__('System Error', 'tegatai-secure'), esc_html__('Trap', 'tegatai-secure'), ['response' => 403]);
         }
         
         // NEU v1.1: URL Whitelist
@@ -156,15 +186,17 @@ class Tegatai_Firewall {
         if ($country === 'XX') return; // Fail Open
 
         $list_raw = isset($ops['geoip_list']) ? strtoupper($ops['geoip_list']) : '';
-        $countries = array_map('trim', explode(',', $list_raw));
+        // Drop empty entries: an empty whitelist must not block every visitor (and every admin).
+        $countries = array_values(array_filter(array_map('trim', explode(',', $list_raw)), 'strlen'));
+        if (empty($countries)) return;
 
         if ($ops['geoip_mode'] === 'blacklist') {
-            if (in_array($country, $countries)) {
+            if (in_array($country, $countries, true)) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country");
                 wp_die("Access from your country ($country) is not allowed.", "GeoIP Block", ['response' => 403]);
             }
         } elseif ($ops['geoip_mode'] === 'whitelist') {
-            if (!empty($countries) && !in_array($country, $countries)) {
+            if (!in_array($country, $countries, true)) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country (Not Whitelisted)");
                 wp_die("Access from your country ($country) is not allowed.", "GeoIP Block", ['response' => 403]);
             }
@@ -172,28 +204,32 @@ class Tegatai_Firewall {
     }
 
     private function get_country_code() {
-        if (isset($_SERVER['HTTP_CF_IPCOUNTRY'])) return strtoupper(sanitize_text_field($_SERVER['HTTP_CF_IPCOUNTRY']));
-        
+        // The header is only meaningful when the request really comes through a configured proxy (e.g. Cloudflare),
+        // otherwise any client could pick its own country.
+        if (isset($_SERVER['HTTP_CF_IPCOUNTRY']) && class_exists('Tegatai_Logger') && Tegatai_Logger::is_trusted_proxy_request()) {
+            $cc = strtoupper(sanitize_text_field($_SERVER['HTTP_CF_IPCOUNTRY']));
+            if (preg_match('/^[A-Z]{2}$/', $cc)) return $cc;
+        }
+
         $ip = $this->get_client_ip();
-        if ($this->is_protected_ip($ip)) return 'XX';
-        
+        if ($this->is_protected_ip($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) return 'XX';
+
         $cache_key = 'teg_geo_' . md5($ip);
-        
+
         // Check Unified Cache first
         $cached = $this->get_hit_count($cache_key, 86400);
         if ($cached) return $cached;
-        
-        // Explicit Transient Fallback
-        $cached = get_transient($cache_key);
-        if ($cached) return $cached;
 
-        $response = wp_remote_get("https://get.geojs.io/v1/ip/country/{$ip}.json", ['timeout' => 2, 'sslverify' => true]);
+        $response = wp_remote_get('https://get.geojs.io/v1/ip/country/' . rawurlencode($ip) . '.json', ['timeout' => 2, 'sslverify' => true]);
         if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) == 200) {
             $body = json_decode(wp_remote_retrieve_body($response), true);
-            $cc = isset($body['countryCode']) ? strtoupper($body['countryCode']) : 'XX';
+            $cc = isset($body['countryCode']) ? strtoupper((string)$body['countryCode']) : 'XX';
+            if (!preg_match('/^[A-Z]{2}$/', $cc)) $cc = 'XX';
             $this->set_hit_count($cache_key, $cc, 86400); // Speichere in Unified Cache
             return $cc;
         }
+        // Cache failures briefly, otherwise an unreachable API adds the 2s timeout to every request.
+        $this->set_hit_count($cache_key, 'XX', 600);
         return 'XX';
     }
 
@@ -210,37 +246,36 @@ class Tegatai_Firewall {
     }
 
     // --- Unified Cache Engine (RAM-First, DDoS Protection) ---
+    // $time_window is kept for call compatibility; the file cache stores the absolute expiry written by set_hit_count().
     private function get_hit_count($key, $time_window) {
-        if ($this->redis) return $this->redis->get('tegatai_' . $key);
+        $redis = $this->get_redis();
+        if ($redis) return $redis->get('tegatai_' . $key);
         if (function_exists('apcu_fetch')) return apcu_fetch($key);
         if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) return wp_cache_get($key, 'tegatai');
-        
-        // Fallback auf File-Cache
+
+        // Fallback auf File-Cache (Format: expiry|value). Stale files are removed by Tegatai_Logger::prune_logs().
         $ud = wp_upload_dir();
         $dir = $ud['basedir'] . '/tegatai-logs/cache/';
         $file = $dir . $key . '.txt';
         if (file_exists($file)) {
-            $data = explode('|', @file_get_contents($file));
-            if (isset($data[1]) && (time() - intval($data[0])) < $time_window) return is_numeric($data[1]) ? intval($data[1]) : $data[1];
+            $data = explode('|', (string)@file_get_contents($file), 2);
+            if (isset($data[1]) && time() < intval($data[0])) return is_numeric($data[1]) ? intval($data[1]) : $data[1];
             @unlink($file);
         }
         return false;
     }
 
     private function set_hit_count($key, $val, $time_window) {
-        if ($this->redis) { $this->redis->setex('tegatai_' . $key, $time_window, $val); return; }
+        $redis = $this->get_redis();
+        if ($redis) { $redis->setex('tegatai_' . $key, $time_window, $val); return; }
         if (function_exists('apcu_store')) { apcu_store($key, $val, $time_window); return; }
         if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) { wp_cache_set($key, $val, 'tegatai', $time_window); return; }
-        
-        // Transient Fallback (fuer persistente Cache-Werte wie GeoIP oder Ban-Locks)
-        // HINWEIS: Kurze TTLs (< 3600s) nutzen bewusst keine Transients.
-        // Ein Rate-Limit-Angriff wuerde sonst die wp_options Tabelle innerhalb von Minuten komplett fluten.
-        if ($time_window >= 3600) set_transient($key, $val, $time_window);
 
+        // No transients here: one row per visitor IP would turn every new visitor into a DB write.
         $ud = wp_upload_dir();
         $dir = $ud['basedir'] . '/tegatai-logs/cache/';
         if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        @file_put_contents($dir . $key . '.txt', time() . '|' . $val);
+        @file_put_contents($dir . $key . '.txt', (time() + (int)$time_window) . '|' . $val, LOCK_EX);
     }
     // --------------------------------------------------
 
@@ -258,7 +293,7 @@ class Tegatai_Firewall {
         foreach ($instant_ban_triggers as $trigger) {
             if (stripos($uri, $trigger) !== false) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BAN-404', "Instant Ban: $trigger");
-                $this->set_hit_count($k, 50, 86400);
+                Tegatai_Bans::ban_and_broadcast($ip, DAY_IN_SECONDS, "404 instant ban: $trigger", 'critical');
                 wp_die('Denied', 'Block', ['response' => 403]);
             }
         }
@@ -270,6 +305,7 @@ class Tegatai_Firewall {
             if ($c == 20) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BAN-404', "Scan (20)");
                 $this->set_hit_count($k, 21, 300); // Hochzählen, um erneute DB-Writes zu verhindern
+                Tegatai_Bans::ban_and_broadcast($ip, HOUR_IN_SECONDS, '404 scan (20 hits)', 'high');
             }
             wp_die('Denied','Block',['response'=>403]); 
         } else {
@@ -278,11 +314,12 @@ class Tegatai_Firewall {
     }
 
     private function check_rate_limit() { 
-        if(current_user_can('manage_options')) return; 
-        
+        // Editors/authors: the block editor, heartbeat, autosave and media library easily exceed guest limits.
+        if(current_user_can('edit_posts')) return;
+
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        $is_api = (strpos($uri, '/wp-json/') !== false || strpos($uri, 'admin-ajax.php') !== false);
-        $limit = $is_api ? 30 : 120; // Strengeres Limit für API/AJAX
+        $is_api = (strpos($uri, '/wp-json/') !== false || strpos($uri, 'rest_route=') !== false || strpos($uri, 'admin-ajax.php') !== false);
+        $limit = $is_api ? 60 : 180; // Strengeres Limit für API/AJAX (cart fragments, forms etc. need some headroom)
         
         $ip = $this->get_client_ip();
         $k = 'teg_rl_' . md5($ip . ($is_api ? '_api' : '')); 
@@ -329,21 +366,22 @@ class Tegatai_Firewall {
         }
     }
 
-    private function check_uploads() { 
+    private function check_uploads() {
         if(!empty($_FILES)) {
             foreach($_FILES as $f) {
-                if(is_array($f['name'])) {
-                    foreach($f['name'] as $n) $this->chk($n); 
-                } else {
-                    $this->chk($f['name']); 
-                }
+                if (isset($f['name'])) $this->chk($f['name']);
             }
         }
     }
 
-    private function chk($n) { 
-        if(in_array(strtolower(pathinfo($n,PATHINFO_EXTENSION)),['php','exe','pl','py'])) {
-            wp_die('No scripts','403',['response'=>403]); 
+    // Recursive: name[a][b] style uploads produce nested arrays.
+    private function chk($n) {
+        if (is_array($n)) {
+            foreach ($n as $sub) $this->chk($sub);
+            return;
+        }
+        if (preg_match('/\.(php[0-9]?|pht|phtml?|phps|phar|exe|pl|py)$/i', (string)$n)) {
+            wp_die('No scripts','403',['response'=>403]);
         }
     }
 
@@ -372,12 +410,33 @@ class Tegatai_Firewall {
         
         if (!$matched_bot) return false;
 
+        // The DNS verdict is cached per IP and bot, so a flood with a spoofed UA does not cost two blocking lookups per request.
+        $cache_key = 'teg_bot_' . md5($ip . '|' . $matched_bot);
+        $verdict = $this->get_hit_count($cache_key, 86400);
+        if ($verdict === false) {
+            $verdict = $this->resolve_bot_verdict($ip, $matched_bot, $valid_domains);
+            $this->set_hit_count($cache_key, $verdict, 86400);
+        }
+
+        if ($verdict === 'fake') {
+            wp_die('Fake Bot Detected', 'Security', ['response' => 403]);
+        }
+        return $verdict === 'ok'; // Echter Bot! Bypass gewährt.
+    }
+
+    /**
+     * @return string 'ok' (verified), 'fake' (rDNS missing or foreign domain) or 'unverified' (no forward match)
+     */
+    private function resolve_bot_verdict($ip, $matched_bot, array $valid_domains) {
+        if (!filter_var($ip, FILTER_VALIDATE_IP)) return 'unverified';
+
         $hostname = @gethostbyaddr($ip);
         if ($hostname === $ip || $hostname === false) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('FW-FAKEBOT', "Fake $matched_bot (No rDNS): $ip");
-            wp_die('Fake Bot Detected', 'Security', ['response' => 403]);
+            return 'fake';
         }
-        
+        $hostname = strtolower(rtrim($hostname, '.'));
+
         $domain_match = false;
         foreach ($valid_domains as $domain) {
             if (substr($hostname, -strlen($domain)) === $domain) {
@@ -385,17 +444,23 @@ class Tegatai_Firewall {
                 break;
             }
         }
-        
+
         if (!$domain_match) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('FW-FAKEBOT', "Fake $matched_bot (Bad Domain $hostname): $ip");
-            wp_die('Fake Bot Detected', 'Security', ['response' => 403]); 
+            return 'fake';
         }
-        
-        if (@gethostbyname($hostname) === $ip) {
-            return true; // Echter Bot! Bypass gewährt.
+
+        // Forward confirmation for IPv4 and IPv6 (gethostbyname() only knows A records).
+        $ip_bin = @inet_pton($ip);
+        $records = @dns_get_record($hostname, DNS_A | DNS_AAAA);
+        if (is_array($records)) {
+            foreach ($records as $r) {
+                $addr = $r['ip'] ?? ($r['ipv6'] ?? '');
+                if ($addr !== '' && @inet_pton($addr) === $ip_bin) return 'ok';
+            }
         }
-        
-        return false;
+
+        return 'unverified';
     }
 
     private function check_specific_bots($bot_list, $type_name) {

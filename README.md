@@ -1,4 +1,4 @@
-![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-blue)
+![WordPress](https://img.shields.io/badge/WordPress-7.x%2B-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.x-purple)
 ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
 ![Security](https://img.shields.io/badge/security-active-red)
@@ -110,16 +110,21 @@ The integrated API Gateway protects custom endpoints and synchronization routes.
 ### HMAC Example
 
 ```php
-$uri = '/api/sync';
+$method = 'POST';
+$uri = '/api/sync';            // exact REQUEST_URI incl. query string
 $timestamp = time();
 $req_id = bin2hex(random_bytes(16));
+$body = json_encode(['example' => true]);   // raw request body ('' for GET)
 
 $signature = hash_hmac(
     'sha256',
-    $uri . '|' . $timestamp . '|' . $req_id,
+    $method . '|' . $uri . '|' . $timestamp . '|' . $req_id . '|' . hash('sha256', $body),
     'YOUR_SECRET'
 );
+// Headers: X-Tegatai-Timestamp, X-Tegatai-Req-Id, X-Tegatai-Signature
 ```
+
+> **Breaking change (1.4.2):** The signature now covers the HTTP method and a SHA-256 hash of the raw body. Clients using the old `uri|timestamp|req_id` format must be updated. Each `req_id` is accepted exactly once.
 
 ---
 
@@ -267,7 +272,7 @@ Rules are automatically injected into `.htaccess`.
 
 # ⚙️ Requirements
 
-* WordPress 6.0+
+* WordPress 7.0+
 * PHP 8.x+
 * Recommended: Nginx / OpenResty / LiteSpeed
 
@@ -328,7 +333,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.2.x`
+Current Version: `1.4.2`
 
 See `CHANGELOG.md` for detailed release notes.
 

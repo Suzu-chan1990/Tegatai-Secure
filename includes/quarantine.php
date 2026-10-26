@@ -1,16 +1,8 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-
-add_action('wp_ajax_tegatai_quarantine_restore', function() {
-    if (!current_user_can('manage_options')) wp_die('Access denied');
-    $id = sanitize_text_field($_POST['id'] ?? '');
-    if (class_exists('Tegatai_Quarantine')) {
-        $res = Tegatai_Quarantine::restore_file($id);
-        if ($res['ok']) wp_send_json_success(['msg' => 'Datei erfolgreich wiederhergestellt: ' . $res['file']]);
-        wp_send_json_error(['msg' => 'Fehler: ' . $res['error']]);
-    }
-});
+// Restore is handled by Tegatai_Admin::ajax_restore_quarantine() (wp_ajax_teg_restore_quarantine, nonce-protected).
+// The former unprotected 'wp_ajax_tegatai_quarantine_restore' handler here allowed CSRF and was removed.
 
 class Tegatai_Quarantine {
 
@@ -25,13 +17,17 @@ class Tegatai_Quarantine {
                 $base = $rp;
             }
         }
-        if (!is_dir($base)) {
-            @wp_mkdir_p($base);
-        }
 
-        // Hardening files (Apache + generic)
-        @file_put_contents($base . '/index.php', "<?php\\nexit;\\n");
-        @file_put_contents($base . '/.htaccess', "Require all denied\\n");
+        // Hardening files (Apache + IIS); nginx is covered by the generated tegatai-nginx.conf
+        if (function_exists('tegatai_protect_directory')) {
+            tegatai_protect_directory($base);
+        } else {
+            if (!is_dir($base)) {
+                @wp_mkdir_p($base);
+            }
+            if (!file_exists($base . '/index.php')) @file_put_contents($base . '/index.php', "<?php\n// Silence is golden.\n");
+            if (!file_exists($base . '/.htaccess')) @file_put_contents($base . '/.htaccess', "Require all denied\n");
+        }
 
         return $base;
     }
@@ -64,20 +60,29 @@ class Tegatai_Quarantine {
         $ok1 = @file_put_contents($blob_path, base64_encode($data));
         $ok2 = @file_put_contents($meta_path, wp_json_encode($meta, JSON_UNESCAPED_SLASHES|JSON_PRETTY_PRINT));
 
-        if ($ok1 === false || $ok2 === false) {
+        // Verify the stored copy before touching the original
+        $stored = $ok1 !== false ? base64_decode((string)@file_get_contents($blob_path), true) : false;
+        if ($ok1 === false || $ok2 === false || !is_string($stored) || !hash_equals($meta['sha256'], hash('sha256', $stored))) {
+            @unlink($blob_path);
+            @unlink($meta_path);
             return ['ok'=>false, 'error'=>'write_failed'];
         }
 
-        // Rename original to non-executable extension (nginx-safe)
-        $new_name = $abs . '.tegatai.quarantined';
-        $renamed = @rename($abs, $new_name);
+        // Remove the original. A renamed copy ("x.php.tegatai.quarantined") stayed readable over HTTP and
+        // could still be executed by Apache AddHandler multi-extension setups. The verified blob is the backup.
+        if (!@unlink($abs)) {
+            // The malware is still in place: report failure and drop the orphaned copy
+            @unlink($blob_path);
+            @unlink($meta_path);
+            return ['ok'=>false, 'error'=>'remove_failed'];
+        }
 
         return [
             'ok' => true,
             'id' => $id,
             'stored' => basename($blob_path),
             'meta' => basename($meta_path),
-            'renamed' => $renamed ? $new_name : '',
+            'renamed' => '',
         ];
     }
 
@@ -95,13 +100,19 @@ class Tegatai_Quarantine {
         if (empty($data['original'])) return ['ok'=>false, 'error'=>'meta_invalid'];
         
         $orig = $data['original'];
-        $content = base64_decode(file_get_contents($blob));
+        $content = base64_decode((string)file_get_contents($blob), true);
+        if (!is_string($content)) return ['ok'=>false, 'error'=>'blob_invalid'];
+        if (!empty($data['sha256']) && !hash_equals((string)$data['sha256'], hash('sha256', $content))) {
+            return ['ok'=>false, 'error'=>'checksum_mismatch'];
+        }
         
         // Versuche, das Originalverzeichnis wiederherzustellen, falls es gelöscht wurde
         $orig_dir = dirname($orig);
         if (!is_dir($orig_dir)) { @wp_mkdir_p($orig_dir); }
         
         if (@file_put_contents($orig, $content) !== false) {
+            // Leftover renamed copy from older versions
+            if (file_exists($orig . '.tegatai.quarantined')) @unlink($orig . '.tegatai.quarantined');
             @unlink($meta);
             @unlink($blob);
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('QUARANTINE', "Datei wiederhergestellt: " . $orig);

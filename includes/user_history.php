@@ -47,7 +47,7 @@ class Tegatai_UserHistory {
         update_option('tegatai_login_history', []);
         
         // BEST PRACTICE: Open Redirect Schutz
-        wp_safe_redirect(admin_url('admin.php?page=tegatai-secure&tab=sessions&msg=hist_cleared')); 
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=sessions&msg=hist_cleared')); 
         exit;
     }
 

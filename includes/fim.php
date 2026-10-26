@@ -90,13 +90,60 @@ class Tegatai_FIM {
             }
         }
 
-        update_option(self::OPT_SNAPSHOT, $snap, false);
+        self::save_snapshot($snap);
         update_option(self::OPT_LASTRUN, ['time'=>time(), 'mode'=>'build'], false);
         return $snap;
     }
 
+    private static function snapshot_file(): string {
+        return wp_upload_dir()['basedir'] . '/tegatai-logs/fim_snapshot.json';
+    }
+
+    /**
+     * The full snapshot lives in a file in the protected log directory. On large sites it was
+     * several MB and could exceed max_allowed_packet as a single option. OPT_SNAPSHOT only keeps
+     * a small stub ('files' = number of files) so existing "baseline exists?" checks keep working.
+     */
+    private static function save_snapshot(array $snap): bool {
+        $file = self::snapshot_file();
+        if (function_exists('tegatai_protect_directory')) {
+            tegatai_protect_directory(dirname($file));
+        } elseif (!is_dir(dirname($file))) {
+            wp_mkdir_p(dirname($file));
+        }
+        $json = wp_json_encode($snap, JSON_UNESCAPED_SLASHES);
+        if (!is_string($json) || @file_put_contents($file, $json, LOCK_EX) === false) return false;
+
+        update_option(self::OPT_SNAPSHOT, [
+            'version' => 2,
+            'created' => (int)($snap['created'] ?? time()),
+            'storage' => 'file',
+            'files'   => count($snap['files'] ?? []),
+        ], false);
+        return true;
+    }
+
+    /**
+     * Returns the full snapshot (or [] when none exists). Migrates a snapshot stored by older
+     * versions in OPT_SNAPSHOT to the file once.
+     */
+    public static function get_snapshot(): array {
+        $file = self::snapshot_file();
+        if (file_exists($file)) {
+            $snap = json_decode((string)@file_get_contents($file), true);
+            return is_array($snap) ? $snap : [];
+        }
+
+        $legacy = get_option(self::OPT_SNAPSHOT, []);
+        if (is_array($legacy) && !empty($legacy['files']) && is_array($legacy['files'])) {
+            self::save_snapshot($legacy); // the option is only replaced by the stub if the file was written
+            return $legacy;
+        }
+        return [];
+    }
+
     public static function check_integrity(): array {
-        $old = get_option(self::OPT_SNAPSHOT, []);
+        $old = self::get_snapshot();
         if (empty($old) || empty($old['files']) || !is_array($old['files'])) {
             return ['ok'=>false, 'error'=>'no_snapshot', 'changed'=>[], 'new'=>[], 'deleted'=>[]];
         }

@@ -11,8 +11,14 @@ class Tegatai_Server {
     private static $bot_patterns = [
         'scanners' => 'acunetix|dirbuster|havij|masscan|nikto|nmap|sqlmap|wpscan|zgrab|cgichk|morfeus|netsparker|pangolin|sqli|zmeu',
         'ai_bots'  => 'anthropic|claude|gptbot|chatgpt-user|openai|cohere|omgili|perplexity|diffbot|amazonbot|bytespider|petalbot',
-        'seo_spam' => 'ahrefsbot|semrushbot|mj12bot|dotbot|rogerbot|blexbot|megaindex|magpie-crawler|scrapy|python-requests|libwww-perl|wget|curl'
+        // curl/wget are not listed: system cron jobs (wget -q -O - .../wp-cron.php) and uptime monitors use them.
+        'seo_spam' => 'ahrefsbot|semrushbot|mj12bot|dotbot|rogerbot|blexbot|megaindex|magpie-crawler|scrapy|python-requests|libwww-perl'
     ];
+
+    // URL path (no trailing slash) of a WordPress URL, e.g. "/blog/wp-content/uploads".
+    private static function url_path($url) {
+        return rtrim((string)wp_parse_url($url, PHP_URL_PATH), '/');
+    }
 
     /**
      * TEGATAI FIX: Dual-Engine Support für Apache & LiteSpeed
@@ -21,20 +27,25 @@ class Tegatai_Server {
         require_once ABSPATH . 'wp-admin/includes/misc.php';
         $ops = tegatai_get_setting('tegatai_options', []);
         
-        $up_url = wp_parse_url(wp_upload_dir()['baseurl'], PHP_URL_PATH);
-        $up_dir = ltrim($up_url, '/');
-        if (empty($up_dir)) $up_dir = 'wp-content/uploads';
+        // RewriteRule in ABSPATH/.htaccess sees the path relative to that directory, so the URL path of the
+        // WordPress directory (subdirectory installs, e.g. "/blog") has to be stripped.
+        $up_url = ltrim(self::url_path(wp_upload_dir()['baseurl']), '/');
+        $wp_url = ltrim(self::url_path(site_url()), '/');
+        if ($wp_url !== '' && strpos($up_url, $wp_url . '/') === 0) {
+            $up_url = substr($up_url, strlen($wp_url) + 1);
+        }
+        $up_dir = $up_url !== '' ? preg_quote($up_url) : 'wp-content/uploads';
 
         $rules = [];
         $rules[] = '<IfModule mod_rewrite.c>';
         $rules[] = 'RewriteEngine On';
-        
+
         $rules[] = '# Tegatai: Block PHP execution in Uploads';
         $rules[] = 'RewriteRule ^' . $up_dir . '/.*\.(php[1-8]?|pht|phtml?|phps|phar)$ - [F,L]';
-        
+
         if (!empty($ops['block_dotfiles'])) {
-            $rules[] = '# Tegatai: Block Dotfiles';
-            $rules[] = 'RewriteRule ^\. - [F,L]';
+            $rules[] = '# Tegatai: Block Dotfiles (except /.well-known/ for ACME, security.txt etc.)';
+            $rules[] = 'RewriteRule (^|/)\.(?!well-known(/|$)) - [F,L]';
         }
 
         if (!empty($ops['block_system_files'])) {
@@ -110,28 +121,25 @@ class Tegatai_Server {
         $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
         if (file_exists($up)) { @unlink($up); }
 
-        $root_file = ABSPATH . '.htaccess';
-        if (file_exists($root_file)) {
-            $begin = "# BEGIN TEGATAI";
-            $end   = "# END TEGATAI";
-            $cur = @file_get_contents($root_file);
-            if ($cur !== false && strpos($cur, $begin) !== false && strpos($cur, $end) !== false) {
-                $pat = "/".preg_quote($begin, "/").".*?".preg_quote($end, "/")."\s*/s";
-                $cur = preg_replace($pat, "", $cur, 1);
-                @file_put_contents($root_file, $cur);
-            }
-        }
+        // write_apache_rules() uses insert_with_markers(..., 'Tegatai-Secure'), i.e. "# BEGIN Tegatai-Secure".
+        // "TEGATAI" / "TEGATAI UPLOADS" are markers written by older versions.
+        self::remove_marker_blocks(ABSPATH . '.htaccess', ['Tegatai-Secure', 'TEGATAI']);
+        self::remove_marker_blocks(trailingslashit($ud['basedir']) . '.htaccess', ['TEGATAI UPLOADS']);
+    }
 
-        $uploads_ht = trailingslashit($ud['basedir']) . '.htaccess';
-        if (file_exists($uploads_ht)) {
-            $ubegin = "# BEGIN TEGATAI UPLOADS";
-            $uend   = "# END TEGATAI UPLOADS";
-            $ucur = @file_get_contents($uploads_ht);
-            if ($ucur !== false && strpos($ucur, $ubegin) !== false && strpos($ucur, $uend) !== false) {
-                $upat = "/".preg_quote($ubegin, "/").".*?".preg_quote($uend, "/")."\s*/s";
-                $ucur = preg_replace($upat, "", $ucur, 1);
-                @file_put_contents($uploads_ht, $ucur);
-            }
+    private static function remove_marker_blocks($file, array $markers) {
+        if (!file_exists($file) || !is_writable($file)) return;
+        $cur = @file_get_contents($file);
+        if ($cur === false) return;
+
+        $new = $cur;
+        foreach ($markers as $marker) {
+            $m = preg_quote($marker, '/');
+            // Whole lines only, so "TEGATAI" never matches "TEGATAI UPLOADS".
+            $new = preg_replace('/^# BEGIN ' . $m . '[ \t]*\R.*?^# END ' . $m . '[ \t]*(\R|$)/ms', '', $new);
+        }
+        if ($new !== null && $new !== $cur) {
+            @file_put_contents($file, $new, LOCK_EX);
         }
     }
 
@@ -152,16 +160,18 @@ class Tegatai_Server {
         $ops = tegatai_get_setting('tegatai_options');
         $date = current_time('mysql');
         
+        // nginx matches the request URI, so all locations are built from URL paths (subdirectory installs,
+        // custom WP_CONTENT_DIR/UPLOADS layouts), never from filesystem paths.
         $ud = wp_upload_dir();
-        $up_dir = rtrim(wp_parse_url($ud['baseurl'], PHP_URL_PATH), '/');
-        $pl_dir = rtrim(wp_parse_url(plugins_url(), PHP_URL_PATH), '/');
-        $th_dir = rtrim(wp_parse_url(get_theme_root_uri(), PHP_URL_PATH), '/');
-        $rel_uploads = str_replace(ABSPATH, '/', $ud['basedir']); 
+        $up_dir = preg_quote(self::url_path($ud['baseurl']));
+        $pl_dir = preg_quote(self::url_path(plugins_url()));
+        $th_dir = preg_quote(self::url_path(get_theme_root_uri()));
+        $ct_dir = preg_quote(self::url_path(content_url()));
 
         $lines = [];
         $lines[] = "# --- TEGATAI SECURITY RULES ($date) ---";
         $lines[] = "# Include this file in your Nginx server block:";
-        $lines[] = "# include " . ABSPATH . "tegatai-nginx.conf;";
+        $lines[] = "# include " . self::get_rules_file_path() . ";";
         $lines[] = "";
 
         if (!empty($ops['server_disable_indexing'])) {
@@ -227,19 +237,22 @@ class Tegatai_Server {
         }
 
         if (!empty($ops['server_block_dotfiles'])) {
-            $lines[] = "location ~ /\. { deny all; access_log off; log_not_found off; return 403; }";
+            // /.well-known/ stays reachable (ACME HTTP-01, security.txt, app links)
+            $lines[] = "location ~ /\.(?!well-known/) { deny all; access_log off; log_not_found off; return 403; }";
         }
 
         if (!empty($ops['server_block_xmlrpc'])) {
             $lines[] = "location = /xmlrpc.php { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-backups/ { deny all; access_log off; log_not_found off; return 403; }";
-        $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-logs/ { deny all; access_log off; log_not_found off; return 403; }";
-        $lines[] = "location ~ ^" . $rel_uploads . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
+        $lines[] = "location ~ ^" . $up_dir . "/tegatai-backups/ { deny all; access_log off; log_not_found off; return 403; }";
+        $lines[] = "location ~ ^" . $up_dir . "/tegatai-logs/ { deny all; access_log off; log_not_found off; return 403; }";
+        $lines[] = "location ~ ^" . $up_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
+        // Tegatai_Quarantine stores its blobs under WP_CONTENT_DIR
+        $lines[] = "location ~ ^" . $ct_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
 
         if (!empty($ops['server_disable_php_uploads'])) {
-            $lines[] = "location ~ ^" . $rel_uploads . "/.+\.php$ { deny all; access_log off; log_not_found off; return 403; }";
+            $lines[] = "location ~ ^" . $up_dir . "/.+\.php$ { deny all; access_log off; log_not_found off; return 403; }";
         }
 
         // ==========================================
