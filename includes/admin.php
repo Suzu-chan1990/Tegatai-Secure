@@ -306,7 +306,7 @@ class Tegatai_Admin {
             .teg-switch-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
             .teg-switch-label { font-size: 13px; font-weight: 600; color: var(--teg-text); display: flex; align-items: center; gap: 4px; }
             
-            form .teg-switch-desc, .teg-card > .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4; margin-bottom: 10px; display: block; }
+            form .teg-switch-desc, .teg-card > .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4.2; margin-bottom: 10px; display: block; }
             .teg-help-icon { color: var(--teg-primary); font-size: 14px; width: 14px; height: 14px; cursor: help; opacity: 0.7; transition: opacity 0.2s; }
             .teg-help-icon:hover { opacity: 1; }
 
@@ -455,7 +455,7 @@ class Tegatai_Admin {
         <div class="teg-wrap">
             <div class="teg-header">
                 <div class="teg-title"><span class="dashicons dashicons-shield-alt" style="font-size:32px;"></span> Tegatai Security</div>
-                <div class="teg-badge">v1.4</div>
+                <div class="teg-badge">v1.5</div>
             </div>
 
             <?php if ($tab == 'dashboard'): ?>
@@ -708,6 +708,7 @@ class Tegatai_Admin {
         echo '</select>';
         echo '<input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" >';
         echo '</form>';
+        if (class_exists('Tegatai_TwoFactor') && method_exists('Tegatai_TwoFactor', 'render_enrollment_box')) { Tegatai_TwoFactor::render_enrollment_box(get_current_user_id(), true); }
         echo '</div>'; 
         
         // --- CARD 4: Deep Clean (fixed quotes) ---

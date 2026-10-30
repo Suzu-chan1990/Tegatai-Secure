@@ -310,9 +310,17 @@ class Tegatai_LoginGuard {
     
     public function filter_redirects($l,$s) { $sl=((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($sl&&strpos($l,'wp-login.php')!==false)?str_replace('wp-login.php',$sl,$l):$l; }
     
-    public function block_wp_login_direct() { global $pagenow; if($pagenow!=='wp-login.php'||defined('TEGATAI_LOGIN_PAGE')) return; if(in_array($_GET['action']??'',['postpass','logout','lostpassword','rp','resetpass','teg_magic_send'])) return; if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-LOGIN',"Blocked wp-login.php"); wp_die('404 Not Found','Not Found',['response'=>404]); }
+    public function block_wp_login_direct() { global $pagenow; if($pagenow!=='wp-login.php'||defined('TEGATAI_LOGIN_PAGE')) return; if(in_array($_GET['action']??'',['postpass','logout','lostpassword','rp','resetpass','teg_magic_send','tegatai_2fa','tegatai_2fa_verify'])) return; if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-LOGIN',"Blocked wp-login.php"); wp_die('404 Not Found','Not Found',['response'=>404]); }
     
-    public function restrict_admin() { if(defined('DOING_AJAX')&&DOING_AJAX) return; $u=wp_get_current_user(); if(!empty($u)&&!in_array('administrator',(array)$u->roles)&&!in_array('editor',(array)$u->roles)) { wp_redirect(home_url()); exit; } }
+    public function restrict_admin() {
+        if ((defined('DOING_AJAX') && DOING_AJAX) || strpos($_SERVER['REQUEST_URI'] ?? '', 'admin-post.php') !== false) return;
+        if (!is_user_logged_in()) return;
+        $u = wp_get_current_user();
+        if ($u && $u->ID > 0 && !in_array('administrator', (array)$u->roles, true) && !in_array('editor', (array)$u->roles, true)) {
+            wp_safe_redirect(home_url());
+            exit;
+        }
+    }
     
     public function check_idle_timeout() { if(!is_user_logged_in()) return; $uid=get_current_user_id(); $l=(int)get_user_meta($uid,'teg_last_activity',true); if($l&&(time()-$l>3600)) { wp_logout(); wp_redirect(home_url()); exit; }
         // Throttled: one write per minute instead of one per request

@@ -1,0 +1,226 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) { exit; }
+
+/* TEGATAI_TWOFA_UNIFICATION_V1 applied */
+/* TEGATAI_TWOFA_UX_REFINEMENT_V1 applied */
+class Tegatai_TwoFactor {
+    public function __construct() {
+        $ops = tegatai_get_setting('tegatai_options');
+        if (!empty($ops['enable_2fa'])) {
+            add_filter('authenticate', [$this, 'check_login'], 100, 3);
+            add_action('login_form_tegatai_2fa', [$this, 'render_form']);
+            add_action('admin_post_nopriv_tegatai_2fa_verify', [$this, 'verify_code']);
+            add_action('admin_post_tegatai_2fa_verify', [$this, 'verify_code']);
+            // Own profile only: admins must not be able to read other users' TOTP secrets
+            add_action('show_user_profile', [$this, 'user_profile_totp']);
+        }
+    }
+
+    public static function is_enabled() {
+        $ops = tegatai_get_setting('tegatai_options');
+        return !empty($ops['enable_2fa']);
+    }
+
+    // DRY: Unified IP Handling
+    private function get_client_ip() {
+        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+    }
+
+    public function user_profile_totp($user) {
+        if (get_current_user_id() !== (int) $user->ID) return;
+        $secret = get_user_meta($user->ID, 'teg_totp_secret', true);
+        if (empty($secret)) {
+            $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+            $secret = '';
+            for($i=0;$i<16;$i++) $secret .= $chars[random_int(0,31)];
+            update_user_meta($user->ID, 'teg_totp_secret', $secret);
+            delete_user_meta($user->ID, 'teg_totp_confirmed');
+        }
+        $name = rawurlencode(get_bloginfo('name') . ':' . $user->user_login);
+        $issuer = rawurlencode(get_bloginfo('name'));
+        $url = "otpauth://totp/$name?secret=$secret&issuer=$issuer";
+
+        echo '<h3>🛡️ ' . esc_html__('Tegatai Authenticator (2FA)', 'tegatai-secure') . '</h3>';
+        echo '<table class="form-table"><tr><th>' . esc_html__('QR Code scannen', 'tegatai-secure') . '</th><td>';
+        echo '<p>' . esc_html__('Scanne diesen Code mit Google Authenticator, Authy oder einer anderen TOTP-App, falls du "Authenticator App" als 2FA Methode im Tegatai Dashboard gewählt hast.', 'tegatai-secure') . '</p>';
+        echo '<p><strong>' . esc_html__('QR-Code Hinweis:', 'tegatai-secure') . '</strong> ' . esc_html__('Aus Sicherheitsgründen wird kein externer QR-Code-Dienst verwendet.', 'tegatai-secure') . '</p>';
+        echo '<p>' . esc_html__('Du kannst den folgenden otpauth://-Link in vielen Authenticator-Apps hinzufügen (oder nutze den manuellen Code unten):', 'tegatai-secure') . '</p>';
+        echo '<p style="word-break:break-all;"><code>'.esc_html($url).'</code></p>';
+        echo '<p>' . esc_html__('Manueller Eingabe-Code:', 'tegatai-secure') . ' <code>'.esc_html($secret).'</code></p>';
+        echo '</td></tr></table>';
+    }
+
+    /**
+     * Mode actually used for a user. Users without a (confirmed) authenticator fall back to
+     * e-mail, otherwise "app" mode would lock out everyone who has not enrolled yet.
+     */
+    private static function effective_mode($uid) {
+        $ops = tegatai_get_setting('tegatai_options');
+        $mode = isset($ops['twofa_mode']) && in_array($ops['twofa_mode'], ['email', 'app', 'both'], true) ? $ops['twofa_mode'] : 'both';
+        if ($mode === 'email') return 'email';
+
+        $secret = get_user_meta($uid, 'teg_totp_secret', true);
+        if (empty($secret)) return 'email';
+        if ($mode === 'app' && !get_user_meta($uid, 'teg_totp_confirmed', true)) return 'both';
+        return $mode;
+    }
+
+    public function check_login($user, $username, $password) {
+        if (is_wp_error($user) || !($user instanceof WP_User)) return $user;
+
+        // Cookie re-authentication (e.g. wp-login.php while logged in) is not a fresh password login
+        if (empty($password)) return $user;
+
+        // Application passwords are separate, revocable API credentials
+        if (did_action('application_password_did_authenticate')) return $user;
+
+        // Non-interactive requests cannot complete the 2FA step, so a plain password is not enough there
+        if ((defined('XMLRPC_REQUEST') && XMLRPC_REQUEST) || (defined('REST_REQUEST') && REST_REQUEST) || wp_doing_ajax()) {
+            return new WP_Error('teg_2fa_required', __('Two-factor authentication required. Please use an application password.', 'tegatai-secure'));
+        }
+
+        $remember = !empty($_POST['rememberme']);
+        $redirect_to = isset($_REQUEST['redirect_to']) && is_string($_REQUEST['redirect_to']) ? wp_unslash($_REQUEST['redirect_to']) : '';
+        self::start_challenge($user, $remember, $redirect_to);
+    }
+
+    /**
+     * Starts the 2FA step for an already identified user and redirects to the code form.
+     * Also used by the magic link login. Never returns.
+     */
+    public static function start_challenge($user, $remember = false, $redirect_to = '') {
+        $mode = self::effective_mode($user->ID);
+
+        $token = bin2hex(random_bytes(32));
+        $data = ['uid' => $user->ID, 'fails' => 0, 'mode' => $mode, 'remember' => (bool) $remember, 'redirect_to' => (string) $redirect_to];
+
+        if ($mode === 'email' || $mode === 'both') {
+            $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $data['hash'] = wp_hash_password($code);
+            $msg = esc_html__('Dein Tegatai 2FA Code lautet:', 'tegatai-secure') . " $code";
+            if ($mode === 'both') $msg .= "\n\n" . esc_html__('Hinweis: Du kannst alternativ auch den Code aus deiner Authenticator App eingeben.', 'tegatai-secure');
+            wp_mail($user->user_email, '2FA Code', $msg);
+        }
+
+        set_transient('teg_2fa_tok_' . $token, $data, 600);
+        $cookie_paths = array_unique(array_filter([COOKIEPATH, defined('SITECOOKIEPATH') ? SITECOOKIEPATH : '', defined('ADMIN_COOKIE_PATH') ? ADMIN_COOKIE_PATH : '', '/']));
+        foreach ($cookie_paths as $cp) {
+            setcookie('teg_2fa_token', $token, time() + 600, $cp, COOKIE_DOMAIN, is_ssl(), true);
+        }
+        wp_safe_redirect(add_query_arg('action', 'tegatai_2fa', wp_login_url())); exit;
+    }
+
+    private static function get_token_from_cookie() {
+        $token = isset($_COOKIE['teg_2fa_token']) && is_string($_COOKIE['teg_2fa_token']) ? $_COOKIE['teg_2fa_token'] : '';
+        return preg_match('/^[a-f0-9]{64}$/', $token) ? $token : '';
+    }
+
+    public function render_form() {
+        $token = self::get_token_from_cookie();
+        $data = $token ? get_transient('teg_2fa_tok_' . $token) : false;
+        if (!is_array($data)) { wp_safe_redirect(wp_login_url()); exit; }
+
+        $mode = isset($data['mode']) ? $data['mode'] : 'both';
+
+        $prompt = esc_html__('Code eingeben:', 'tegatai-secure');
+        if ($mode === 'both') {
+            $prompt = esc_html__('Bitte E-Mail-Code oder Authenticator-App-Code eingeben:', 'tegatai-secure');
+        } elseif ($mode === 'app') {
+            $prompt = esc_html__('Bitte Authenticator-App-Code eingeben:', 'tegatai-secure');
+        } elseif ($mode === 'email') {
+            $prompt = esc_html__('Bitte den per E-Mail gesendeten Code eingeben:', 'tegatai-secure');
+        }
+
+        login_header('2FA', '<p style="font-weight:600; font-size:14px; margin-bottom:15px; color:#3c434a;">' . $prompt . '</p>');
+        echo '<form action="'.esc_url(admin_url('admin-post.php')).'" method="post">';
+        echo '<input type="hidden" name="action" value="tegatai_2fa_verify">';
+        echo '<input name="teg_code" type="text" autocomplete="one-time-code" style="font-size: 22px; letter-spacing: 6px; font-family: monospace; text-align: center; width: 100%; padding: 12px; margin-bottom: 20px; border-radius: 4px; border: 1px solid #8c8f94;" autofocus required>';
+        echo '<input type="submit" value="' . esc_attr__('Verifizieren', 'tegatai-secure') . '" class="button button-primary button-large" style="width: 100%;">';
+        echo '</form>';
+        login_footer(); exit;
+    }
+
+    private function verify_totp($secret, $code) {
+        if (!$secret || strlen($code) !== 6) return false;
+        $map = array_flip(str_split('ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'));
+        $key = '';
+        foreach(str_split(strtoupper($secret)) as $c) {
+            if(isset($map[$c])) $key .= sprintf('%05b', $map[$c]);
+        }
+        if (empty($key)) return false;
+        $key = implode('', array_map('chr', array_map('bindec', str_split($key, 8))));
+        $time = (int) floor(time() / 30);
+        for ($i = -1; $i <= 1; $i++) {
+            $t = pack('N2', 0, $time + $i);
+            $hash = hash_hmac('sha1', $t, $key, true);
+            $offset = ord(substr($hash, -1)) & 0x0F;
+            $otp = (((ord($hash[$offset+0]) & 0x7F) << 24) | ((ord($hash[$offset+1]) & 0xFF) << 16) | ((ord($hash[$offset+2]) & 0xFF) << 8) | (ord($hash[$offset+3]) & 0xFF)) % 1000000;
+            if (hash_equals(str_pad((string) $otp, 6, '0', STR_PAD_LEFT), $code)) return true;
+        }
+        return false;
+    }
+
+    public function verify_code() {
+        $token = self::get_token_from_cookie();
+        $data = $token ? get_transient('teg_2fa_tok_' . $token) : false;
+        $user = is_array($data) && !empty($data['uid']) ? get_userdata((int) $data['uid']) : false;
+        if ($user) {
+            $uid = $user->ID;
+            $mode = $data['mode'] ?? 'both';
+            $code = isset($_POST['teg_code']) && is_string($_POST['teg_code']) ? sanitize_text_field(wp_unslash($_POST['teg_code'])) : '';
+            $code = preg_replace('/[^0-9]/', '', $code); // Whitespaces entfernen
+            $valid = false;
+
+            $secret = get_user_meta($uid, 'teg_totp_secret', true);
+
+            if (($mode === 'email' || $mode === 'both') && isset($data['hash'])) {
+                if (wp_check_password($code, $data['hash'])) $valid = true;
+            }
+            if (($mode === 'app' || $mode === 'both') && !$valid) {
+                if ($this->verify_totp($secret, $code)) {
+                    // TEGATAI_FIX: Verhindert TOTP Replay Attacken
+                    $last_used = (string) get_user_meta($uid, 'teg_totp_last_code', true);
+                    if (!hash_equals($last_used, $code)) {
+                        $valid = true;
+                        update_user_meta($uid, 'teg_totp_last_code', $code);
+                        // First successful TOTP confirms enrollment, "app" mode then stops offering e-mail codes
+                        update_user_meta($uid, 'teg_totp_confirmed', 1);
+                    }
+                }
+            }
+
+            $ip = $this->get_client_ip();
+
+            if ($valid) {
+                delete_transient('teg_2fa_tok_' . $token);
+                setcookie('teg_2fa_token', '', time()-3600, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-2FA', "2FA successful for User ID $uid ($ip)");
+
+                // Complete the login like wp_signon() would, so wp_login listeners run
+                wp_set_current_user($uid);
+                wp_set_auth_cookie($uid, !empty($data['remember']));
+                do_action('wp_login', $user->user_login, $user);
+
+                $redirect = wp_validate_redirect((string) ($data['redirect_to'] ?? ''), admin_url());
+                wp_safe_redirect($redirect ?: admin_url()); exit;
+            } else {
+                // Count wrong codes towards the IP login limit, otherwise restarting the login
+                // would allow unlimited TOTP guesses.
+                do_action('wp_login_failed', $user->user_login, new WP_Error('teg_2fa_failed', 'Wrong 2FA code'));
+                $data['fails']++;
+                if ($data['fails'] >= 3) {
+                    delete_transient('teg_2fa_tok_' . $token);
+                    setcookie('teg_2fa_token', '', time()-3600, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), true);
+                    if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LOCK', "2FA blocked after 3 failed attempts ($ip)");
+                    wp_die(esc_html__('Too many failed attempts. Login locked.', 'tegatai-secure'), 'Security', ['response' => 403]);
+                } else {
+                    set_transient('teg_2fa_tok_' . $token, $data, 600);
+                    if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-FAIL', "2FA Code wrong. Attempt " . $data['fails'] . " ($ip)");
+                    wp_die(esc_html(sprintf(__('Code falsch. Versuch %d von 3.', 'tegatai-secure'), $data['fails'])), '2FA', ['response' => 403]);
+                }
+            }
+        } else {
+            wp_die(esc_html__('Session abgelaufen oder ungültig.', 'tegatai-secure'), esc_html__('Fehler', 'tegatai-secure'), ['response' => 403]);
+        }
+    }
+}

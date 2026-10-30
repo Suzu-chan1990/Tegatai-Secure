@@ -1,13 +1,16 @@
 <?php
 /*
-Plugin Name: Tegatai Security
-Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
-Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
-Version: 1.4.2
-Author: すずちゃん
-License: GPL2
-Text Domain: tegatai-secure
-Domain Path: /languages
+ * Plugin Name: Tegatai Security
+ * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
+ * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
+ * Version: 1.5
+ * Author: すずちゃん
+ * License: GPL2
+ * Text Domain: tegatai-secure
+ * Domain Path: /languages
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Requires at least: 7.1
+ * Requires PHP: 8.4
 */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
