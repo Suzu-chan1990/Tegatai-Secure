@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6\DebugBar;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use YahnisElsts\PluginUpdateChecker\v5p6\Plugin\UpdateChecker;
 
 if ( !class_exists(PluginPanel::class, false) ):

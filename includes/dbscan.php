@@ -1,5 +1,6 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
 
 class Tegatai_DBScan {
 
@@ -10,7 +11,7 @@ class Tegatai_DBScan {
         $tables = [];
 
         $like = $wpdb->esc_like($prefix) . '%';
-        $existing = $wpdb->get_col("SHOW TABLES LIKE '{$like}'");
+        $existing = $wpdb->get_col($wpdb->prepare("SHOW TABLES LIKE %s", $like));
         $existing = is_array($existing) ? $existing : [];
 
         $want = [
@@ -61,8 +62,8 @@ class Tegatai_DBScan {
             $fields = $cfg['fields'];
 
             foreach ($fields as $field) {
-                $sql = "SELECT {$idcol} AS id, {$field} AS val FROM {$table} ORDER BY {$idcol} DESC LIMIT %d";
-                $rows = $wpdb->get_results($wpdb->prepare($sql, $limit), ARRAY_A);
+                // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- read-only scan of core tables
+                $rows = $wpdb->get_results($wpdb->prepare('SELECT %i AS id, %i AS val FROM %i ORDER BY %i DESC LIMIT %d', $idcol, $field, $table, $idcol, $limit), ARRAY_A);
                 if (!is_array($rows)) continue;
 
                 foreach ($rows as $r) {

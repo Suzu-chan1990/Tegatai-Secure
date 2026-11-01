@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6\DebugBar;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use YahnisElsts\PluginUpdateChecker\v5p6\PucFactory;
 use YahnisElsts\PluginUpdateChecker\v5p6\UpdateChecker;
 

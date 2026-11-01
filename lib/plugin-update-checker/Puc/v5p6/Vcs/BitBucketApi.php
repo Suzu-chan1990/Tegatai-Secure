@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Vcs;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use YahnisElsts\PluginUpdateChecker\v5p6\OAuthSignature;
 use YahnisElsts\PluginUpdateChecker\v5p6\Utils;
 

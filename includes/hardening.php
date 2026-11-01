@@ -1,5 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.NonceVerification -- Only checks whether ?author= is present to block user enumeration
 
 /* TEGATAI_HARDENING_REFINEMENT_V1 applied */
 class Tegatai_Hardening {
@@ -22,7 +23,7 @@ class Tegatai_Hardening {
         }
         
         if (!empty($ops['disable_file_editor'])) { 
-            if (!defined('DISALLOW_FILE_EDIT')) define('DISALLOW_FILE_EDIT', true); 
+            if (!defined('DISALLOW_FILE_EDIT')) define('DISALLOW_FILE_EDIT', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- core constant 
         }
         
         if (!empty($ops['block_user_enum'])) { 

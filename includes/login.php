@@ -5,6 +5,8 @@
 /* TEGATAI_LOGIN_UNIFICATION_V1 applied */
 /* TEGATAI_LOGIN_REFINEMENT_V1 applied */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
+// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or Turnstile instead of nonces
 
 class Tegatai_LoginGuard {
     public function __construct() {
@@ -96,7 +98,7 @@ class Tegatai_LoginGuard {
 
     // DRY: Unified IP Handling
     private function get_client_ip() {
-        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? ''));
     }
 
     // Unified Cache Engine for GeoIP (Memory First)
@@ -113,7 +115,8 @@ class Tegatai_LoginGuard {
     }
 
     // --- TURNSTILE LOGIC ---
-    public function turnstile_script() { echo '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'; }
+    // Cloudflare Turnstile can only be loaded from Cloudflare (no self-hosting possible); wp-login.php has no enqueue for async defer
+    public function turnstile_script() { echo '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'; } // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, WordPress.WP.EnqueuedResources.NonEnqueuedScript
     public function turnstile_field() { $ops = tegatai_get_setting('tegatai_options'); if(!empty($ops['turnstile_site_key'])) echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px; display:flex; justify-content:center;"></div>'; }
     public function turnstile_verify_login($user, $username, $password) {
         if (empty($username) || empty($password)) return $user;
@@ -124,7 +127,9 @@ class Tegatai_LoginGuard {
         $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['turnstile_secret_key'])) return $user;
         $response = $_POST['cf-turnstile-response'] ?? '';
-        $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', ['body' => ['secret' => $ops['turnstile_secret_key'], 'response' => $response]]);
+        // Server-side token check against the Turnstile API (not a loaded resource)
+        $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent
+            ['body' => ['secret' => $ops['turnstile_secret_key'], 'response' => $response]]);
         if (!is_wp_error($verify)) {
             $body = json_decode(wp_remote_retrieve_body($verify), true);
             if (!empty($body['success'])) return $user;
@@ -240,9 +245,9 @@ class Tegatai_LoginGuard {
     }
 
     // Standard Helpers
-    public function check_custom_slug() { $s = ((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim((string) parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+    public function check_custom_slug() { $s = ((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); $path = trim((string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
         // Subdirectory installs: compare relative to the home path ("blog/slug" -> "slug")
-        $home_path = trim((string) parse_url(home_url(), PHP_URL_PATH), '/');
+        $home_path = trim((string) wp_parse_url(home_url(), PHP_URL_PATH), '/');
         if ($home_path !== '' && strpos($path . '/', $home_path . '/') === 0) $path = trim(substr($path, strlen($home_path)), '/');
         if ($s && $path === $s) { if (!defined('TEGATAI_LOGIN_PAGE')) define('TEGATAI_LOGIN_PAGE', true); global $user_login, $error, $action; if (!isset($user_login)) $user_login = ''; if (!isset($error)) $error = ''; if (!isset($action)) $action = 'login'; require_once ABSPATH.'wp-login.php'; exit; } }
     
@@ -281,7 +286,7 @@ class Tegatai_LoginGuard {
             $message .= "Wenn du das warst, kannst du diese E-Mail ignorieren. Das Gerät wurde nun als vertrauenswürdig markiert.\n\n";
             $message .= "Warst du das NICHT? Bitte logge dich umgehend in dein Dashboard ein und ändere dein Passwort!";
             
-            $domain = parse_url(home_url(), PHP_URL_HOST);
+            $domain = wp_parse_url(home_url(), PHP_URL_HOST);
             if (!$domain) $domain = 'localhost';
             if (substr($domain, 0, 4) == 'www.') $domain = substr($domain, 4);
             
@@ -297,7 +302,7 @@ class Tegatai_LoginGuard {
         }
     }
 
-    private function send_alert($subj, $msg) { $ops=tegatai_get_setting('tegatai_options'); $to=!empty($ops['alert_email'])?$ops['alert_email']:get_option('admin_email'); $domain = parse_url(home_url(), PHP_URL_HOST);
+    private function send_alert($subj, $msg) { $ops=tegatai_get_setting('tegatai_options'); $to=!empty($ops['alert_email'])?$ops['alert_email']:get_option('admin_email'); $domain = wp_parse_url(home_url(), PHP_URL_HOST);
         if (!$domain) $domain = 'localhost'; if (substr($domain, 0, 4) == 'www.') $domain = substr($domain, 4); $headers = [ "From: Tegatai Security <wordpress@$domain>" ]; wp_mail($to,"[Tegatai] $subj", $msg, $headers); }
     
     public function check_login_attempts($u, $n, $p) { if(get_transient('teg_login_lock_'.md5($this->get_client_ip()))){ if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LOCK',"Locked IP"); return new WP_Error('teg_locked','IP Locked (60min)'); } return $u; }
@@ -322,7 +327,7 @@ class Tegatai_LoginGuard {
         }
     }
     
-    public function check_idle_timeout() { if(!is_user_logged_in()) return; $uid=get_current_user_id(); $l=(int)get_user_meta($uid,'teg_last_activity',true); if($l&&(time()-$l>3600)) { wp_logout(); wp_redirect(home_url()); exit; }
+    public function check_idle_timeout() { if(!is_user_logged_in()) return; $uid=get_current_user_id(); $l=(int)get_user_meta($uid,'teg_last_activity',true); if($l&&(time()-$l>3600)) { wp_logout(); wp_safe_redirect(home_url()); exit; }
         // Throttled: one write per minute instead of one per request
         if(time()-$l>=60) update_user_meta($uid,'teg_last_activity',time()); }
 
@@ -366,7 +371,7 @@ class Tegatai_LoginGuard {
             $blog_name = get_bloginfo('name');
             $subject = "Login Link: $blog_name";
             $message  = "Hallo " . $user->display_name . ",\r\n\r\nLogin Link:\r\n" . $link . "\r\n\r\n(15 Minuten gültig)";
-            $domain = parse_url(home_url(), PHP_URL_HOST);
+            $domain = wp_parse_url(home_url(), PHP_URL_HOST);
             if (!$domain) $domain = 'localhost';
             if (substr($domain, 0, 4) == 'www.') $domain = substr($domain, 4);
             $from_email = 'wordpress@' . $domain; 
@@ -378,7 +383,7 @@ class Tegatai_LoginGuard {
                 else Tegatai_Logger::log('MAIL-ERR', "WP_Mail failed for " . $user->user_email);
             }
         }
-        wp_redirect(site_url('wp-login.php?checkemail=confirm'));
+        wp_safe_redirect(site_url('wp-login.php?checkemail=confirm'));
         exit;
     }
     
@@ -413,7 +418,7 @@ class Tegatai_LoginGuard {
 
         wp_set_current_user($user_id);
         wp_set_auth_cookie($user_id);
-        do_action('wp_login', $user->user_login, $user);
+        do_action('wp_login', $user->user_login, $user); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook, fired after the magic link login
         if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id logged in");
         wp_safe_redirect(admin_url());
         exit;

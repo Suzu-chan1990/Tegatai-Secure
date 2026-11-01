@@ -333,7 +333,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.4.2`
+Current Version: `1.5`
 
 See `CHANGELOG.md` for detailed release notes.
 

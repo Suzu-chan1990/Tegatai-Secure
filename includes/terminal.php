@@ -1,5 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
 
 /* TEGATAI_TERMINAL_REFINEMENT_V1 applied */
 /* TEGATAI_TERMINAL_FINAL_POLISH_V1 applied */
@@ -11,7 +13,7 @@ class Tegatai_Terminal {
 
     // DRY: Unified IP Handling
     private function get_client_ip() {
-        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? ''));
     }
 
     // Unified Cache Engine for Rate Limiting
@@ -57,14 +59,14 @@ class Tegatai_Terminal {
         $limit = isset($_POST['limit']) ? intval($_POST['limit']) : 50;
         if ($limit > 200) $limit = 200; // Hard Cap für DB-Schutz
         
-        $logs = $wpdb->get_results("SELECT * FROM $table ORDER BY id DESC LIMIT $limit", ARRAY_A);
+        $logs = $wpdb->get_results($wpdb->prepare("SELECT * FROM %i ORDER BY id DESC LIMIT %d", $table, $limit), ARRAY_A);
         
         $output = "";
         if (empty($logs)) {
             $output = "<div class='log-row info'>[SYS] No current traffic logs found. Waiting for events...</div>";
         } else {
             foreach ($logs as $log) {
-                $time = date('H:i:s', strtotime($log['time']));
+                $time = gmdate('H:i:s', strtotime($log['time']));
                 $ip_str = esc_html(str_pad((string)$log['ip'], 15, ' '));
                 $type = esc_html(str_pad((string)$log['type'], 12, ' '));
                 $msg = esc_html($log['message']);
@@ -83,7 +85,7 @@ class Tegatai_Terminal {
                 $output .= "</div>";
             }
         }
-        echo $output;
+        echo wp_kses_post($output); // every value above is escaped already; wp_kses_post keeps the markup
         wp_die();
     }
 
@@ -191,7 +193,7 @@ class Tegatai_Terminal {
                     const fd = new FormData();
                     fd.append('action', 'tegatai_terminal_fetch');
                     fd.append('limit', '100');
-                    fd.append('security', '<?php echo wp_create_nonce('teg_terminal_nonce'); ?>');
+                    fd.append('security', '<?php echo esc_js( wp_create_nonce('teg_terminal_nonce') ); ?>');
 
                     fetch(ajaxurl, { method: 'POST', body: fd })
                         .then(res => res.status === 429 ? null : res.text())

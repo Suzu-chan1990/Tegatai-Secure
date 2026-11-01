@@ -14,6 +14,10 @@
 */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
+
+// Allowed markup for hidden form fields (nonce fields, anti-spam fields) when output through wp_kses()
+const TEGATAI_KSES_INPUT = [ 'input' => [ 'type' => true, 'id' => true, 'name' => true, 'value' => true ] ];
 
 // =================================================================
 // HIGH-SPEED DATENBANK & RAM CACHE FÜR TEGATAI OPTIONS
@@ -79,7 +83,7 @@ function tegatai_get_setting( $key, $default = false ) {
                 return get_option( $key, $default );
             }
             
-            $results = $wpdb->get_results( "SELECT setting_key, setting_value FROM $table_name" );
+            $results = $wpdb->get_results( $wpdb->prepare( "SELECT setting_key, setting_value FROM %i", $table_name ) );
             $tegatai_cache = [];
             foreach ( (array) $results as $row ) {
                 $tegatai_cache[ $row->setting_key ] = tegatai_decode_setting( $row->setting_value );
@@ -147,12 +151,14 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '1.4.2' );
+define( 'TEGATAI_VERSION', '1.5' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 
 add_action('init', function () {
-    load_plugin_textdomain('tegatai-secure', false, dirname(plugin_basename(TEGATAI_FILE)) . '/languages');
+    // Not hosted on WordPress.org: translations ship in /languages, so they must be loaded explicitly
+    load_plugin_textdomain('tegatai-secure', false, // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound
+        dirname(plugin_basename(TEGATAI_FILE)) . '/languages');
 }, 0);
 
 /**
@@ -378,7 +384,7 @@ class Tegatai_Security_Core {
         dbDelta($sql);
 
         // dbDelta never removes column defaults; drop the legacy zero-date default explicitly.
-        $wpdb->query("ALTER TABLE $table_name ALTER COLUMN `time` DROP DEFAULT");
+        $wpdb->query($wpdb->prepare("ALTER TABLE %i ALTER COLUMN `time` DROP DEFAULT", $table_name));
 
         update_option('tegatai_db_version', self::DB_VERSION);
     }

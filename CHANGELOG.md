@@ -1,3 +1,15 @@
+## 1.5 – Code Quality (Plugin Check)
+
+- **Output escaping:** All admin output is escaped late (`esc_html`, `esc_attr`, `esc_url`, `esc_js`, `wp_kses`). Nonce fields that are part of concatenated HTML go through `wp_kses()` with the new `TEGATAI_KSES_INPUT` allow-list. `wp_die()` messages are escaped.
+- **SQL:** Every query with a table name uses `$wpdb->prepare()` with the `%i` identifier placeholder (logger, terminal, option scanner, DB scan, backup, deep clean, settings table, expired transients).
+- **Input:** Admin form fields are unslashed before sanitizing (`wp_unslash()`), nonces are sanitized before verification, missing `isset()` checks added.
+- **WordPress functions:** `wp_parse_url`, `gmdate`, `wp_rand`, `wp_strip_all_tags`, `wp_is_writable`, `wp_delete_file`, `wp_mkdir_p` and `wp_safe_redirect` replace their PHP counterparts.
+- **Settings:** `register_setting()` has a `sanitize_callback`.
+- **Translations:** `translators:` comments for all strings with placeholders; the alert e-mail string uses numbered placeholders (`.pot`/`.po`/`.mo` updated).
+- **Bundled library:** Direct access guards in `lib/plugin-update-checker`.
+- **readme.txt:** Plugin name matches the header, 5 tags, short description under 150 characters, "Requires at least" matches the header.
+- **Documented exceptions (`phpcs:ignore` / `phpcs:disable` with reason):** raw request inspection in the firewall and API Guard, raw headers for fingerprints, public forms protected by tokens/Turnstile instead of nonces, Cloudflare Turnstile loaded from Cloudflare, direct queries on Tegatai's own tables, `unlink()`/`rename()` where the result controls the quarantine, core hooks `wp_login`/`wp_login_failed`, binary backup download, locally generated QR SVG.
+
 ## 1.4.2 – Security Fixes
 
 - **Client IP detection:** Proxy headers (`CF-Connecting-IP`, `X-Real-IP`, `X-Forwarded-For`) are no longer trusted blindly. Previously `X-Forwarded-For: 127.0.0.1` bypassed the whole firewall, the API Guard allowlist and rate limits. Only `REMOTE_ADDR` counts unless the request comes from a trusted proxy (`TEGATAI_TRUSTED_PROXIES` or the `tegatai_trusted_proxies` filter). Local reverse proxies (loopback/`SERVER_ADDR`) are trusted for `X-Forwarded-For` automatically.

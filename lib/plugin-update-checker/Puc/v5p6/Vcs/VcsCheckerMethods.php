@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Vcs;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 if ( !trait_exists(VcsCheckerMethods::class, false) ) :
 
 	trait VcsCheckerMethods {

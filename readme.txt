@@ -1,12 +1,14 @@
-=== Tegatai Secure ===
+=== Tegatai Security ===
 Contributors: tegatai
-Tags: security, firewall, malware scanner, wordpress security, hardening, 2fa
-Requires at least: 7.0
+Tags: security, firewall, malware scanner, hardening, 2fa
+Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
 Stable tag: 1.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Security suite with server-level firewall, login guard and 2FA, malware and integrity scanners, API gateway and the Tegatai Hive threat network.
 
 ![WordPress](https://img.shields.io/badge/WordPress-7.x%2B-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.x-purple)
@@ -343,6 +345,6 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.4.2`
+Current Version: `1.5`
 
 See `CHANGELOG.md` for detailed release notes.

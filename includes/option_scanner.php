@@ -1,5 +1,6 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
 
 class Tegatai_Option_Scanner {
     public static function scan(int $limit = 2500): array {
@@ -8,7 +9,8 @@ class Tegatai_Option_Scanner {
         $table = $wpdb->options;
 
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT option_name, autoload, option_value FROM {$table} ORDER BY autoload DESC, option_id DESC LIMIT %d",
+            "SELECT option_name, autoload, option_value FROM %i ORDER BY autoload DESC, option_id DESC LIMIT %d",
+            $table,
             $limit
         ), ARRAY_A);
 

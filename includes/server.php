@@ -88,7 +88,7 @@ class Tegatai_Server {
 
     private static function get_rules_file_path() {
         $root = ABSPATH . 'tegatai-nginx.conf';
-        $root_ok = (is_dir(ABSPATH) && is_writable(ABSPATH)) || (file_exists($root) && is_writable($root));
+        $root_ok = (is_dir(ABSPATH) && wp_is_writable(ABSPATH)) || (file_exists($root) && wp_is_writable($root));
         if ($root_ok) return $root;
 
         $ud = wp_upload_dir();
@@ -102,7 +102,7 @@ class Tegatai_Server {
     }
 
     public static function detect_server() { 
-        $s = isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : '';
+        $s = isset($_SERVER['SERVER_SOFTWARE']) ? sanitize_text_field(wp_unslash($_SERVER['SERVER_SOFTWARE'])) : '';
         if (stripos($s, 'apache') !== false || stripos($s, 'litespeed') !== false) return 'apache';
         if (stripos($s, 'nginx') !== false) return 'nginx';
         return 'unknown'; 
@@ -115,11 +115,11 @@ class Tegatai_Server {
 
     public static function remove_rules() {
         $root = ABSPATH . 'tegatai-nginx.conf';
-        if (file_exists($root)) { @unlink($root); }
+        if (file_exists($root)) { wp_delete_file($root); }
 
         $ud = wp_upload_dir();
         $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
-        if (file_exists($up)) { @unlink($up); }
+        if (file_exists($up)) { wp_delete_file($up); }
 
         // write_apache_rules() uses insert_with_markers(..., 'Tegatai-Secure'), i.e. "# BEGIN Tegatai-Secure".
         // "TEGATAI" / "TEGATAI UPLOADS" are markers written by older versions.
@@ -128,7 +128,7 @@ class Tegatai_Server {
     }
 
     private static function remove_marker_blocks($file, array $markers) {
-        if (!file_exists($file) || !is_writable($file)) return;
+        if (!file_exists($file) || !wp_is_writable($file)) return;
         $cur = @file_get_contents($file);
         if ($cur === false) return;
 

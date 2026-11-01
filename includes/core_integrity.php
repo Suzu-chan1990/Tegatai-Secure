@@ -93,7 +93,7 @@ class Tegatai_Core_Integrity {
         $response = wp_remote_get($url, ['timeout' => 15]);
         
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            return ['ok' => false, 'error' => sprintf(__('Could not load original file from WordPress.org (HTTP %d).', 'tegatai-secure'), wp_remote_retrieve_response_code($response))];
+            return ['ok' => false, 'error' => sprintf(/* translators: %d: HTTP status code */ __('Could not load original file from WordPress.org (HTTP %d).', 'tegatai-secure'), wp_remote_retrieve_response_code($response))];
         }
         
         $body = wp_remote_retrieve_body($response);
@@ -126,7 +126,7 @@ class Tegatai_Core_Integrity {
         }
         
         if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('HEAL', sprintf(__('Core file successfully repaired and verified: %s', 'tegatai-secure'), $clean_path));
+            Tegatai_Logger::log('HEAL', sprintf(/* translators: %s: file path */ __('Core file successfully repaired and verified: %s', 'tegatai-secure'), $clean_path));
         }
         
         return ['ok' => true];

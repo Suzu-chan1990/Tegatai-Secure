@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Theme;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use YahnisElsts\PluginUpdateChecker\v5p6\UpdateChecker as BaseUpdateChecker;
 use YahnisElsts\PluginUpdateChecker\v5p6\InstalledPackage;
 use YahnisElsts\PluginUpdateChecker\v5p6\Scheduler;

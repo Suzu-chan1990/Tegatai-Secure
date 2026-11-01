@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Vcs;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 if ( !class_exists(GitLabApi::class, false) ):
 
 	class GitLabApi extends Api {

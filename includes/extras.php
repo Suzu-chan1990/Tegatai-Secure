@@ -78,7 +78,7 @@ class Tegatai_Extras {
         
         check_admin_referer('teg_temp_admin_nonce');
 
-        $email = sanitize_email($_POST['temp_email'] ?? '');
+        $email = sanitize_email(wp_unslash($_POST['temp_email'] ?? ''));
         $hours = intval($_POST['temp_hours'] ?? 0);
 
         if (!is_email($email) || $hours < 1) {
@@ -91,7 +91,7 @@ class Tegatai_Extras {
         $user_id = wp_create_user($username, $password, $email);
 
         if (is_wp_error($user_id)) {
-            wp_die($user_id->get_error_message());
+            wp_die(esc_html($user_id->get_error_message()));
         }
 
         $user = new WP_User($user_id);
@@ -112,10 +112,10 @@ class Tegatai_Extras {
 
         // E-Mail Formatierung & Versand
         $blog_name = get_bloginfo('name');
-        $subject = sprintf(esc_html__('Temporary Admin Access: %s', 'tegatai-secure'), $blog_name);
-        $message = sprintf(esc_html__("Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %d hour(s).\n\nClick here to log in securely:\n%s\n\nAfter the time expires, this account will be automatically and completely deleted.", 'tegatai-secure'), $hours, $link);
+        $subject = sprintf(/* translators: %s: site name */ esc_html__('Temporary Admin Access: %s', 'tegatai-secure'), $blog_name);
+        $message = sprintf(/* translators: 1: number of hours, 2: login link */ esc_html__("Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %1\$d hour(s).\n\nClick here to log in securely:\n%2\$s\n\nAfter the time expires, this account will be automatically and completely deleted.", 'tegatai-secure'), $hours, $link);
         
-        $domain = parse_url(home_url(), PHP_URL_HOST);
+        $domain = wp_parse_url(home_url(), PHP_URL_HOST);
         if (!$domain) {
             $domain = 'localhost';
         }

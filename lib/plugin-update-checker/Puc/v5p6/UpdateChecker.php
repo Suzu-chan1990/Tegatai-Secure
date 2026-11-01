@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use stdClass;
 use WP_Error;
 

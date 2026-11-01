@@ -1,5 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
+// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or Turnstile instead of nonces
 
 /* TEGATAI_TWOFA_UNIFICATION_V1 applied */
 /* TEGATAI_TWOFA_UX_REFINEMENT_V1 applied */
@@ -27,14 +29,14 @@ class Tegatai_TwoFactor {
 
     // DRY: Unified IP Handling
     private function get_client_ip() {
-        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? ''));
     }
 
     public function handle_profile_action() {
         if (!is_user_logged_in()) wp_die('Forbidden');
         check_admin_referer('teg_2fa_profile_nonce');
         $uid = get_current_user_id();
-        $sub = isset($_POST['teg_2fa_subaction']) ? sanitize_key($_POST['teg_2fa_subaction']) : '';
+        $sub = isset($_POST['teg_2fa_subaction']) ? sanitize_key(wp_unslash($_POST['teg_2fa_subaction'])) : '';
 
         $return_url = admin_url('profile.php');
         if (!empty($_POST['teg_return_to']) && is_string($_POST['teg_return_to'])) {
@@ -97,7 +99,7 @@ class Tegatai_TwoFactor {
     }
 
     public static function build_otpauth_url($user, $secret) {
-        $host = parse_url(home_url(), PHP_URL_HOST) ?: 'WordPress';
+        $host = wp_parse_url(home_url(), PHP_URL_HOST) ?: 'WordPress';
         $raw_blog = wp_specialchars_decode((string) get_bloginfo('name'), ENT_QUOTES);
         $raw_blog = trim(preg_replace('/[\r\n:]+/', ' ', $raw_blog));
         if ($raw_blog === '' || strlen(rawurlencode($raw_blog)) > 36) {
@@ -129,7 +131,7 @@ class Tegatai_TwoFactor {
         echo '<div id="tegatai-2fa-section" style="margin-top:' . ($compact ? '16px' : '8px') . ';">';
 
         if (isset($_GET['teg_2fa_msg'])) {
-            $m = sanitize_key($_GET['teg_2fa_msg']);
+            $m = sanitize_key(wp_unslash($_GET['teg_2fa_msg']));
             if ($m === 'verified') {
                 echo '<div style="padding:10px 12px; background:#dcfce7; border:1px solid #bbf7d0; color:#166534; border-radius:6px; margin-bottom:12px; font-size:12px; font-weight:600;">✓ ' . esc_html__('Authenticator app successfully verified and confirmed!', 'tegatai-secure') . '</div>';
             } elseif ($m === 'invalid') {
@@ -140,7 +142,7 @@ class Tegatai_TwoFactor {
         }
 
         echo '<div style="display:flex; flex-wrap:wrap; gap:18px; align-items:flex-start; background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:16px; max-width:100%; box-sizing:border-box;">';
-        echo '<div style="background:#ffffff !important; padding:10px; border:1px solid #cbd5e1; border-radius:8px; line-height:0; flex:0 0 auto; width:176px; height:176px; box-sizing:content-box; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.04);">' . $svg_qr . '</div>';
+        echo '<div style="background:#ffffff !important; padding:10px; border:1px solid #cbd5e1; border-radius:8px; line-height:0; flex:0 0 auto; width:176px; height:176px; box-sizing:content-box; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 2px rgba(0,0,0,0.04);">' . $svg_qr . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG built locally by Tegatai_QR_SVG from numeric matrix data only
         echo '<div style="flex:1; min-width:220px;">';
 
         echo '<div style="margin-bottom:10px; font-size:13px;"><strong>' . esc_html__('Status:', 'tegatai-secure') . '</strong> ';
@@ -172,7 +174,7 @@ class Tegatai_TwoFactor {
                 var inpEl = document.getElementById(instId + "_input");
                 var f = document.createElement("form");
                 f.method = "POST";
-                f.action = "' . $post_url . '";
+                f.action = "' . esc_js($post_url) . '";
                 var fields = {
                     action: "tegatai_2fa_profile_action",
                     _wpnonce: "' . esc_js($nonce) . '",
@@ -362,7 +364,7 @@ class Tegatai_TwoFactor {
 
                 wp_set_current_user($uid);
                 wp_set_auth_cookie($uid, !empty($data['remember']));
-                do_action('wp_login', $user->user_login, $user);
+                do_action('wp_login', $user->user_login, $user); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook, fired after the 2FA step completes the login
 
                 $raw_redirect = trim((string) ($data['redirect_to'] ?? ''));
                 $redirect = wp_validate_redirect($raw_redirect, admin_url());
@@ -373,7 +375,8 @@ class Tegatai_TwoFactor {
                 }
                 wp_safe_redirect($redirect); exit;
             } else {
-                do_action('wp_login_failed', $user->user_login, new WP_Error('teg_2fa_failed', 'Wrong 2FA code'));
+                do_action('wp_login_failed', $user->user_login, // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook, so other plugins see the failed 2FA attempt
+                    new WP_Error('teg_2fa_failed', 'Wrong 2FA code'));
                 $data['fails']++;
                 if ($data['fails'] >= 3) {
                     delete_transient('teg_2fa_tok_' . $token);
@@ -386,7 +389,7 @@ class Tegatai_TwoFactor {
                 } else {
                     set_transient('teg_2fa_tok_' . $token, $data, 600);
                     if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-FAIL', "2FA Code wrong. Attempt " . $data['fails'] . " ($ip)");
-                    wp_die(esc_html(sprintf(__('Invalid code. Attempt %d of 3.', 'tegatai-secure'), $data['fails'])), '2FA', ['response' => 403]);
+                    wp_die(esc_html(sprintf(/* translators: %d: number of the failed attempt */ __('Invalid code. Attempt %d of 3.', 'tegatai-secure'), $data['fails'])), '2FA', ['response' => 403]);
                 }
             }
         } else {

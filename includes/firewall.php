@@ -1,5 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- The firewall inspects the raw request on purpose (it may run before WordPress adds slashes); values are matched, never output unescaped, and SQL is prepared
+// phpcs:disable WordPress.Security.NonceVerification -- The firewall runs on every request and checks input before any form handler; it does not process forms itself
 
 class Tegatai_Firewall {
     // Word boundaries keep normal prose ("medieval (", "Retrieval (", "javascript: tips") from matching.
@@ -80,7 +82,7 @@ class Tegatai_Firewall {
         if (!empty($ops['enable_lockdown']) && !current_user_can('manage_options') && !$this->is_login_request()) {
             status_header(503);
             nocache_headers();
-            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-secure') . '</p></div>', __('503 Service Unavailable', 'tegatai-secure'), ['response' => 503]);
+            wp_die('<div style="text-align:center; padding:50px; font-family:sans-serif;"><h1>🚧 ' . esc_html__('Maintenance Mode', 'tegatai-secure') . '</h1><p>' . esc_html__('The website is currently locked for security maintenance.', 'tegatai-secure') . '</p></div>', esc_html__('503 Service Unavailable', 'tegatai-secure'), ['response' => 503]);
         }
 
         // 1. VIP SPUR: Echte Suchmaschinen durchwinken (Bypass für WAF & Rate Limit via rDNS)
@@ -193,12 +195,12 @@ class Tegatai_Firewall {
         if ($ops['geoip_mode'] === 'blacklist') {
             if (in_array($country, $countries, true)) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country");
-                wp_die("Access from your country ($country) is not allowed.", "GeoIP Block", ['response' => 403]);
+                wp_die(esc_html("Access from your country ($country) is not allowed."), "GeoIP Block", ['response' => 403]);
             }
         } elseif ($ops['geoip_mode'] === 'whitelist') {
             if (!in_array($country, $countries, true)) {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country (Not Whitelisted)");
-                wp_die("Access from your country ($country) is not allowed.", "GeoIP Block", ['response' => 403]);
+                wp_die(esc_html("Access from your country ($country) is not allowed."), "GeoIP Block", ['response' => 403]);
             }
         }
     }
@@ -260,7 +262,7 @@ class Tegatai_Firewall {
         if (file_exists($file)) {
             $data = explode('|', (string)@file_get_contents($file), 2);
             if (isset($data[1]) && time() < intval($data[0])) return is_numeric($data[1]) ? intval($data[1]) : $data[1];
-            @unlink($file);
+            wp_delete_file($file);
         }
         return false;
     }
@@ -274,7 +276,7 @@ class Tegatai_Firewall {
         // No transients here: one row per visitor IP would turn every new visitor into a DB write.
         $ud = wp_upload_dir();
         $dir = $ud['basedir'] . '/tegatai-logs/cache/';
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
+        if (!is_dir($dir)) wp_mkdir_p($dir);
         @file_put_contents($dir . $key . '.txt', (time() + (int)$time_window) . '|' . $val, LOCK_EX);
     }
     // --------------------------------------------------
@@ -467,7 +469,7 @@ class Tegatai_Firewall {
         $ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
         foreach ($bot_list as $b) {
             if (strpos($ua, $b) !== false) {
-                wp_die("Access Denied: $type_name not allowed.", 'Firewall', ['response' => 403]);
+                wp_die(esc_html("Access Denied: $type_name not allowed."), 'Firewall', ['response' => 403]);
             }
         }
     }

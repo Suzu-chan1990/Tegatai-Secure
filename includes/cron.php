@@ -127,7 +127,7 @@ class Tegatai_Cron {
             $phrase = (string)get_option(self::OPT_SEAL_PHRASE, '');
         }
 
-        $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field((string)$_SERVER['HTTP_HOST']) : '';
+        $host = isset($_SERVER['HTTP_HOST']) ? sanitize_text_field(wp_unslash((string)$_SERVER['HTTP_HOST'])) : '';
         $host = preg_replace('/[^a-z0-9\.\-:]/i', '', $host);
 
         $html  = '<div style="margin:14px 0 10px;padding:10px 12px;border:1px solid #dcdcde;border-radius:10px;background:#fff;">';

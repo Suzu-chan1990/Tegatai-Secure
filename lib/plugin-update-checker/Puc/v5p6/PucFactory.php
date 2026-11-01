@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use YahnisElsts\PluginUpdateChecker\v5p6\Plugin;
 use YahnisElsts\PluginUpdateChecker\v5p6\Theme;
 use YahnisElsts\PluginUpdateChecker\v5p6\Vcs;

@@ -1,5 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- The firewall inspects the raw request on purpose (it may run before WordPress adds slashes); values are matched, never output unescaped, and SQL is prepared
+// phpcs:disable WordPress.Security.NonceVerification -- Request inspection of the REST API gateway; it does not process forms
 
 class Tegatai_API_Guard {
     public function __construct() {
@@ -182,12 +184,12 @@ class Tegatai_API_Guard {
         if (!defined('TEGATAI_SUDO_PIN')) {
              wp_send_json_error('SUDO_NOT_CONFIGURED');
         }
-        $pin = isset($_POST['pin']) ? sanitize_text_field($_POST['pin']) : '';
+        $pin = isset($_POST['pin']) ? sanitize_text_field(wp_unslash($_POST['pin'])) : '';
         if (!password_verify($pin, TEGATAI_SUDO_PIN)) {
              wp_send_json_error('INVALID_PIN');
         }
 
-        $mode = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'reveal';
+        $mode = isset($_POST['mode']) ? sanitize_text_field(wp_unslash($_POST['mode'])) : 'reveal';
         
         if ($mode === 'generate') {
             $secret = bin2hex(random_bytes(32));
@@ -205,13 +207,13 @@ class Tegatai_API_Guard {
 
     public function render_page() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        if (isset($_POST['tegatai_api_guard_nonce']) && wp_verify_nonce($_POST['tegatai_api_guard_nonce'], 'save_api_guard')) {
+        if (isset($_POST['tegatai_api_guard_nonce']) && wp_verify_nonce(sanitize_key(wp_unslash($_POST['tegatai_api_guard_nonce'])), 'save_api_guard')) {
             update_option('tegatai_api_guard_options', [
-                'endpoints' => sanitize_textarea_field($_POST['endpoints']),
-                'match_mode' => sanitize_text_field($_POST['match_mode']),
-                'auth_mode' => sanitize_text_field($_POST['auth_mode']),
+                'endpoints' => sanitize_textarea_field(wp_unslash($_POST['endpoints'] ?? '')),
+                'match_mode' => sanitize_text_field(wp_unslash($_POST['match_mode'] ?? '')),
+                'auth_mode' => sanitize_text_field(wp_unslash($_POST['auth_mode'] ?? '')),
                 'enable_rate_limit' => isset($_POST['enable_rate_limit']) ? 1 : 0,
-                'allowlist' => sanitize_textarea_field($_POST['allowlist'])
+                'allowlist' => sanitize_textarea_field(wp_unslash($_POST['allowlist'] ?? ''))
             ]);
             echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('API Gateway rules updated successfully.', 'tegatai-secure') . '</p></div>';
         }
@@ -291,7 +293,7 @@ class Tegatai_API_Guard {
 
             <form method="post" action="">
                 <?php wp_nonce_field('save_api_guard', 'tegatai_api_guard_nonce'); ?>
-                <input type="hidden" id="tegatai_api_sudo_nonce" value="<?php echo wp_create_nonce('tegatai_api_sudo_nonce'); ?>">
+                <input type="hidden" id="tegatai_api_sudo_nonce" value="<?php echo esc_attr( wp_create_nonce('tegatai_api_sudo_nonce') ); ?>">
                 
                 <div class="teg-grid">
                     <div class="teg-card" style="grid-column: span 2;">

@@ -1,5 +1,7 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
+// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or Turnstile instead of nonces
 
 /* TEGATAI_HONEYPOT_UNIFIED_IP_V1 applied */
 class Tegatai_Honeypot {
@@ -34,7 +36,7 @@ class Tegatai_Honeypot {
         if ($val !== '') {
             
             // TEGATAI_FIX: Unified IP Handling (Proxy-kompatibel)
-            $ip = class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+            $ip = class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1'));
 
             if (class_exists('Tegatai_Timeline')) {
                 Tegatai_Timeline::add('honeypot', 'Login honeypot triggered from IP ' . $ip);

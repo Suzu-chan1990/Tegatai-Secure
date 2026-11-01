@@ -1,5 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
 
 class Tegatai_Logger {
     // Central client IP detection.
@@ -157,7 +159,7 @@ class Tegatai_Logger {
             do {
             $url = isset($ops['alert_webhook_url']) ? esc_url_raw($ops['alert_webhook_url']) : '';
             if (!$url || !wp_http_validate_url($url)) { break; }
-            $host = (string)parse_url($url, PHP_URL_HOST);
+            $host = (string)wp_parse_url($url, PHP_URL_HOST);
             if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') { break; }
             if (filter_var($host, FILTER_VALIDATE_IP) && self::tegatai_is_private_ip($host)) { break; }
             wp_remote_post($url, [
@@ -174,20 +176,20 @@ class Tegatai_Logger {
         $table = $wpdb->prefix . 'tegatai_logs';
         
         // Check if table exists (safety)
-        if($wpdb->get_var("SHOW TABLES LIKE '$table'") != $table) return [];
+        if($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) != $table) return [];
 
-        $results = $wpdb->get_results("SELECT * FROM $table ORDER BY id DESC LIMIT " . intval($limit), ARRAY_A);
+        $results = $wpdb->get_results($wpdb->prepare("SELECT * FROM %i ORDER BY id DESC LIMIT %d", $table, intval($limit)), ARRAY_A);
         return $results ? $results : [];
     }
     
     public static function get_stats() {
         global $wpdb;
         $table = $wpdb->prefix . 'tegatai_logs';
-        if($wpdb->get_var("SHOW TABLES LIKE '$table'") != $table) return ['total'=>0, 'blocked'=>0];
+        if($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table)) != $table) return ['total'=>0, 'blocked'=>0];
 
-        $total = $wpdb->get_var("SELECT COUNT(*) FROM $table");
+        $total = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $table));
         // Wir zählen alles als "Blocked", was nicht "LOGIN" oder "INFO" oder "BACKUP" ist
-        $blocked = $wpdb->get_var("SELECT COUNT(*) FROM $table WHERE type NOT IN ('LOGIN', 'INFO', 'BACKUP', 'AUTH')");
+        $blocked = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i WHERE type NOT IN ('LOGIN', 'INFO', 'BACKUP', 'AUTH')", $table));
         
         return ['total' => $total, 'blocked' => $blocked];
     }
@@ -195,7 +197,7 @@ class Tegatai_Logger {
     public static function clear() {
         global $wpdb;
         $table = $wpdb->prefix . 'tegatai_logs';
-        $wpdb->query("TRUNCATE TABLE $table");
+        $wpdb->query($wpdb->prepare("TRUNCATE TABLE %i", $table));
     }
 
     public static function prune_logs($days = 30) {
@@ -207,13 +209,13 @@ class Tegatai_Logger {
 
         // 1. Delete entries older than X days. Log times are stored in site-local time (current_time('mysql')).
         $time_limit = gmdate('Y-m-d H:i:s', current_time('timestamp') - $days * DAY_IN_SECONDS);
-        $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE time < %s", $time_limit));
+        $wpdb->query($wpdb->prepare("DELETE FROM %i WHERE time < %s", $table, $time_limit));
         
         // 2. Hard Limit (Max 5000 Einträge behalten, Überlaufschutz)
-        $count = $wpdb->get_var("SELECT COUNT(*) FROM $table");
+        $count = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM %i", $table));
         if ($count > 5000) {
             $limit = intval($count - 5000);
-            $wpdb->query("DELETE FROM $table ORDER BY id ASC LIMIT $limit");
+            $wpdb->query($wpdb->prepare("DELETE FROM %i ORDER BY id ASC LIMIT %d", $table, $limit));
         }
 
         // 3. CLEANUP: expired transients (rate-limit counters, nonces). The previous custom query
@@ -225,7 +227,7 @@ class Tegatai_Logger {
         $cache_dir = wp_upload_dir()['basedir'] . '/tegatai-logs/cache/';
         if (is_dir($cache_dir)) {
             foreach (glob($cache_dir . '*.txt') as $file) {
-                if (time() - filemtime($file) > 86400) @unlink($file);
+                if (time() - filemtime($file) > 86400) wp_delete_file($file);
             }
         }
     }

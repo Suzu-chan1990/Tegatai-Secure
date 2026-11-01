@@ -379,12 +379,12 @@ class Tegatai_Hive {
              wp_send_json_error('SUDO_NOT_CONFIGURED');
         }
 
-        $pin = isset($_POST['pin']) ? sanitize_text_field($_POST['pin']) : '';
+        $pin = isset($_POST['pin']) ? sanitize_text_field(wp_unslash($_POST['pin'])) : '';
         if (!password_verify($pin, TEGATAI_SUDO_PIN)) {
              wp_send_json_error('INVALID_PIN');
         }
 
-        $mode = isset($_POST['mode']) ? sanitize_text_field($_POST['mode']) : 'reveal';
+        $mode = isset($_POST['mode']) ? sanitize_text_field(wp_unslash($_POST['mode'])) : 'reveal';
         
         if ($mode === 'generate') {
             $key = 'tg_hmac_' . bin2hex(random_bytes(32));
@@ -403,17 +403,17 @@ class Tegatai_Hive {
     public function render_page() {
         if (!current_user_can('manage_options')) wp_die(esc_html__('Access Denied', 'tegatai-secure'));
 
-        if (isset($_POST['tegatai_hive_nonce']) && wp_verify_nonce($_POST['tegatai_hive_nonce'], 'save_hive_settings')) {
+        if (isset($_POST['tegatai_hive_nonce']) && wp_verify_nonce(sanitize_key(wp_unslash($_POST['tegatai_hive_nonce'])), 'save_hive_settings')) {
             $current_ops = get_option('tegatai_hive_options', []);
-            $new_secret = isset($_POST['shared_secret']) ? sanitize_text_field($_POST['shared_secret']) : '';
+            $new_secret = isset($_POST['shared_secret']) ? sanitize_text_field(wp_unslash($_POST['shared_secret'])) : '';
             $ops = [
                 'enable_hive' => isset($_POST['enable_hive']) ? 1 : 0,
                 'ssl_verify' => isset($_POST['ssl_verify']) ? 1 : 0,
                 'shared_secret' => !empty($new_secret) ? $new_secret : (isset($current_ops['shared_secret']) ? $current_ops['shared_secret'] : ''),
-                'node_urls' => sanitize_textarea_field($_POST['node_urls']),
+                'node_urls' => sanitize_textarea_field(wp_unslash($_POST['node_urls'] ?? '')),
                 'strict_peers' => isset($_POST['strict_peers']) ? 1 : 0,
-                'ban_ttl_hours' => max(1, min(720, (int)($_POST['ban_ttl_hours'] ?? 24))),
-                'protected_ips' => sanitize_textarea_field($_POST['protected_ips'] ?? ''),
+                'ban_ttl_hours' => max(1, min(720, absint(wp_unslash($_POST['ban_ttl_hours'] ?? 24)))),
+                'protected_ips' => sanitize_textarea_field(wp_unslash($_POST['protected_ips'] ?? '')),
             ];
             update_option('tegatai_hive_options', $ops);
             echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-secure') . '</p></div>';
@@ -563,7 +563,7 @@ class Tegatai_Hive {
                         <label class="teg-switch-label"><?php esc_html_e('Never-ban allowlist (IP / CIDR)', 'tegatai-secure'); ?></label>
                         <textarea name="protected_ips" class="teg-form-input" placeholder="203.0.113.10&#10;66.249.64.0/19"><?php echo esc_textarea($ops['protected_ips']); ?></textarea>
                         <p class="teg-switch-desc"><?php esc_html_e('Always protected as well: firewall whitelists, private ranges, this server and IPs admins logged in from (30 days).', 'tegatai-secure'); ?></p>
-                        <p class="teg-switch-desc"><?php echo esc_html(sprintf(__('Active network bans: %d', 'tegatai-secure'), count($active_bans))); ?></p>
+                        <p class="teg-switch-desc"><?php echo esc_html(sprintf(/* translators: %d: number of active bans */ __('Active network bans: %d', 'tegatai-secure'), count($active_bans))); ?></p>
                     </div>
                 </div>
 
@@ -656,7 +656,7 @@ class Tegatai_Hive {
 
                         const fd = new FormData();
                         fd.append('action', 'tegatai_hive_test');
-                        fd.append('security', '<?php echo wp_create_nonce('tegatai_hive_test_nonce'); ?>');
+                        fd.append('security', '<?php echo esc_js( wp_create_nonce('tegatai_hive_test_nonce') ); ?>');
 
                         fetch(ajaxurl, { method: 'POST', body: fd })
                             .then(res => res.text())

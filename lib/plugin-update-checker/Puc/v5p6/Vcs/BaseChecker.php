@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Vcs;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 if ( !interface_exists(BaseChecker::class, false) ):
 
 	interface BaseChecker {

@@ -4,6 +4,8 @@
 /* TEGATAI_SCANNER_REFINEMENT_V1 applied */
 /* TEGATAI_SCANNER_FINAL_TURBO_V1 applied */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- The scan token is compared with hash_equals() against the stored token
+// phpcs:disable WordPress.Security.NonceVerification -- The background scan chain is authorized by a random scan token instead of a nonce
 
 class Tegatai_Scanner {
     public function __construct() {
@@ -58,7 +60,7 @@ class Tegatai_Scanner {
         // Cache direkt aktualisieren
         $this->set_cache('tegatai_scan_snapshot', $snapshot, 3600);
 
-        wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner&msg=snapshot_created'));
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner&msg=snapshot_created'));
         exit;
     }
 
@@ -114,7 +116,7 @@ class Tegatai_Scanner {
             'scan_token' => $scan_token
         ], false);
 
-        wp_redirect(admin_url('admin-post.php?action=tegatai_scan_process&scan_token=' . rawurlencode($scan_token)));
+        wp_safe_redirect(admin_url('admin-post.php?action=tegatai_scan_process&scan_token=' . rawurlencode($scan_token)));
         exit;
     }
 
@@ -129,7 +131,7 @@ class Tegatai_Scanner {
             wp_die('Invalid scan token.');
         }
         if (empty($state) || !$state['running']) {
-            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner'));
+            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner'));
             exit;
         }
 
@@ -137,9 +139,9 @@ class Tegatai_Scanner {
         update_option('teg_scan_status', $state, false);
 
         if ($done) {
-            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner&msg=done'));
+            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner&msg=done'));
         } else {
-            wp_redirect(admin_url('admin-post.php?action=tegatai_scan_process&scan_token=' . rawurlencode($state['scan_token'])));
+            wp_safe_redirect(admin_url('admin-post.php?action=tegatai_scan_process&scan_token=' . rawurlencode($state['scan_token'])));
         }
         exit;
     }
@@ -185,7 +187,7 @@ class Tegatai_Scanner {
         $state['running'] = false;
         $state['offset'] = $total;
         $state['last_scan'] = current_time('mysql');
-        @unlink($this->scan_files_path());
+        wp_delete_file($this->scan_files_path());
         return true;
     }
 
@@ -357,7 +359,8 @@ class Tegatai_Scanner {
                     $safe_filename = time() . '_' . basename($path) . '.quarantine';
                     $target_path = $quarantine_dir . $safe_filename;
 
-                    if (@rename($path, $target_path)) {
+                    // Atomic move into quarantine; WP_Filesystem::move() would fall back to copy + delete
+                    if (@rename($path, $target_path)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
                         if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SEC-WARN', "Malware in Quarantäne verschoben: " . basename($path));
 
                         // Status im Scan-Array updaten

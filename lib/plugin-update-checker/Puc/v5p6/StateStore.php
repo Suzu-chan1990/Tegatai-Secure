@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 if ( !class_exists(StateStore::class, false) ):
 
 	class StateStore {

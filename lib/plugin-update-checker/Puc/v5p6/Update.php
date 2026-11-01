@@ -1,6 +1,8 @@
 <?php
 namespace YahnisElsts\PluginUpdateChecker\v5p6;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use stdClass;
 
 if ( !class_exists(Update::class, false) ):

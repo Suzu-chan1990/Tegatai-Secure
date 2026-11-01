@@ -1,5 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
 
 /* TEGATAI_BACKUP_ENCRYPTION_V1 applied */
 class Tegatai_Backup {
@@ -20,7 +21,7 @@ class Tegatai_Backup {
         $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['enable_auto_backup'])) return;
         $freq = isset($ops['backup_frequency']) ? $ops['backup_frequency'] : 'daily';
-        if ($freq === 'weekly' && date('N') != 1) return;
+        if ($freq === 'weekly' && gmdate('N') != 1) return;
         $this->create_db_backup('cron');
     }
 
@@ -29,7 +30,7 @@ class Tegatai_Backup {
         check_admin_referer('teg_backup_nonce');
         
         if ($this->create_db_backup('manual')) { 
-            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created')); 
+            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created')); 
         } else { 
             wp_die(esc_html__('Backup Error.', 'tegatai-secure')); 
         } 
@@ -82,14 +83,14 @@ class Tegatai_Backup {
         
         // Tabellen exportieren
         $tables = $wpdb->get_results('SHOW TABLES', ARRAY_N);
-        $sql = "<?php exit; ?>\n-- Tegatai Backup ($type) - " . date('Y-m-d H:i:s') . "\n\n";
+        $sql = "<?php exit; ?>\n-- Tegatai Backup ($type) - " . gmdate('Y-m-d H:i:s') . "\n\n";
         
         foreach ($tables as $table) {
             $tbl = $table[0]; 
-            $row2 = $wpdb->get_row('SHOW CREATE TABLE ' . $tbl, ARRAY_N);
+            $row2 = $wpdb->get_row($wpdb->prepare('SHOW CREATE TABLE %i', $tbl), ARRAY_N); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- database backup
             $sql .= "\n\n" . $row2[1] . ";\n\n"; 
             
-            $rows = $wpdb->get_results('SELECT * FROM ' . $tbl, ARRAY_N);
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i', $tbl), ARRAY_N); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- database backup
             foreach ($rows as $row) {
                 $sql .= "INSERT INTO $tbl VALUES("; 
                 $vals = [];
@@ -108,8 +109,8 @@ class Tegatai_Backup {
         }
         
         // SECURITY: Zufalls-Hash im Dateinamen
-        $hash = substr(md5(uniqid(rand(), true)), 0, 8);
-        $filename = 'db_backup_' . date('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php';
+        $hash = substr(md5(uniqid(wp_rand(), true)), 0, 8);
+        $filename = 'db_backup_' . gmdate('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php';
         
         // 1. ZLIB Komprimierung (Verschlüsselte Daten lassen sich nicht gut packen, also erst komprimieren)
         if (function_exists('gzencode')) { 
@@ -155,7 +156,7 @@ class Tegatai_Backup {
         // Alle Dateien ab dem Index $limit löschen
         $to_delete = array_slice($files, $limit);
         foreach ($to_delete as $file) {
-            @unlink($file);
+            wp_delete_file($file);
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-GC', "Auto-deleted old backup: " . basename($file));
         }
     }
@@ -164,12 +165,12 @@ class Tegatai_Backup {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_admin_referer('teg_backup_nonce');
         
-        $file = sanitize_file_name($_POST['file']); 
+        $file = sanitize_file_name(wp_unslash($_POST['file'] ?? '')); 
         $path = $this->backup_dir . $file;
         
         // SECURITY FIX: Robuster Check
         if (!file_exists($path)) {
-            wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted'));
+            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted'));
             exit;
         }
 
@@ -178,10 +179,10 @@ class Tegatai_Backup {
              wp_die("Security Check Failed.");
         }
 
-        unlink($path); 
+        wp_delete_file($path); 
         if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Gelöscht: $file"); 
         
-        wp_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted')); 
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted')); 
         exit;
     }
 
@@ -189,7 +190,7 @@ class Tegatai_Backup {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_admin_referer('teg_backup_nonce');
         
-        $file = sanitize_file_name($_POST['file']); 
+        $file = sanitize_file_name(wp_unslash($_POST['file'] ?? '')); 
         $path = $this->backup_dir . $file;
         
         if (file_exists($path) && dirname($path) === rtrim($this->backup_dir, '/')) {
@@ -210,7 +211,7 @@ class Tegatai_Backup {
             header('Content-Type: application/octet-stream'); 
             header('Content-Disposition: attachment; filename="'.$dl_name.'"'); 
             header('Content-Length: ' . strlen($data)); 
-            echo $data; 
+            echo $data; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary file download (SQL dump), not HTML
             exit;
         } 
         wp_die('File not found or access denied.');
@@ -227,7 +228,7 @@ class Tegatai_Backup {
                     $files[] = [
                         'name' => $file, 
                         'size' => round(filesize($dir . $file) / 1024, 2) . ' KB', 
-                        'date' => date("Y-m-d H:i", filemtime($dir . $file))
+                        'date' => gmdate("Y-m-d H:i", filemtime($dir . $file))
                     ];
                 }
             }

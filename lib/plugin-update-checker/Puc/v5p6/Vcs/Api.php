@@ -2,6 +2,8 @@
 
 namespace YahnisElsts\PluginUpdateChecker\v5p6\Vcs;
 
+
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 use Parsedown;
 use PucReadmeParser;
 

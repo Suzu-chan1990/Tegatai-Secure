@@ -63,17 +63,18 @@ class Tegatai_Quarantine {
         // Verify the stored copy before touching the original
         $stored = $ok1 !== false ? base64_decode((string)@file_get_contents($blob_path), true) : false;
         if ($ok1 === false || $ok2 === false || !is_string($stored) || !hash_equals($meta['sha256'], hash('sha256', $stored))) {
-            @unlink($blob_path);
-            @unlink($meta_path);
+            wp_delete_file($blob_path);
+            wp_delete_file($meta_path);
             return ['ok'=>false, 'error'=>'write_failed'];
         }
 
         // Remove the original. A renamed copy ("x.php.tegatai.quarantined") stayed readable over HTTP and
         // could still be executed by Apache AddHandler multi-extension setups. The verified blob is the backup.
-        if (!@unlink($abs)) {
+        // unlink() on purpose: the result decides whether the quarantine is rolled back
+        if (!@unlink($abs)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
             // The malware is still in place: report failure and drop the orphaned copy
-            @unlink($blob_path);
-            @unlink($meta_path);
+            wp_delete_file($blob_path);
+            wp_delete_file($meta_path);
             return ['ok'=>false, 'error'=>'remove_failed'];
         }
 
@@ -112,9 +113,9 @@ class Tegatai_Quarantine {
         
         if (@file_put_contents($orig, $content) !== false) {
             // Leftover renamed copy from older versions
-            if (file_exists($orig . '.tegatai.quarantined')) @unlink($orig . '.tegatai.quarantined');
-            @unlink($meta);
-            @unlink($blob);
+            if (file_exists($orig . '.tegatai.quarantined')) wp_delete_file($orig . '.tegatai.quarantined');
+            wp_delete_file($meta);
+            wp_delete_file($blob);
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('QUARANTINE', "Datei wiederhergestellt: " . $orig);
             return ['ok'=>true, 'file'=>$orig];
         }

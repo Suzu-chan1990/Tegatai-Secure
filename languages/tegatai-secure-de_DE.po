@@ -685,8 +685,8 @@ msgstr "Ungültige Eingaben."
 msgid "Temporary Admin Access: %s"
 msgstr "Temporärer Admin-Zugang: %s"
 
-msgid "Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %d hour(s).\n\nClick here to log in securely:\n%s\n\nAfter the time expires, this account will be automatically and completely deleted."
-msgstr "Hallo,\n\nEs wurde ein temporärer Admin-Zugang für dich erstellt.\nDieser Zugang ist für %d Stunde(n) gültig.\n\nKlicke hier, um dich sofort sicher einzuloggen:\n%s\n\nNach Ablauf der Zeit wird dieser Account automatisch und restlos gelöscht."
+msgid "Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %1$d hour(s).\n\nClick here to log in securely:\n%2$s\n\nAfter the time expires, this account will be automatically and completely deleted."
+msgstr "Hallo,\n\nEs wurde ein temporärer Admin-Zugang für dich erstellt.\nDieser Zugang ist für %1$d Stunde(n) gültig.\n\nKlicke hier, um dich sofort sicher einzuloggen:\n%2$s\n\nNach Ablauf der Zeit wird dieser Account automatisch und restlos gelöscht."
 
 msgid "Backup Error."
 msgstr "Backup Fehler."

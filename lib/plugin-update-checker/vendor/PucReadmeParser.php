@@ -1,4 +1,5 @@
 <?php
+if ( ! defined( 'ABSPATH' ) ) exit; // No direct access
 
 if ( !class_exists('PucReadmeParser', false) ):
 

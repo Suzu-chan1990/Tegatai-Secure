@@ -1,5 +1,6 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
+// phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
 
 /* TEGATAI_USER_HISTORY_UNIFICATION_V1 applied */
 class Tegatai_UserHistory {
@@ -10,7 +11,7 @@ class Tegatai_UserHistory {
     }
 
     public function log_login($user_login, $user) {
-        $ip = class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        $ip = class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? ''));
         $role = !empty($user->roles) ? reset($user->roles) : 'none';
         
         // 1. Legacy Option (Für Abwärtskompatibilität und Dashboard Widgets)
