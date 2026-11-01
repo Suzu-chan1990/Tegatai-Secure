@@ -810,3 +810,116 @@ msgstr "Schreibrechte fehlen. Die Datei konnte nicht überschrieben werden."
 
 msgid "Core file successfully repaired: %s"
 msgstr "Core-Datei erfolgreich repariert: %s"
+
+msgid "The rules file has not been written by this version yet. Click \"Write rules to config\"."
+msgstr "Die Regeldatei wurde von dieser Version noch nicht geschrieben. Klicke auf „Write rules to config“."
+
+#. translators: 1: file path, 2: date and time
+#, php-format
+msgid "Rules written to %1$s (%2$s)."
+msgstr "Regeln geschrieben nach %1$s (%2$s)."
+
+msgid "Include line for your nginx server block:"
+msgstr "Include-Zeile für deinen nginx-Serverblock:"
+
+#. translators: %s: file path
+#, php-format
+msgid "The rules file %s was written but no longer exists. Click \"Write rules to config\"."
+msgstr "Die Regeldatei %s wurde geschrieben, existiert aber nicht mehr. Klicke auf „Write rules to config“."
+
+#. translators: %s: error details (paths and reasons)
+#, php-format
+msgid "The rules file could not be written: %s"
+msgstr "Die Regeldatei konnte nicht geschrieben werden: %s"
+
+msgid "Secrets"
+msgstr "Schlüssel"
+
+msgid "The secrets file was created."
+msgstr "Die Schlüsseldatei wurde angelegt."
+
+msgid "The secrets file already exists and was not changed."
+msgstr "Die Schlüsseldatei existiert bereits und wurde nicht verändert."
+
+msgid "The secrets file could not be created. The PHP user may not write to this directory; create the file manually with the template below."
+msgstr "Die Schlüsseldatei konnte nicht angelegt werden. Der PHP-Benutzer darf in diesem Verzeichnis nicht schreiben; lege die Datei mit der Vorlage unten selbst an."
+
+msgid "Secrets file"
+msgstr "Schlüsseldatei"
+
+msgid "Database"
+msgstr "Datenbank"
+
+msgid "Not set"
+msgstr "Nicht gesetzt"
+
+msgid "Secrets File"
+msgstr "Schlüsseldatei"
+
+msgid "Keeps the Tegatai secrets in their own PHP file outside the web root instead of wp-config.php."
+msgstr "Speichert die Tegatai-Schlüssel in einer eigenen PHP-Datei außerhalb des Webverzeichnisses statt in der wp-config.php."
+
+msgid "Path:"
+msgstr "Pfad:"
+
+#. translators: %s: file permissions, e.g. 0600
+#, php-format
+msgid "found (permissions %s)"
+msgstr "gefunden (Rechte %s)"
+
+msgid "Recommended: 0600"
+msgstr "Empfohlen: 0600"
+
+msgid "not found"
+msgstr "nicht gefunden"
+
+msgid "Secret"
+msgstr "Schlüssel"
+
+msgid "Loaded from"
+msgstr "Geladen aus"
+
+msgid "Note"
+msgstr "Hinweis"
+
+msgid "Also in the secrets file: remove the define() line from wp-config.php."
+msgstr "Auch in der Schlüsseldatei: entferne die define()-Zeile aus der wp-config.php."
+
+msgid "Still in wp-config.php."
+msgstr "Noch in der wp-config.php."
+
+msgid "Create secrets file"
+msgstr "Schlüsseldatei anlegen"
+
+msgid "Copies the secrets currently defined in wp-config.php into the file. Afterwards remove the TEGATAI_ define() lines from wp-config.php."
+msgstr "Kopiert die aktuell in der wp-config.php definierten Schlüssel in die Datei. Entferne danach die TEGATAI_-define()-Zeilen aus der wp-config.php."
+
+msgid "Template"
+msgstr "Vorlage"
+
+msgid "Another location can be set in wp-config.php with the path only:"
+msgstr "Ein anderer Ort lässt sich in der wp-config.php setzen, nur mit dem Pfad:"
+
+msgid "Secret loaded from tegatai-secrets.php or wp-config.php"
+msgstr "Schlüssel aus tegatai-secrets.php oder wp-config.php geladen"
+
+msgid "Signs the messages between your Hive sites (HMAC). Must be the same on every Hive site, unless you use per-peer secrets (URL | secret)."
+msgstr "Signiert die Nachrichten zwischen deinen Hive-Seiten (HMAC). Muss auf allen Hive-Seiten gleich sein, außer du nutzt Schlüssel pro Gegenstelle (URL | Schlüssel)."
+
+msgid "Signs the requests of your API clients for the API Guard. Clients must use the same value."
+msgstr "Signiert die Anfragen deiner API-Clients für den API Guard. Die Clients müssen denselben Wert verwenden."
+
+msgid "Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display of secrets stored in the database. Only the hash goes into the file, never the PIN itself."
+msgstr "Optional. Ein bcrypt-Hash einer selbst gewählten PIN; die PIN schaltet die Anzeige von Schlüsseln frei, die in der Datenbank gespeichert sind. In die Datei kommt nur der Hash, nie die PIN selbst."
+
+msgid "Optional. Key for encrypting backups. Without it Tegatai uses a key stored in the database. Never change it once backups exist, otherwise they can no longer be decrypted."
+msgstr "Optional. Schlüssel zum Verschlüsseln der Backups. Ohne ihn nutzt Tegatai einen in der Datenbank gespeicherten Schlüssel. Ändere ihn nie, sobald Backups existieren, sonst lassen sie sich nicht mehr entschlüsseln."
+
+msgid "How to create the keys"
+msgstr "So erstellst du die Schlüssel"
+
+msgid "Run the command in a terminal (e.g. via SSH on the server) and copy the output into the file."
+msgstr "Führe den Befehl in einem Terminal aus (z. B. per SSH auf dem Server) und kopiere die Ausgabe in die Datei."
+
+msgid "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
+msgstr "Keine Zeile in der wp-config.php nötig: Tegatai lädt die Datei selbst. Nur wenn die Datei an einem anderen Ort liegt, trägst du den Pfad in die wp-config.php ein (siehe unten)."

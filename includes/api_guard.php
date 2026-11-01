@@ -300,14 +300,14 @@ class Tegatai_API_Guard {
                         <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('Master Sync Token', 'tegatai-secure'); ?></h3>
                         <?php if ($is_locked) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-secure'); ?></strong><br>
+                                <strong>🔒 <?php esc_html_e('Secret loaded from tegatai-secrets.php or wp-config.php', 'tegatai-secure'); ?></strong><br>
                                 <?php esc_html_e('The API token is active and secured. It is completely hidden from the UI.', 'tegatai-secure'); ?>
                             </div>
                         <?php else: ?>
                             <?php if (!empty($secret)) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
                                     <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in wp-config.php to lock it.', 'tegatai-secure'); ?>
+                                    <?php esc_html_e('An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in tegatai-secrets.php (outside the web root) to lock it.', 'tegatai-secure'); ?>
                                 </div>
                             <?php endif; ?>
                             
@@ -322,7 +322,7 @@ class Tegatai_API_Guard {
                                 <button type="button" class="button button-secondary" id="generate_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-secure'); ?></button>
                                 <button type="button" class="button button-secondary" id="copy_api_btn" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
                             </div>
-                            <p class="teg-switch-desc"><?php esc_html_e('Generate a new key only if you need to copy it to your wp-config.php or client applications.', 'tegatai-secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('Generate a new key only if you need to copy it to your tegatai-secrets.php or client applications.', 'tegatai-secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
@@ -425,7 +425,7 @@ curl_exec($ch);</pre>
                         .then(text => { let clean = text.substring(text.indexOf('{')); return JSON.parse(clean); })
                         .then(data => {
                             if (!data.success) { 
-                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined in wp-config.php.' : 'Sudo Access Denied: Invalid PIN.'); 
+                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined (tegatai-secrets.php or wp-config.php).' : 'Sudo Access Denied: Invalid PIN.'); 
                                 return; 
                             }
                             

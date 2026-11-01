@@ -517,14 +517,14 @@ class Tegatai_Hive {
                         <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-secure'); ?></h3>
                         <?php if (defined('TEGATAI_HIVE_SECRET')) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                <strong>🔒 <?php esc_html_e('Secret loaded from wp-config.php', 'tegatai-secure'); ?></strong><br>
+                                <strong>🔒 <?php esc_html_e('Secret loaded from tegatai-secrets.php or wp-config.php', 'tegatai-secure'); ?></strong><br>
                                 <?php esc_html_e('The secret is active and secured. It is hidden from the UI.', 'tegatai-secure'); ?>
                             </div>
                         <?php else : ?>
                             <?php if (!empty($ops['shared_secret'])) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
                                     <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend migrating it to wp-config.php.', 'tegatai-secure'); ?>
+                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend moving it to tegatai-secrets.php (outside the web root).', 'tegatai-secure'); ?>
                                 </div>
                             <?php endif; ?>
                             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
@@ -604,7 +604,7 @@ class Tegatai_Hive {
                         })
                         .then(data => {
                             if (!data.success) {
-                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined in wp-config.php.' : 'Sudo Access Denied: Invalid PIN.');
+                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined (tegatai-secrets.php or wp-config.php).' : 'Sudo Access Denied: Invalid PIN.');
                                 return;
                             }
                             input.value = data.data.key;

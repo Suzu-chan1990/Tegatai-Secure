@@ -108,18 +108,41 @@ class Tegatai_Server {
         return 'unknown'; 
     }
 
+    // Writes all server rules and returns the result of the nginx file write
+    // (['ok' => bool, 'path' => string, 'error' => string, 'bytes' => int, 'time' => int]).
     public static function force_update() {
-        self::write_nginx_rules();
+        $status = self::write_nginx_rules();
         self::write_apache_rules(); // BUGFIX: War vorher write_htaccess()
+        return $status;
     }
 
+    // Result of the last write, used by the "Server" tab.
+    public static function rules_status() {
+        $st = get_option('tegatai_rules_status', []);
+        return is_array($st) ? $st : [];
+    }
+
+    public static function has_rules() {
+        $ud = wp_upload_dir();
+        $ht = ABSPATH . '.htaccess';
+        return file_exists(ABSPATH . 'tegatai-nginx.conf')
+            || file_exists(trailingslashit($ud['basedir']) . 'tegatai-nginx.conf')
+            || (file_exists($ht) && strpos((string) @file_get_contents($ht), '# BEGIN Tegatai-Secure') !== false);
+    }
+
+    // Called on deactivation. The nginx file is emptied instead of deleted: nginx refuses to
+    // start or reload when an "include" points to a missing file. The flag lets the next
+    // activation (also of a renamed plugin folder) write the rules again.
     public static function remove_rules() {
+        if (self::has_rules()) update_option('tegatai_restore_rules', 1, false);
+
+        $stub = "# Tegatai Secure is deactivated - no rules active.\n# The rules are written again when the plugin is activated.\n";
         $root = ABSPATH . 'tegatai-nginx.conf';
-        if (file_exists($root)) { wp_delete_file($root); }
+        if (file_exists($root)) { @file_put_contents($root, $stub); }
 
         $ud = wp_upload_dir();
         $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
-        if (file_exists($up)) { wp_delete_file($up); }
+        if (file_exists($up)) { @file_put_contents($up, $stub); }
 
         // write_apache_rules() uses insert_with_markers(..., 'Tegatai-Secure'), i.e. "# BEGIN Tegatai-Secure".
         // "TEGATAI" / "TEGATAI UPLOADS" are markers written by older versions.
@@ -153,7 +176,28 @@ class Tegatai_Server {
             $rules = substr($rules, 0, $pos + strlen($end_marker)) . "\n";
         }
 
-        @file_put_contents($file_path, $rules);
+        // Same target and write call as before (no extra locations); only the result is reported now.
+        if (function_exists('error_clear_last')) error_clear_last();
+        $bytes = @file_put_contents($file_path, $rules);
+        if ($bytes !== false && $bytes === strlen($rules)) {
+            $status = ['ok' => true, 'path' => $file_path, 'error' => '', 'bytes' => (int) $bytes, 'time' => time()];
+            update_option('tegatai_rules_status', $status, false);
+            return $status;
+        }
+        $last = error_get_last();
+        $reason = $last['message'] ?? '';
+        if ($reason === '') {
+            $dir = dirname($file_path);
+            if (!is_dir($dir)) $reason = 'directory does not exist';
+            elseif (file_exists($file_path) && !wp_is_writable($file_path)) $reason = 'file is not writable (owner ' . @fileowner($file_path) . ', mode ' . substr(sprintf('%o', @fileperms($file_path)), -4) . ')';
+            elseif (!wp_is_writable($dir)) $reason = 'directory is not writable';
+            else $reason = 'unknown write error';
+        }
+        $errors = [$file_path . ': ' . $reason];
+        $status = ['ok' => false, 'path' => $file_path, 'error' => implode(' | ', $errors), 'bytes' => 0, 'time' => time()];
+        update_option('tegatai_rules_status', $status, false);
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('INFO', 'nginx rules could not be written: ' . $status['error']);
+        return $status;
     }
 
     private static function generate_nginx_content() {

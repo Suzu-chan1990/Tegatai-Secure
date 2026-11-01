@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 1.5
+Stable tag: 1.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,7 +33,7 @@ It features a zero-load architecture, multiple deep-scanning engines, cryptograp
 # 🚀 Key Advantages
 
 * **Zero-Load Protection:** Malicious requests are dropped directly by the web server via auto-generated `nginx.conf` or `.htaccess` rules.
-* **Zero-Knowledge Architecture:** Sensitive secrets and master tokens can be completely removed from the database and securely stored inside `wp-config.php`.
+* **Zero-Knowledge Architecture:** Sensitive secrets and master tokens can be completely removed from the database and securely stored in a secrets file outside the web root (or `wp-config.php`).
 * **Cryptographic API Protection:** HMAC-based request signing with replay protection and rolling timestamps.
 * **Enterprise Security without Bloat:** Lightweight architecture focused on performance and real protection.
 * **Server-Level Hardening:** Deep integration with Nginx, Apache, and LiteSpeed.
@@ -50,7 +50,7 @@ Tegatai Secure introduces a hardened secret-management system designed to minimi
 
 Critical secrets can be protected using a dedicated Sudo Vault system.
 
-Instead of exposing master keys in the WordPress dashboard or storing them permanently in the database, Tegatai supports secure secret handling through `wp-config.php`.
+Instead of exposing master keys in the WordPress dashboard or storing them permanently in the database, Tegatai supports secure secret handling through a secrets file outside the web root (see below) or `wp-config.php`.
 
 ### Example:
 
@@ -80,6 +80,41 @@ When configured:
 * Secrets are never exposed through AJAX
 * Secrets are removed from normal database workflows
 * Database leaks become significantly less dangerous
+
+---
+
+## 📁 Secrets File (outside the web root)
+
+All secrets can live in their own PHP file outside the web root instead of `wp-config.php`.
+
+Default location (one level above the WordPress directory):
+
+```
+/var/www/example.com/htdocs/                          <- WordPress
+/var/www/example.com/secrets/tegatai-secrets.php      <- secrets
+```
+
+Content:
+
+```php
+<?php
+return [
+    'TEGATAI_HIVE_SECRET'   => 'your-hive-network-secret',
+    'TEGATAI_API_SECRET'    => 'your-super-long-random-secret',
+    'TEGATAI_SUDO_PIN'      => '$2y$10$YourGeneratedHashHere',
+    'TEGATAI_BACKUP_SECRET' => 'your-backup-key',
+];
+```
+
+Another location can be set in `wp-config.php` (path only, no secret):
+
+```php
+define('TEGATAI_SECRETS_FILE', '/path/outside/webroot/tegatai-secrets.php');
+```
+
+The file can also be created in **Tegatai → Management → Secrets** with "Create secrets file": it copies the secrets currently defined in `wp-config.php`; afterwards remove the `define()` lines from `wp-config.php`.
+
+Only these four names are read. A value that is still defined in `wp-config.php` takes precedence. Keep `TEGATAI_BACKUP_SECRET` unchanged when moving it, otherwise existing backups cannot be decrypted. Recommended permissions: `chmod 600`, owned by the PHP user.
 
 ---
 
@@ -345,6 +380,6 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.5`
+Current Version: `1.6`
 
 See `CHANGELOG.md` for detailed release notes.

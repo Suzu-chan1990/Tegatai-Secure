@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 1.5
+ * Version: 1.6
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,9 +151,84 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '1.5' );
+define( 'TEGATAI_VERSION', '1.6' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
+
+/**
+ * Secrets file outside the web root.
+ *
+ * Default location: one level above the WordPress directory, secrets/tegatai-secrets.php
+ * (e.g. /var/www/example.com/htdocs -> /var/www/example.com/secrets/tegatai-secrets.php).
+ * Another location can be set in wp-config.php with the path only:
+ *   define('TEGATAI_SECRETS_FILE', '/path/outside/webroot/tegatai-secrets.php');
+ *
+ * The file returns an array, e.g.:
+ *   <?php return ['TEGATAI_HIVE_SECRET' => '...', 'TEGATAI_API_SECRET' => '...'];
+ *
+ * Only the names below are accepted. A constant that is already defined (wp-config.php) is kept.
+ */
+function tegatai_secrets_file() {
+    $file = defined( 'TEGATAI_SECRETS_FILE' ) ? (string) TEGATAI_SECRETS_FILE : dirname( rtrim( ABSPATH, '/\\' ) ) . '/secrets/tegatai-secrets.php';
+    return $file;
+}
+
+// Names accepted from the secrets file.
+function tegatai_secret_names() {
+    return [ 'TEGATAI_API_SECRET', 'TEGATAI_HIVE_SECRET', 'TEGATAI_SUDO_PIN', 'TEGATAI_BACKUP_SECRET' ];
+}
+
+// Reads the secrets file; returns the accepted, non-empty values (or [] when missing or invalid).
+function tegatai_read_secrets_file() {
+    $file = tegatai_secrets_file();
+    if ( $file === '' || ! @is_file( $file ) || ! @is_readable( $file ) ) return [];
+    $data = include $file;
+    if ( ! is_array( $data ) ) return [];
+    $out = [];
+    foreach ( tegatai_secret_names() as $name ) {
+        if ( isset( $data[ $name ] ) && is_string( $data[ $name ] ) && $data[ $name ] !== '' ) $out[ $name ] = $data[ $name ];
+    }
+    return $out;
+}
+
+function tegatai_load_secrets() {
+    static $loaded = null;
+    if ( $loaded !== null ) return $loaded;
+    $loaded = [];
+    $data = tegatai_read_secrets_file();
+    foreach ( tegatai_secret_names() as $name ) {
+        if ( defined( $name ) || ! isset( $data[ $name ] ) || ! is_string( $data[ $name ] ) || $data[ $name ] === '' ) continue;
+        define( $name, $data[ $name ] ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.VariableConstantNameFound -- names come from the fixed list above
+        $loaded[] = $name;
+    }
+    return $loaded;
+}
+tegatai_load_secrets();
+
+/**
+ * Where each secret currently comes from: 'file', 'wp-config', 'database' or '' (not set).
+ * 'in_file' is true when the secrets file contains the name (also when wp-config.php wins).
+ */
+function tegatai_secrets_status() {
+    $loaded = tegatai_load_secrets();
+    $in_file = tegatai_read_secrets_file();
+    $hive = get_option( 'tegatai_hive_options', [] );
+    $db = [
+        'TEGATAI_API_SECRET'    => (string) get_option( 'tegatai_api_sync_secret', '' ) !== '',
+        'TEGATAI_HIVE_SECRET'   => is_array( $hive ) && ! empty( $hive['shared_secret'] ),
+        'TEGATAI_SUDO_PIN'      => false,
+        'TEGATAI_BACKUP_SECRET' => (string) get_option( 'tegatai_backup_secret', '' ) !== '',
+    ];
+    $out = [];
+    foreach ( tegatai_secret_names() as $name ) {
+        if ( in_array( $name, $loaded, true ) ) $src = 'file';
+        elseif ( defined( $name ) ) $src = 'wp-config';
+        elseif ( $db[ $name ] ) $src = 'database';
+        else $src = '';
+        $out[ $name ] = [ 'source' => $src, 'in_file' => isset( $in_file[ $name ] ) ];
+    }
+    return $out;
+}
 
 add_action('init', function () {
     // Not hosted on WordPress.org: translations ship in /languages, so they must be loaded explicitly
@@ -308,6 +383,14 @@ class Tegatai_Security_Core {
         if (!tegatai_get_setting('tegatai_options')) tegatai_update_setting('tegatai_options', []);
         delete_option('tegatai_env_version');
         self::ensure_environment();
+        // Restore the server rules that were removed on deactivation (plugin update, folder rename).
+        // Installs deactivated by older versions have no flag; enabled server_* options count as well.
+        $ops = tegatai_get_setting('tegatai_options', []);
+        $server_opts = is_array($ops) ? array_filter($ops, static function ($v, $k) { return strpos((string) $k, 'server_') === 0 && !empty($v); }, ARRAY_FILTER_USE_BOTH) : [];
+        if (class_exists('Tegatai_Server') && (get_option('tegatai_restore_rules') || $server_opts || Tegatai_Server::has_rules())) {
+            Tegatai_Server::force_update();
+        }
+        delete_option('tegatai_restore_rules');
         flush_rewrite_rules();
     }
 
@@ -333,10 +416,7 @@ class Tegatai_Security_Core {
             }
             delete_option('tegatai_hive_bans');
             // Regenerate existing server rules once with the fixed generators (URL paths, .well-known).
-            $ht = ABSPATH . '.htaccess';
-            $has_rules = (file_exists($ht) && strpos((string)@file_get_contents($ht), '# BEGIN Tegatai-Secure') !== false)
-                || file_exists(ABSPATH . 'tegatai-nginx.conf') || file_exists($upload['basedir'] . '/tegatai-nginx.conf');
-            if ($has_rules && class_exists('Tegatai_Server')) {
+            if (class_exists('Tegatai_Server') && Tegatai_Server::has_rules()) {
                 Tegatai_Server::force_update();
             }
             update_option('tegatai_env_version', self::ENV_VERSION, false);
