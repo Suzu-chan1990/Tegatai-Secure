@@ -914,3 +914,45 @@ msgstr ""
 
 msgid "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
 msgstr ""
+
+msgid "AbuseIPDB Reporting"
+msgstr ""
+
+msgid "Report bans to AbuseIPDB"
+msgstr ""
+
+msgid "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background."
+msgstr ""
+
+msgid "API key:"
+msgstr ""
+
+msgid "found (TEGATAI_ABUSEIPDB_KEY)"
+msgstr ""
+
+msgid "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key."
+msgstr ""
+
+msgid "Sent today:"
+msgstr ""
+
+msgid "Total:"
+msgstr ""
+
+msgid "Waiting:"
+msgstr ""
+
+msgid "Last report:"
+msgstr ""
+
+msgid "Paused until:"
+msgstr ""
+
+msgid "Last error:"
+msgstr ""
+
+msgid "Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported."
+msgstr ""
+
+msgid "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally."
+msgstr ""

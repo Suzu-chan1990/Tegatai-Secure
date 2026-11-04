@@ -1,3 +1,30 @@
+## [1.7.1] - Banner and Icon
+
+### New
+
+* **Banner:** The header of the Tegatai settings page shows the new Tegatai Secure banner (`assets/banner-772x250.png`) on a light cyan-to-lavender background. The Terminal, Hive and API Gateway pages keep their headers.
+* **Icon:** New plugin icon `assets/icon-256x256.png`.
+* **README:** The banner is shown at the top of the README.
+
+### Fixes
+
+* The version badge in the header showed `v1.5`; it now shows the installed version.
+
+## [1.7] - AbuseIPDB Reporting
+
+### New
+
+* **AbuseIPDB reporting (Firewall tab):** Bans from the honeypot URL, the 404 instant ban, the 404 scan and the login traps are reported to AbuseIPDB, including bans received through The Hive. Categories: Web App Attack, Hacking, Bad Web Bot and Brute-Force, depending on the ban.
+* **Background sending:** Reports are queued and sent via WP-Cron (up to 20 per run), so a ban never waits for the API.
+* **Privacy:** Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported.
+* **Limits:** The same IP is reported at most once per 15 minutes. HTTP 429 pauses sending until the API allows it again; rejected reports (HTTP 422) are dropped; an invalid key stops sending and is shown in the status.
+* **Status (Firewall tab):** Key found or missing, reports sent today and in total, waiting reports, last report and last error. Errors are also written to the Tegatai log (type `ABUSEIPDB`).
+* **Secrets:** New secret `TEGATAI_ABUSEIPDB_KEY` (secrets file or `wp-config.php`), shown in the Secrets tab with a link to the AbuseIPDB API page.
+
+### Developers
+
+* New action `tegatai_hive_ban_applied` (`$ip, $reason, $level, $node`), fired when a ban from a Hive peer is applied.
+
 ## [1.6] - Secrets File
 
 ### New

@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 1.6
+ * Version: 1.7.1
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,7 +151,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '1.6' );
+define( 'TEGATAI_VERSION', '1.7.1' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 
@@ -175,7 +175,7 @@ function tegatai_secrets_file() {
 
 // Names accepted from the secrets file.
 function tegatai_secret_names() {
-    return [ 'TEGATAI_API_SECRET', 'TEGATAI_HIVE_SECRET', 'TEGATAI_SUDO_PIN', 'TEGATAI_BACKUP_SECRET' ];
+    return [ 'TEGATAI_API_SECRET', 'TEGATAI_HIVE_SECRET', 'TEGATAI_SUDO_PIN', 'TEGATAI_BACKUP_SECRET', 'TEGATAI_ABUSEIPDB_KEY' ];
 }
 
 // Reads the secrets file; returns the accepted, non-empty values (or [] when missing or invalid).
@@ -218,6 +218,7 @@ function tegatai_secrets_status() {
         'TEGATAI_HIVE_SECRET'   => is_array( $hive ) && ! empty( $hive['shared_secret'] ),
         'TEGATAI_SUDO_PIN'      => false,
         'TEGATAI_BACKUP_SECRET' => (string) get_option( 'tegatai_backup_secret', '' ) !== '',
+        'TEGATAI_ABUSEIPDB_KEY' => false,
     ];
     $out = [];
     foreach ( tegatai_secret_names() as $name ) {
@@ -337,6 +338,7 @@ require_once TEGATAI_PATH . 'includes/admin.php';
 require_once TEGATAI_PATH . 'includes/terminal.php';
 require_once TEGATAI_PATH . 'includes/api_guard.php';
 require_once TEGATAI_PATH . 'includes/hive.php';
+require_once TEGATAI_PATH . 'includes/abuseipdb.php';
 
 class Tegatai_Security_Core {
     public function __construct() {
@@ -477,6 +479,7 @@ class Tegatai_Security_Core {
         wp_clear_scheduled_hook('tegatai_daily_maintenance');
         wp_clear_scheduled_hook('tegatai_hive_retry_cron');
         wp_clear_scheduled_hook('tegatai_hive_flush');
+        wp_clear_scheduled_hook('tegatai_abuseipdb_send');
         wp_unschedule_hook('tegatai_bg_scan_chunk');
         delete_option('tegatai_env_version');
         flush_rewrite_rules();

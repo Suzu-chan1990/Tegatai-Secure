@@ -26,7 +26,7 @@ class Tegatai_Admin {
     // Settings schema: every key stored in tegatai_options => type. Unknown keys are rejected on save/import.
     private $schema = [
         // Firewall / WAF
-        'enable_waf' => 'bool', 'block_fake_bots' => 'bool', 'block_ai_bots' => 'bool', 'block_seo_bots' => 'bool', 'block_bad_bots' => 'bool',
+        'enable_waf' => 'bool', 'abuseipdb_enabled' => 'bool', 'block_fake_bots' => 'bool', 'block_ai_bots' => 'bool', 'block_seo_bots' => 'bool', 'block_bad_bots' => 'bool',
         'enable_upload_guard' => 'bool', 'enable_rate_limit' => 'bool', 'enable_404_block' => 'bool', 'enable_lockdown' => 'bool',
         'blacklist_ips' => 'textarea', 'whitelist_ips' => 'textarea', 'waf_whitelist_ips' => 'textarea', 'waf_whitelist_urls' => 'textarea',
         'custom_waf_blocklist' => 'regex_list',
@@ -128,6 +128,28 @@ class Tegatai_Admin {
         exit;
     }
 
+    // AbuseIPDB reporting: switch, key state and send status (Firewall tab).
+    private function render_abuseipdb_card() {
+        if (!class_exists('Tegatai_AbuseIPDB')) return;
+        $st = Tegatai_AbuseIPDB::status();
+        $has_key = Tegatai_AbuseIPDB::key() !== '';
+        echo '<div class="teg-grid" style="margin-top:16px;"><div class="teg-card" style="grid-column: 1 / -1;"><h3>' . esc_html__('AbuseIPDB Reporting', 'tegatai-secure') . '</h3>';
+        $this->render_toggle('abuseipdb_enabled', esc_html__('Report bans to AbuseIPDB', 'tegatai-secure'), esc_html__('Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background.', 'tegatai-secure'));
+        echo '<p style="font-size:12px; line-height:1.7; margin-top:12px;">';
+        echo '<strong>' . esc_html__('API key:', 'tegatai-secure') . '</strong> ';
+        if ($has_key) echo esc_html__('found (TEGATAI_ABUSEIPDB_KEY)', 'tegatai-secure');
+        else echo '<span style="color:var(--teg-danger);">' . esc_html__('missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key.', 'tegatai-secure') . '</span>';
+        echo '<br><strong>' . esc_html__('Sent today:', 'tegatai-secure') . '</strong> ' . (int) $st['sent_today'];
+        echo ' · <strong>' . esc_html__('Total:', 'tegatai-secure') . '</strong> ' . (int) $st['sent_total'];
+        echo ' · <strong>' . esc_html__('Waiting:', 'tegatai-secure') . '</strong> ' . (int) Tegatai_AbuseIPDB::queue_size();
+        if (!empty($st['last_ok'])) echo '<br><strong>' . esc_html__('Last report:', 'tegatai-secure') . '</strong> ' . esc_html(wp_date('Y-m-d H:i:s', (int) $st['last_ok']));
+        if ((int) $st['backoff_until'] > time()) echo '<br><strong>' . esc_html__('Paused until:', 'tegatai-secure') . '</strong> ' . esc_html(wp_date('Y-m-d H:i', (int) $st['backoff_until']));
+        if (!empty($st['last_error'])) echo '<br><strong>' . esc_html__('Last error:', 'tegatai-secure') . '</strong> ' . esc_html(wp_date('Y-m-d H:i', (int) $st['last_error_at']) . ' - ' . $st['last_error']);
+        echo '</p>';
+        echo '<p class="teg-switch-desc" style="display:block;">' . esc_html__('Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported.', 'tegatai-secure') . '</p>';
+        echo '</div></div>';
+    }
+
     private function render_secrets_tab() {
         $file = tegatai_secrets_file();
         $exists = file_exists($file);
@@ -187,6 +209,10 @@ class Tegatai_Admin {
                 __('Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display of secrets stored in the database. Only the hash goes into the file, never the PIN itself.', 'tegatai-secure'),
                 'php -r "echo password_hash(\'YourPin\', PASSWORD_BCRYPT), PHP_EOL;"',
             ],
+            'TEGATAI_ABUSEIPDB_KEY' => [
+                __('Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally.', 'tegatai-secure'),
+                'https://www.abuseipdb.com/account/api',
+            ],
             'TEGATAI_BACKUP_SECRET' => [
                 __('Optional. Key for encrypting backups. Without it Tegatai uses a key stored in the database. Never change it once backups exist, otherwise they can no longer be decrypted.', 'tegatai-secure'),
                 'php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"',
@@ -210,7 +236,7 @@ class Tegatai_Admin {
         }
 
         echo '<h4 style="margin-top:20px;">' . esc_html__('Template', 'tegatai-secure') . '</h4>';
-        echo '<pre style="background:#0f172a; color:#e2e8f0; padding:12px; border-radius:6px; font-size:12px; overflow-x:auto;">' . esc_html("<?php\nif ( ! defined( 'ABSPATH' ) ) { exit; }\n\nreturn [\n    'TEGATAI_HIVE_SECRET' => '...',\n    'TEGATAI_API_SECRET'  => '...',\n    // 'TEGATAI_SUDO_PIN'      => '\$2y\$10\$...',\n    // 'TEGATAI_BACKUP_SECRET' => '...',\n];") . '</pre>';
+        echo '<pre style="background:#0f172a; color:#e2e8f0; padding:12px; border-radius:6px; font-size:12px; overflow-x:auto;">' . esc_html("<?php\nif ( ! defined( 'ABSPATH' ) ) { exit; }\n\nreturn [\n    'TEGATAI_HIVE_SECRET' => '...',\n    'TEGATAI_API_SECRET'  => '...',\n    // 'TEGATAI_SUDO_PIN'      => '\$2y\$10\$...',\n    // 'TEGATAI_BACKUP_SECRET' => '...',\n    // 'TEGATAI_ABUSEIPDB_KEY' => '...',\n];") . '</pre>';
         echo '<p class="teg-switch-desc" style="display:block;">' . esc_html__('Another location can be set in wp-config.php with the path only:', 'tegatai-secure') . ' <code>define(\'TEGATAI_SECRETS_FILE\', \'/path/tegatai-secrets.php\');</code></p>';
         echo '</div></div>';
     }
@@ -586,6 +612,10 @@ class Tegatai_Admin {
             .teg-header { margin-bottom:18px; padding:18px 22px; border-radius:12px; min-height:56px; box-sizing:border-box; }
             .teg-title { font-size:20px; gap:9px; }
             .teg-title .dashicons { font-size:25px !important; width:25px; height:25px; }
+            /* Main page header with the Tegatai banner: light cyan-to-lavender background that matches the banner */
+            .teg-header.teg-header-brand { background:linear-gradient(120deg,#ecfeff 0%,#eef2ff 55%,#f5f3ff 100%); color:var(--teg-text); border:1px solid #cffafe; box-shadow:0 1px 3px rgba(0,0,0,.04); }
+            .teg-brand .teg-banner { display:block; height:110px; width:auto; max-width:100%; margin:-12px 0; filter:drop-shadow(0 2px 4px rgba(15,23,32,.12)); }
+            @media (max-width: 782px) { .teg-brand .teg-banner { height:auto; margin:0; } }
             .teg-badge { padding:5px 10px; font-size:10px; }
             @media (max-width: 1200px) { .teg-wrap{max-width:none;margin:18px 18px 30px;} .teg-dashboard-hero{grid-template-columns:1fr;} .teg-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr));} .teg-section-grid{grid-template-columns:repeat(2,minmax(0,1fr));} }
             @media (max-width: 782px) { .teg-wrap{margin:12px 10px 24px;} .teg-header{padding:15px 16px;} .teg-title{font-size:17px;} .teg-status-main{align-items:flex-start;} .teg-score{width:88px;height:88px;flex-basis:88px;} .teg-score strong{font-size:26px;} .teg-status-name{font-size:20px;} .teg-metric-grid,.teg-cockpit-grid,.teg-section-grid{grid-template-columns:1fr;} .teg-protection-list{grid-template-columns:1fr;} .teg-protection-item:nth-last-child(-n+2){border-bottom:1px solid #eef2f7;} .teg-protection-item:last-child{border-bottom:0;} .teg-event{grid-template-columns:8px 42px minmax(0,1fr); padding:0 9px;} .teg-event-type{display:none;} .teg-away-head{align-items:center;} }
@@ -607,9 +637,9 @@ class Tegatai_Admin {
         </script>
         <div id="teg-toast"></div>
         <div class="teg-wrap">
-            <div class="teg-header">
-                <div class="teg-title"><span class="dashicons dashicons-shield-alt" style="font-size:32px;"></span> Tegatai Security</div>
-                <div class="teg-badge">v1.5</div>
+            <div class="teg-header teg-header-brand">
+                <div class="teg-title teg-brand"><img class="teg-banner" src="<?php echo esc_url( TEGATAI_URL . 'assets/banner-772x250.png' ); ?>" width="772" height="250" alt="Tegatai Secure"></div>
+                <div class="teg-badge">v<?php echo esc_html( TEGATAI_VERSION ); ?></div>
             </div>
 
             <?php if ($tab == 'dashboard'): ?>
@@ -807,7 +837,7 @@ class Tegatai_Admin {
 
     private function render_full_tabs($tab) {
         if ($tab == 'firewall') { echo '
-<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('WAF Settings', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_waf', esc_html__('Enable WAF', 'tegatai-secure'), esc_html__('Activates the Web Application Firewall to block malicious requests.', 'tegatai-secure')); $this->render_toggle('block_fake_bots', esc_html__('Block Bad Bots', 'tegatai-secure'), esc_html__('Blocks known malicious bots, scrapers, and automated attack tools.', 'tegatai-secure')); $this->render_toggle('enable_rate_limit', esc_html__('Rate Limit', 'tegatai-secure'), esc_html__('Prevents brute-force attacks by limiting requests per minute.', 'tegatai-secure')); $this->render_toggle('enable_404_block', esc_html__('404 Trap', 'tegatai-secure'), esc_html__('Bans IPs that generate too many 404 Not Found errors.', 'tegatai-secure')); $this->render_toggle('enable_upload_guard', esc_html__('Upload Guard', 'tegatai-secure'), esc_html__('Blocks uploads of executable or disguised script files.', 'tegatai-secure')); $this->render_toggle('block_ai_bots', esc_html__('Block AI Bots', 'tegatai-secure'), esc_html__('Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content.', 'tegatai-secure')); $this->render_toggle('block_seo_bots', esc_html__('Block SEO Bots', 'tegatai-secure'), esc_html__('Blocks aggressive SEO crawlers like Ahrefs or Semrush.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('WAF Whitelist', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Allowed URLs', 'tegatai-secure') . '</label><textarea name="tegatai_options[waf_whitelist_urls]" class="teg-form-input">'.esc_textarea($this->get_opt('waf_whitelist_urls', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('Custom Rules', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Custom Regex Filters', 'tegatai-secure') . '</label><p class="teg-switch-desc">' . wp_kses_post(__('One regex per line (e.g., <code>/bad-bot/i</code>).', 'tegatai-secure')) . '</p><textarea name="tegatai_options[custom_waf_blocklist]" class="teg-form-input">'.esc_textarea($this->get_opt('custom_waf_blocklist', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('IP Lists', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Whitelist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[whitelist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('whitelist_ips', '')).'</textarea><label class="teg-switch-label">' . esc_html__('Blacklist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[blacklist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('blacklist_ips', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div></div>'; }
+<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('WAF Settings', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_waf', esc_html__('Enable WAF', 'tegatai-secure'), esc_html__('Activates the Web Application Firewall to block malicious requests.', 'tegatai-secure')); $this->render_toggle('block_fake_bots', esc_html__('Block Bad Bots', 'tegatai-secure'), esc_html__('Blocks known malicious bots, scrapers, and automated attack tools.', 'tegatai-secure')); $this->render_toggle('enable_rate_limit', esc_html__('Rate Limit', 'tegatai-secure'), esc_html__('Prevents brute-force attacks by limiting requests per minute.', 'tegatai-secure')); $this->render_toggle('enable_404_block', esc_html__('404 Trap', 'tegatai-secure'), esc_html__('Bans IPs that generate too many 404 Not Found errors.', 'tegatai-secure')); $this->render_toggle('enable_upload_guard', esc_html__('Upload Guard', 'tegatai-secure'), esc_html__('Blocks uploads of executable or disguised script files.', 'tegatai-secure')); $this->render_toggle('block_ai_bots', esc_html__('Block AI Bots', 'tegatai-secure'), esc_html__('Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content.', 'tegatai-secure')); $this->render_toggle('block_seo_bots', esc_html__('Block SEO Bots', 'tegatai-secure'), esc_html__('Blocks aggressive SEO crawlers like Ahrefs or Semrush.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('WAF Whitelist', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Allowed URLs', 'tegatai-secure') . '</label><textarea name="tegatai_options[waf_whitelist_urls]" class="teg-form-input">'.esc_textarea($this->get_opt('waf_whitelist_urls', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('Custom Rules', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Custom Regex Filters', 'tegatai-secure') . '</label><p class="teg-switch-desc">' . wp_kses_post(__('One regex per line (e.g., <code>/bad-bot/i</code>).', 'tegatai-secure')) . '</p><textarea name="tegatai_options[custom_waf_blocklist]" class="teg-form-input">'.esc_textarea($this->get_opt('custom_waf_blocklist', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('IP Lists', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Whitelist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[whitelist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('whitelist_ips', '')).'</textarea><label class="teg-switch-label">' . esc_html__('Blacklist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[blacklist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('blacklist_ips', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div></div>'; $this->render_abuseipdb_card(); }
         elseif ($tab == 'server') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('Server Rules', 'tegatai-secure') . '</h3>'; $this->render_toggle('server_disable_indexing', esc_html__('Disable Directory Browsing', 'tegatai-secure'), esc_html__('Prevents attackers from seeing lists of your files.', 'tegatai-secure')); $this->render_toggle('server_protect_files', esc_html__('Protect Sensitive Files', 'tegatai-secure'), esc_html__('Blocks access to .env, .sql, .bak, .log, and .git files.', 'tegatai-secure')); $this->render_toggle('server_hide_system_files', esc_html__('Block System Files', 'tegatai-secure'), esc_html__('Hides readme.html, license.txt, and wp-config.php from the web.', 'tegatai-secure')); $this->render_toggle('server_block_dotfiles', esc_html__('Block Dotfiles', 'tegatai-secure'), esc_html__('Denies access to hidden files (e.g., .htaccess).', 'tegatai-secure')); $this->render_toggle('server_block_xmlrpc', esc_html__('Block XML-RPC', 'tegatai-secure'), esc_html__('Disables xmlrpc.php to prevent DDoS and brute-force attacks.', 'tegatai-secure')); $this->render_toggle('server_disable_php_uploads', esc_html__('Disable PHP in Uploads', 'tegatai-secure'), esc_html__('Prevents execution of malicious backdoors in your media folder.', 'tegatai-secure')); $this->render_toggle('server_filter_bad_bots', esc_html__('Ultimate Bad Bot Filter', 'tegatai-secure'), esc_html__('Strict Nginx-level blocking for hacking tools.', 'tegatai-secure')); $this->render_toggle('server_hotlink_protection', esc_html__('Hotlink Protection', 'tegatai-secure'), esc_html__('Prevents other sites from embedding your images and stealing bandwidth.', 'tegatai-secure')); $this->render_rules_status(); echo '<div style="background:#f9fafb; padding:12px; border-radius:6px; margin-top:16px; border:1px solid #e5e7eb;"><form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="tegatai_write_rules">'.wp_kses(wp_nonce_field('teg_write_nonce', '_wpnonce', true, false), TEGATAI_KSES_INPUT).'<input type="submit" class="button button-primary" value="' . esc_attr__('Write rules to config', 'tegatai-secure') . '" ></form></div></div><div class="teg-card"><h3>' . esc_html__('Custom Protection', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Protected Directories', 'tegatai-secure') . '</label><input type="text" name="tegatai_options[server_protected_dirs]" value="'.esc_attr($this->get_opt('server_protected_dirs', '')).'" class="teg-form-input">
 <label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Block Specific Files', 'tegatai-secure') . '</label>
 <p class="teg-switch-desc">' . wp_kses_post(__('Paths from root (e.g., <code>/secret.zip</code>).', 'tegatai-secure')) . '</p>

@@ -923,3 +923,45 @@ msgstr "Führe den Befehl in einem Terminal aus (z. B. per SSH auf dem Server) u
 
 msgid "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
 msgstr "Keine Zeile in der wp-config.php nötig: Tegatai lädt die Datei selbst. Nur wenn die Datei an einem anderen Ort liegt, trägst du den Pfad in die wp-config.php ein (siehe unten)."
+
+msgid "AbuseIPDB Reporting"
+msgstr "AbuseIPDB-Meldungen"
+
+msgid "Report bans to AbuseIPDB"
+msgstr "Sperren an AbuseIPDB melden"
+
+msgid "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background."
+msgstr "Meldet IPs, die durch die Honeypot-URL, die 404-Sofortsperre, den 404-Scan und die Login-Fallen gesperrt wurden (auch über The Hive erhaltene Sperren), im Hintergrund an AbuseIPDB."
+
+msgid "API key:"
+msgstr "API-Schlüssel:"
+
+msgid "found (TEGATAI_ABUSEIPDB_KEY)"
+msgstr "gefunden (TEGATAI_ABUSEIPDB_KEY)"
+
+msgid "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key."
+msgstr "fehlt – trage TEGATAI_ABUSEIPDB_KEY in die Schlüsseldatei ein (Management → Secrets). Ohne Schlüssel wird nichts gesendet."
+
+msgid "Sent today:"
+msgstr "Heute gesendet:"
+
+msgid "Total:"
+msgstr "Gesamt:"
+
+msgid "Waiting:"
+msgstr "Wartend:"
+
+msgid "Last report:"
+msgstr "Letzte Meldung:"
+
+msgid "Paused until:"
+msgstr "Pausiert bis:"
+
+msgid "Last error:"
+msgstr "Letzter Fehler:"
+
+msgid "Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported."
+msgstr "Meldungen enthalten nur die IP, die Kategorie und die Art der Sperre – keine URLs, Benutzernamen oder anderen Anfragedaten. Private und reservierte IPs werden nie gemeldet."
+
+msgid "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally."
+msgstr "Optional. API-Schlüssel, um gesperrte IPs an AbuseIPDB zu melden (Tab Firewall). Du erstellst ihn in deinem AbuseIPDB-Konto unter API; er wird nicht lokal erzeugt."

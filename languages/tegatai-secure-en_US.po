@@ -923,3 +923,45 @@ msgstr "Run the command in a terminal (e.g. via SSH on the server) and copy the 
 
 msgid "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
 msgstr "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
+
+msgid "AbuseIPDB Reporting"
+msgstr "AbuseIPDB Reporting"
+
+msgid "Report bans to AbuseIPDB"
+msgstr "Report bans to AbuseIPDB"
+
+msgid "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background."
+msgstr "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background."
+
+msgid "API key:"
+msgstr "API key:"
+
+msgid "found (TEGATAI_ABUSEIPDB_KEY)"
+msgstr "found (TEGATAI_ABUSEIPDB_KEY)"
+
+msgid "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key."
+msgstr "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key."
+
+msgid "Sent today:"
+msgstr "Sent today:"
+
+msgid "Total:"
+msgstr "Total:"
+
+msgid "Waiting:"
+msgstr "Waiting:"
+
+msgid "Last report:"
+msgstr "Last report:"
+
+msgid "Paused until:"
+msgstr "Paused until:"
+
+msgid "Last error:"
+msgstr "Last error:"
+
+msgid "Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported."
+msgstr "Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported."
+
+msgid "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally."
+msgstr "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally."

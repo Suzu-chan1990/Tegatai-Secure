@@ -1,3 +1,5 @@
+<p align="center"><img src="./assets/banner-772x250.png" width="772" alt="Tegatai Secure"></p>
+
 ![WordPress](https://img.shields.io/badge/WordPress-7.x%2B-blue)
 ![PHP](https://img.shields.io/badge/PHP-8.x-purple)
 ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
@@ -91,6 +93,7 @@ return [
     'TEGATAI_API_SECRET'    => 'your-super-long-random-secret',
     'TEGATAI_SUDO_PIN'      => '$2y$10$YourGeneratedHashHere',
     'TEGATAI_BACKUP_SECRET' => 'your-backup-key',
+    'TEGATAI_ABUSEIPDB_KEY' => 'your-abuseipdb-api-key',
 ];
 ```
 
@@ -102,7 +105,24 @@ define('TEGATAI_SECRETS_FILE', '/path/outside/webroot/tegatai-secrets.php');
 
 The file can also be created in **Tegatai → Management → Secrets** with "Create secrets file": it copies the secrets currently defined in `wp-config.php`; afterwards remove the `define()` lines from `wp-config.php`.
 
-Only these four names are read. A value that is still defined in `wp-config.php` takes precedence. Keep `TEGATAI_BACKUP_SECRET` unchanged when moving it, otherwise existing backups cannot be decrypted. Recommended permissions: `chmod 600`, owned by the PHP user.
+Only these five names are read. A value that is still defined in `wp-config.php` takes precedence. Keep `TEGATAI_BACKUP_SECRET` unchanged when moving it, otherwise existing backups cannot be decrypted. Recommended permissions: `chmod 600`, owned by the PHP user.
+
+---
+
+## 🚩 AbuseIPDB Reporting
+
+Tegatai can report banned IPs to [AbuseIPDB](https://www.abuseipdb.com) (Firewall tab → "Report bans to AbuseIPDB").
+
+* Reported bans: honeypot URL, 404 instant ban, 404 scan and the login traps, including bans received through The Hive.
+* Reports are queued and sent in the background via WP-Cron; a ban never waits for the API.
+* Reports contain only the IP, the category and the type of the ban. No URLs, usernames or other request data are sent. Private and reserved IPs are never reported.
+* The same IP is reported at most once per 15 minutes. When the AbuseIPDB limit is reached (HTTP 429), sending pauses until the API allows it again.
+
+The API key is created in your AbuseIPDB account and stored in the secrets file:
+
+```php
+'TEGATAI_ABUSEIPDB_KEY' => 'your-abuseipdb-api-key',
+```
 
 ---
 
@@ -368,7 +388,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.6`
+Current Version: `1.7`
 
 See `CHANGELOG.md` for detailed release notes.
 

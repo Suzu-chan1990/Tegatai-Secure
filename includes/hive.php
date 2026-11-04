@@ -213,8 +213,10 @@ class Tegatai_Hive {
         }
         set_transient($rate_key, $count + 1, HOUR_IN_SECONDS);
 
-        if (self::store_ban($ip, $node_label, $reason, $level, self::ban_ttl($ops)) && class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('HIVE-SYNC', "Applied network ban for $ip from $node_label. Level: [$level]. Reason: $reason");
+        if (self::store_ban($ip, $node_label, $reason, $level, self::ban_ttl($ops))) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-SYNC', "Applied network ban for $ip from $node_label. Level: [$level]. Reason: $reason");
+            // New ban from a peer (not re-broadcast); used by the AbuseIPDB reporter
+            do_action('tegatai_hive_ban_applied', $ip, $reason, $level, $node_label);
         }
 
         return rest_ensure_response(['success' => true, 'message' => 'Threat successfully synced to local node.']);
