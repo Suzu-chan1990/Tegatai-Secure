@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 1.7.1
+ * Version: 1.9
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,7 +151,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '1.7.1' );
+define( 'TEGATAI_VERSION', '1.9' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 
@@ -315,6 +315,8 @@ define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
 
 // Module laden
 require_once TEGATAI_PATH . 'includes/logger.php';
+// WP Masking maps the request URI of its new paths before the firewall reads it
+require_once TEGATAI_PATH . 'includes/mask.php';
 require_once TEGATAI_PATH . 'includes/bans.php';
 require_once TEGATAI_PATH . 'includes/firewall.php';
 require_once TEGATAI_PATH . 'includes/hardening.php';
@@ -480,6 +482,7 @@ class Tegatai_Security_Core {
         wp_clear_scheduled_hook('tegatai_hive_retry_cron');
         wp_clear_scheduled_hook('tegatai_hive_flush');
         wp_clear_scheduled_hook('tegatai_abuseipdb_send');
+        wp_clear_scheduled_hook('tegatai_mask_files_check');
         wp_unschedule_hook('tegatai_bg_scan_chunk');
         delete_option('tegatai_env_version');
         flush_rewrite_rules();

@@ -126,6 +126,26 @@ The API key is created in your AbuseIPDB account and stored in the secrets file:
 
 ---
 
+## 🎭 WP Masking (nginx)
+
+Hides the WordPress structure in the pages visitors receive (Server & System → WP Masking).
+
+* **Plugin and theme paths:** `/wp-content/plugins/<folder>/` and `/wp-content/themes/<theme>/` (or your own plugin directory) are shown as `/assets/<name>/`. The names are set per plugin and theme; empty fields get an automatic short name.
+* **WordPress core:** `/wp-includes/` becomes `/lib/`, `/wp-json/` becomes `/api/`, `admin-ajax.php` becomes `/ajax` (all names can be changed). `/wp-json/` keeps working for The Hive and other sites.
+* **Versions and identifiers:** removes `?ver=` parameters, script/style ids, generator tags, RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation rules and the `X-Pingback` header.
+* **Hide file names:** file names of masked files are replaced by a neutral name per file, e.g. `/assets/bar/css/kanri-bar.css` → `/assets/bar/css/t3f9a0c1d2e4`. The folders stay, so relative URLs inside CSS and JS keep working (files loaded that way keep their real name). A changed file gets a new name, which also makes browsers load the new version.
+* **Block original paths:** direct requests for the original paths of masked entries answer 404. Logged-in users and files loaded by pages of the site itself keep access; `/wp-json/tegatai/` (The Hive) stays reachable.
+
+nginx maps the new paths back to the real files (static files only, never PHP). The rules are part of `tegatai-nginx.conf`. Activation:
+
+1. Switch the options on and save the names.
+2. Reload nginx.
+3. Click **Check new paths**.
+
+Tegatai requests every new path once and only uses the paths that answered with the real file, so a missing nginx reload never breaks the site. New file names are found when pages are visited; Tegatai adds them to the rules and checks them every hour, and uses them once nginx was reloaded. Renamed paths keep working for cached pages. New paths and blocking need nginx (with Apache or LiteSpeed the check finds no working paths and nothing is changed); removing versions and identifiers works on every server.
+
+---
+
 # 🌐 Tegatai Hive (Distributed Threat Network)
 
 Tegatai Hive allows multiple WordPress installations to communicate and synchronize threat intelligence securely.
@@ -207,6 +227,7 @@ $signature = hash_hmac(
 * Hotlink Protection
 * System File Shielding
 * Custom server rule generation
+* WP Masking: neutral paths for plugins, themes and WordPress core (nginx)
 
 ---
 
@@ -388,7 +409,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.7`
+Current Version: `1.9`
 
 See `CHANGELOG.md` for detailed release notes.
 

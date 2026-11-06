@@ -344,6 +344,13 @@ class Tegatai_Server {
         }
 
         $lines[] = "";
+
+        // WP Masking comes last: its rewrites end the server-level rule processing with "last",
+        // so the bot filter above still applies to every request.
+        if (class_exists('Tegatai_Mask')) {
+            $lines = array_merge($lines, Tegatai_Mask::nginx_lines());
+        }
+
         $lines[] = "# --- END TEGATAI RULES ---";
 
         return implode("\n", $lines);

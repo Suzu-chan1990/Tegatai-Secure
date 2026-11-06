@@ -47,6 +47,10 @@ class Tegatai_Admin {
         'server_block_dotfiles' => 'bool', 'block_dotfiles' => 'bool', 'block_system_files' => 'bool', 'server_disable_php_uploads' => 'bool',
         'server_filter_bad_bots' => 'bool', 'server_hotlink_protection' => 'bool', 'server_hotlink_whitelist' => 'textarea',
         'server_protected_dirs' => 'textarea', 'server_custom_files_list' => 'textarea',
+        // WP Masking
+        'server_mask_paths' => 'bool', 'server_mask_core' => 'bool', 'server_mask_strip' => 'bool', 'server_mask_block' => 'bool', 'server_mask_files' => 'bool',
+        'server_mask_base' => 'slug', 'server_mask_includes' => 'slug', 'server_mask_rest' => 'slug', 'server_mask_ajax' => 'slug',
+        'server_mask_aliases' => 'alias_map',
         // Anti-spam
         'enable_honeypot' => 'bool', 'enable_bot_timer' => 'bool', 'spam_max_links' => 'int', 'spam_block_trashmail' => 'bool', 'spam_check_referrer' => 'bool',
         // Backups
@@ -81,6 +85,8 @@ class Tegatai_Admin {
         add_action('admin_post_tegatai_write_rules', [$this, 'handle_write_rules']);
         add_action('admin_post_tegatai_create_secrets_file', [$this, 'handle_create_secrets_file']);
         add_action('admin_post_tegatai_scan_reset', [$this, 'handle_scan_reset']);
+        add_action('admin_post_tegatai_mask_save', [$this, 'handle_mask_save']);
+        add_action('admin_post_tegatai_mask_check', [$this, 'handle_mask_check']);
     }
 
     public function add_menu() {
@@ -148,6 +154,122 @@ class Tegatai_Admin {
         echo '</p>';
         echo '<p class="teg-switch-desc" style="display:block;">' . esc_html__('Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported.', 'tegatai-secure') . '</p>';
         echo '</div></div>';
+    }
+
+    // WP Masking tab: switches, check of the new paths and the names (aliases)
+    private function render_mask_tab() {
+        $msg = isset($_GET['msg']) ? sanitize_key(wp_unslash($_GET['msg'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only
+        $notes = [
+            'mask_saved'   => ['#dcfce7;color:#15803d;border:1px solid #bbf7d0', __('Names saved, rules written and new paths checked.', 'tegatai-secure')],
+            'mask_checked' => ['#dcfce7;color:#15803d;border:1px solid #bbf7d0', __('New paths checked.', 'tegatai-secure')],
+        ];
+        $status  = Tegatai_Mask::status();
+        $snap    = Tegatai_Mask::snapshot();
+        $aliases = Tegatai_Mask::aliases();
+        $failed  = isset($status['failed']) && is_array($status['failed']) ? $status['failed'] : [];
+        $skipped = isset($status['skipped']) && is_array($status['skipped']) ? $status['skipped'] : [];
+        $home    = Tegatai_Mask::home_path();
+        $base    = Tegatai_Mask::base();
+        $paths_on = Tegatai_Mask::on('paths');
+        $core_on  = Tegatai_Mask::on('core');
+
+        // Status of one entry: masked, waiting for a check, failed or nothing to hide
+        $state = static function ($key, $new_active) use ($failed, $skipped) {
+            if ($new_active) return '<span style="color:#15803d; font-weight:600;">' . esc_html__('Masked', 'tegatai-secure') . '</span>';
+            if (in_array($key, $skipped, true)) return '<span style="color:#64748b;">' . esc_html__('No files to hide', 'tegatai-secure') . '</span>';
+            if (isset($failed[$key])) return '<span style="color:#b91c1c; font-weight:600;">' . esc_html__('Not reachable', 'tegatai-secure') . '</span> <span style="color:#64748b;">(' . esc_html((string) $failed[$key]) . ')</span>';
+            return '<span style="color:#b45309; font-weight:600;">' . esc_html__('Waiting for check', 'tegatai-secure') . '</span>';
+        };
+
+        echo '<div class="teg-grid"><div class="teg-card">';
+        echo '<h3>' . esc_html__('WP Masking', 'tegatai-secure') . '</h3>';
+        echo '<p class="teg-switch-desc" style="display:block; margin-bottom:12px;">' . esc_html__('Hides the WordPress structure in the pages visitors receive. nginx maps the new paths back to the real files; the rules are part of tegatai-nginx.conf.', 'tegatai-secure') . '</p>';
+        if (isset($notes[$msg])) {
+            echo '<div style="padding:10px 12px; border-radius:6px; margin-bottom:12px; font-size:12px; background:' . esc_attr($notes[$msg][0]) . ';">' . esc_html($notes[$msg][1]) . '</div>';
+        }
+        $this->render_toggle('server_mask_paths', esc_html__('Hide plugin and theme paths', 'tegatai-secure'), esc_html__('Plugin and theme folders are shown under their own names, e.g. /assets/bar/ instead of the plugin folder.', 'tegatai-secure'));
+        $this->render_toggle('server_mask_core', esc_html__('Hide wp-includes, wp-json and admin-ajax', 'tegatai-secure'), esc_html__('wp-includes, the REST API and admin-ajax.php get their own paths. /wp-json/ keeps working for The Hive and other sites.', 'tegatai-secure'));
+        $this->render_toggle('server_mask_strip', esc_html__('Remove versions and identifiers', 'tegatai-secure'), esc_html__('Removes ?ver= parameters, script/style ids, generator tags, RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation rules (they list the WordPress paths) and the X-Pingback header.', 'tegatai-secure'));
+        $this->render_toggle('server_mask_files', esc_html__('Hide file names', 'tegatai-secure'), esc_html__('File names of masked plugin, theme and wp-includes files are replaced by a neutral name per file, e.g. /assets/bar/css/t3f9a0c1d2e4. The folders stay, so relative URLs in CSS and JS keep working. A changed file gets a new name.', 'tegatai-secure'));
+        if (Tegatai_Mask::on('files')) {
+            $fs = Tegatai_Mask::files_summary();
+            echo '<p class="teg-switch-desc" style="display:block; margin:-4px 0 10px;">';
+            /* translators: 1: number of active file names, 2: number of waiting file names */
+            echo esc_html(sprintf(__('File names: %1$d active, %2$d waiting.', 'tegatai-secure'), $fs['active'], $fs['waiting']));
+            if ($fs['waiting']) echo ' ' . esc_html__('New files are found when pages are visited. Tegatai adds them to the rules and checks them every hour; they are used as soon as nginx was reloaded. "Check new paths" does both right away.', 'tegatai-secure');
+            echo '</p>';
+        }
+        $this->render_toggle('server_mask_block', esc_html__('Block original paths', 'tegatai-secure'), esc_html__('Visitors get a 404 for the original paths of masked entries. Logged-in users keep access. /wp-json/tegatai/ (The Hive) stays reachable.', 'tegatai-secure'));
+
+        echo '<div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-top:14px; font-size:12px; line-height:1.6;">';
+        echo '<strong>' . esc_html__('How it is activated', 'tegatai-secure') . '</strong><br>';
+        echo esc_html__('1. Switch on and save the names. 2. Reload nginx so the new rules are active. 3. Click "Check new paths". Only paths that answered correctly are used in the pages and blocked, so a missing reload never breaks the site.', 'tegatai-secure');
+        echo '</div>';
+
+        if (!empty($status['time'])) {
+            /* translators: %s: date and time */
+            echo '<p class="teg-switch-desc" style="display:block; margin-top:12px;">' . esc_html(sprintf(__('Last check: %s', 'tegatai-secure'), wp_date('Y-m-d H:i:s', (int) $status['time']))) . '</p>';
+        }
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:10px;"><input type="hidden" name="action" value="tegatai_mask_check">' . wp_kses(wp_nonce_field('teg_mask_nonce', '_wpnonce', true, false), TEGATAI_KSES_INPUT) . '<input type="submit" class="button button-primary" value="' . esc_attr__('Check new paths', 'tegatai-secure') . '"></form>';
+        $this->render_rules_status();
+        echo '</div>';
+
+        // Names
+        echo '<div class="teg-card" style="grid-column: 1 / -1;"><h3>' . esc_html__('Names', 'tegatai-secure') . '</h3>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '"><input type="hidden" name="action" value="tegatai_mask_save">' . wp_kses(wp_nonce_field('teg_mask_nonce', '_wpnonce', true, false), TEGATAI_KSES_INPUT);
+        echo '<p class="teg-switch-desc" style="display:block; margin-bottom:10px;">' . esc_html__('Lowercase letters, digits and hyphens. Names starting with "wp-" are not allowed. Empty fields get an automatic short name.', 'tegatai-secure') . '</p>';
+
+        $field = static function ($name, $label, $value, $hint) {
+            echo '<label class="teg-switch-label" style="display:block; margin-top:8px;">' . esc_html($label) . '</label>';
+            echo '<input type="text" name="' . esc_attr($name) . '" value="' . esc_attr($value) . '" class="teg-form-input" maxlength="40" pattern="[a-z0-9\-]*">';
+            echo '<p class="teg-switch-desc" style="display:block; margin:2px 0 0;">' . wp_kses_post($hint) . '</p>';
+        };
+        /* translators: %s: example path */
+        $field('mask_base', __('Folder for plugins and themes', 'tegatai-secure'), $base, sprintf(__('Plugins and themes are shown under %s', 'tegatai-secure'), '<code>' . esc_html($home . '/' . $base . '/&lt;name&gt;/') . '</code>'));
+
+        echo '<table class="widefat striped" style="margin-top:12px; font-size:12px;"><thead><tr><th>' . esc_html__('Folder', 'tegatai-secure') . '</th><th>' . esc_html__('Name', 'tegatai-secure') . '</th><th>' . esc_html__('Status', 'tegatai-secure') . '</th></tr></thead><tbody>';
+        foreach ($aliases as $key => $alias) {
+            $active = $paths_on && isset($snap['paths'][$key]);
+            echo '<tr><td><code>' . esc_html(Tegatai_Mask::real_path($key) . '/') . '</code><br><span style="color:#64748b;">' . esc_html(Tegatai_Mask::label($key)) . '</span></td>';
+            echo '<td><input type="text" name="mask_aliases[' . esc_attr($key) . ']" value="' . esc_attr($alias) . '" class="teg-form-input" style="margin:0; width:180px; max-width:100%;" maxlength="40" pattern="[a-z0-9\-]*">';
+            if ($active && $snap['paths'][$key] !== $base . '/' . $alias) {
+                /* translators: %s: path that is in use until the new name was checked */
+                echo '<br><span style="color:#64748b;">' . esc_html(sprintf(__('in use: %s', 'tegatai-secure'), $home . '/' . $snap['paths'][$key] . '/')) . '</span>';
+            }
+            echo '</td><td>' . ($paths_on ? wp_kses_post($state($key, $active)) : '<span style="color:#64748b;">' . esc_html__('Off', 'tegatai-secure') . '</span>') . '</td></tr>';
+        }
+        echo '</tbody></table>';
+
+        echo '<h4 style="margin:16px 0 4px; font-size:12px;">' . esc_html__('WordPress core', 'tegatai-secure') . '</h4>';
+        $field('mask_includes', 'wp-includes', Tegatai_Mask::inc_alias(), wp_kses_post($core_on ? $state('includes', $snap['includes'] !== '') : esc_html__('Off', 'tegatai-secure')));
+        $field('mask_rest', 'wp-json (REST API)', Tegatai_Mask::rest_alias(), $core_on ? '<span style="color:#15803d; font-weight:600;">' . esc_html__('Masked', 'tegatai-secure') . '</span>' : esc_html__('Off', 'tegatai-secure'));
+        $field('mask_ajax', 'admin-ajax.php', Tegatai_Mask::ajax_alias(), wp_kses_post($core_on ? $state('ajax', $snap['ajax'] !== '') : esc_html__('Off', 'tegatai-secure')));
+
+        echo '<input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" style="margin-top:12px;"></form></div></div>';
+    }
+
+    // Saves the names, writes the rules and checks the new paths
+    public function handle_mask_save() {
+        check_admin_referer('teg_mask_nonce');
+        if (!current_user_can('manage_options')) wp_die('Forbidden');
+        $ops = tegatai_get_setting($this->options_slug, []);
+        if (!is_array($ops)) $ops = [];
+        foreach (['mask_base' => 'server_mask_base', 'mask_includes' => 'server_mask_includes', 'mask_rest' => 'server_mask_rest', 'mask_ajax' => 'server_mask_ajax'] as $field => $key) {
+            $ops[$key] = sanitize_title(wp_unslash($_POST[$field] ?? ''));
+        }
+        $ops['server_mask_aliases'] = $this->sanitize_setting('server_mask_aliases', wp_unslash($_POST['mask_aliases'] ?? [])); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized per entry in sanitize_setting()
+        tegatai_update_setting($this->options_slug, $ops);
+        Tegatai_Mask::check(); // also writes the rules
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=masking&msg=mask_saved'));
+        exit;
+    }
+
+    public function handle_mask_check() {
+        check_admin_referer('teg_mask_nonce');
+        if (!current_user_can('manage_options')) wp_die('Forbidden');
+        Tegatai_Mask::check();
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=masking&msg=mask_checked'));
+        exit;
     }
 
     private function render_secrets_tab() {
@@ -294,7 +416,8 @@ class Tegatai_Admin {
             $ops['trusted_devices'] = ($val === '1') ? 1 : 0;
         }
         tegatai_update_setting($this->options_slug, $ops);
-        if (strpos($key, 'server_') === 0) Tegatai_Server::force_update();
+        if (strpos($key, 'server_mask_') === 0 && class_exists('Tegatai_Mask')) Tegatai_Mask::check(); // checks the new paths and writes the rules
+        elseif (strpos($key, 'server_') === 0) Tegatai_Server::force_update();
         wp_send_json_success(['message' => __('Saved successfully', 'tegatai-secure')]);
     }
 
@@ -321,6 +444,7 @@ class Tegatai_Admin {
     // Sanitizes a single value according to its schema type.
     private function sanitize_setting($key, $value) {
         $type = $this->schema[$key];
+        if ($type === 'alias_map') return $this->sanitize_alias_map($value);
         if (!is_scalar($value)) $value = '';
         $value = (string)$value;
         if (is_array($type)) return in_array($value, $type, true) ? $value : $type[0];
@@ -334,6 +458,18 @@ class Tegatai_Admin {
             case 'regex_list': return $this->sanitize_regex_list($value);
             default: return sanitize_text_field($value);
         }
+    }
+
+    // WP Masking names: ['plugin:<folder>' | 'theme:<slug>' => name]
+    private function sanitize_alias_map($value) {
+        $out = [];
+        if (!is_array($value)) return $out;
+        foreach ($value as $k => $v) {
+            if (!is_string($k) || !preg_match('/^(plugin|theme):[A-Za-z0-9._\-]{1,100}$/', $k) || !is_scalar($v)) continue;
+            $name = substr(sanitize_title((string) $v), 0, 40);
+            if ($name !== '') $out[$k] = $name;
+        }
+        return $out;
     }
 
     // Keeps regex rules verbatim (no tag/octet stripping) but drops lines that do not compile.
@@ -379,10 +515,11 @@ class Tegatai_Admin {
             'server' => [
                 'title' => __('Server & System', 'tegatai-secure'),
                 'icon' => 'dashicons-networking',
-                'desc' => __('Server Rules, HTTP Headers, System Hardening', 'tegatai-secure'),
+                'desc' => __('Server Rules, HTTP Headers, WP Masking, System Hardening', 'tegatai-secure'),
                 'tabs' => [
                     'server' => __('Server Rules', 'tegatai-secure'),
                     'headers' => __('HTTP Headers', 'tegatai-secure'),
+                    'masking' => __('WP Masking', 'tegatai-secure'),
                     'hardening' => __('Hardening', 'tegatai-secure')
                 ]
             ],
@@ -838,6 +975,7 @@ class Tegatai_Admin {
     private function render_full_tabs($tab) {
         if ($tab == 'firewall') { echo '
 <div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('WAF Settings', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_waf', esc_html__('Enable WAF', 'tegatai-secure'), esc_html__('Activates the Web Application Firewall to block malicious requests.', 'tegatai-secure')); $this->render_toggle('block_fake_bots', esc_html__('Block Bad Bots', 'tegatai-secure'), esc_html__('Blocks known malicious bots, scrapers, and automated attack tools.', 'tegatai-secure')); $this->render_toggle('enable_rate_limit', esc_html__('Rate Limit', 'tegatai-secure'), esc_html__('Prevents brute-force attacks by limiting requests per minute.', 'tegatai-secure')); $this->render_toggle('enable_404_block', esc_html__('404 Trap', 'tegatai-secure'), esc_html__('Bans IPs that generate too many 404 Not Found errors.', 'tegatai-secure')); $this->render_toggle('enable_upload_guard', esc_html__('Upload Guard', 'tegatai-secure'), esc_html__('Blocks uploads of executable or disguised script files.', 'tegatai-secure')); $this->render_toggle('block_ai_bots', esc_html__('Block AI Bots', 'tegatai-secure'), esc_html__('Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content.', 'tegatai-secure')); $this->render_toggle('block_seo_bots', esc_html__('Block SEO Bots', 'tegatai-secure'), esc_html__('Blocks aggressive SEO crawlers like Ahrefs or Semrush.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('WAF Whitelist', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Allowed URLs', 'tegatai-secure') . '</label><textarea name="tegatai_options[waf_whitelist_urls]" class="teg-form-input">'.esc_textarea($this->get_opt('waf_whitelist_urls', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('Custom Rules', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Custom Regex Filters', 'tegatai-secure') . '</label><p class="teg-switch-desc">' . wp_kses_post(__('One regex per line (e.g., <code>/bad-bot/i</code>).', 'tegatai-secure')) . '</p><textarea name="tegatai_options[custom_waf_blocklist]" class="teg-form-input">'.esc_textarea($this->get_opt('custom_waf_blocklist', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('IP Lists', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Whitelist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[whitelist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('whitelist_ips', '')).'</textarea><label class="teg-switch-label">' . esc_html__('Blacklist IPs', 'tegatai-secure') . '</label><textarea name="tegatai_options[blacklist_ips]" class="teg-form-input">'.esc_textarea($this->get_opt('blacklist_ips', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div></div>'; $this->render_abuseipdb_card(); }
+        elseif ($tab == 'masking') { $this->render_mask_tab(); }
         elseif ($tab == 'server') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('Server Rules', 'tegatai-secure') . '</h3>'; $this->render_toggle('server_disable_indexing', esc_html__('Disable Directory Browsing', 'tegatai-secure'), esc_html__('Prevents attackers from seeing lists of your files.', 'tegatai-secure')); $this->render_toggle('server_protect_files', esc_html__('Protect Sensitive Files', 'tegatai-secure'), esc_html__('Blocks access to .env, .sql, .bak, .log, and .git files.', 'tegatai-secure')); $this->render_toggle('server_hide_system_files', esc_html__('Block System Files', 'tegatai-secure'), esc_html__('Hides readme.html, license.txt, and wp-config.php from the web.', 'tegatai-secure')); $this->render_toggle('server_block_dotfiles', esc_html__('Block Dotfiles', 'tegatai-secure'), esc_html__('Denies access to hidden files (e.g., .htaccess).', 'tegatai-secure')); $this->render_toggle('server_block_xmlrpc', esc_html__('Block XML-RPC', 'tegatai-secure'), esc_html__('Disables xmlrpc.php to prevent DDoS and brute-force attacks.', 'tegatai-secure')); $this->render_toggle('server_disable_php_uploads', esc_html__('Disable PHP in Uploads', 'tegatai-secure'), esc_html__('Prevents execution of malicious backdoors in your media folder.', 'tegatai-secure')); $this->render_toggle('server_filter_bad_bots', esc_html__('Ultimate Bad Bot Filter', 'tegatai-secure'), esc_html__('Strict Nginx-level blocking for hacking tools.', 'tegatai-secure')); $this->render_toggle('server_hotlink_protection', esc_html__('Hotlink Protection', 'tegatai-secure'), esc_html__('Prevents other sites from embedding your images and stealing bandwidth.', 'tegatai-secure')); $this->render_rules_status(); echo '<div style="background:#f9fafb; padding:12px; border-radius:6px; margin-top:16px; border:1px solid #e5e7eb;"><form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="tegatai_write_rules">'.wp_kses(wp_nonce_field('teg_write_nonce', '_wpnonce', true, false), TEGATAI_KSES_INPUT).'<input type="submit" class="button button-primary" value="' . esc_attr__('Write rules to config', 'tegatai-secure') . '" ></form></div></div><div class="teg-card"><h3>' . esc_html__('Custom Protection', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><label class="teg-switch-label">' . esc_html__('Protected Directories', 'tegatai-secure') . '</label><input type="text" name="tegatai_options[server_protected_dirs]" value="'.esc_attr($this->get_opt('server_protected_dirs', '')).'" class="teg-form-input">
 <label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Block Specific Files', 'tegatai-secure') . '</label>
 <p class="teg-switch-desc">' . wp_kses_post(__('Paths from root (e.g., <code>/secret.zip</code>).', 'tegatai-secure')) . '</p>

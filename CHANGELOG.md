@@ -1,3 +1,27 @@
+## [1.9] - WP Masking: File Names
+
+### New
+
+* **Hide file names (WP Masking):** file names of masked plugin, theme and wp-includes files are replaced by a neutral name per file, e.g. `/assets/bar/css/kanri-bar.css` → `/assets/bar/css/t3f9a0c1d2e4`, so neither the name nor the file type is visible in the page.
+  * The folders stay, so relative URLs inside CSS and JS (fonts, images, script chunks) keep working; files loaded that way keep their real name.
+  * A changed file gets a new name, which also makes browsers load the new version (the `?ver=` parameter is removed by "Remove versions and identifiers").
+  * New files are found when pages are visited. Tegatai adds them to `tegatai-nginx.conf` and checks them every hour (WP-Cron) or right away with "Check new paths". A new name is only used after nginx was reloaded and the name answered with the real file; until then the page keeps the real file name.
+  * Names of replaced files stay mapped for 30 days, so cached pages keep working.
+  * nginx only handles the new names in a separate location (`.../t` + 11 characters), so other requests are not slowed down.
+
+## [1.8] - WP Masking
+
+### New
+
+* **WP Masking (Server & System → WP Masking, nginx):** hides the WordPress structure in the pages visitors receive.
+  * **Plugin and theme paths:** plugin and theme folders are shown as `/assets/<name>/`. The name is set per plugin and theme; empty fields get an automatic short name. The folder `assets` can be renamed.
+  * **WordPress core:** `/wp-includes/` → `/lib/`, `/wp-json/` → `/api/`, `admin-ajax.php` → `/ajax` (names can be changed). `/wp-json/` keeps working for The Hive and other sites; REST links point to the new path.
+  * **Versions and identifiers:** removes `?ver=` parameters, script/style ids, generator tags (also those of other plugins), RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation rules and the `X-Pingback` header.
+  * **Block original paths:** direct requests for the original paths of masked entries answer 404. Logged-in users and files loaded by pages of the site itself keep access; `/wp-json/tegatai/` (The Hive) stays reachable.
+* **Rules:** nginx maps the new paths back to the real files (static files only, never PHP). The rules are written to `tegatai-nginx.conf`, after all other rules.
+* **Safe activation:** "Check new paths" requests every new path once without cookies and compares the answer with the real file. Only paths that work are used in the pages and blocked, so a missing nginx reload never breaks the site. A renamed path stays in use until the new one works, and earlier names stay mapped for cached pages.
+* **Page caches:** the HTML is rewritten before page caches store it, so cached pages contain the new paths.
+
 ## [1.7.1] - Banner and Icon
 
 ### New
