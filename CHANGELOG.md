@@ -1,3 +1,10 @@
+## [2.0.2] - The Hive: endpoint via rest_route
+
+### Changed
+
+* **Hive messages are sent to `/?rest_route=/tegatai/v1/hive/receive`** instead of `/wp-json/tegatai/v1/hive/receive`. This form of the REST API works on every WordPress site, also when `/wp-json/` is renamed (WP Masking), blocked by server rules or answered by a maintenance or caching plugin (found on a site in maintenance mode, which answered `/wp-json/` with its maintenance page). Receiving sites need no change; all Tegatai versions accept it.
+* Security is unchanged: only the route is in the URL. The message is in the POST body, signed (Ed25519 or HMAC), encrypted end to end for Ed25519 peers, and sent over HTTPS.
+
 ## [2.0.1] - The Hive: delivery check
 
 ### Fixed

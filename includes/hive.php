@@ -417,7 +417,7 @@ class Tegatai_Hive {
         foreach ($peers as $key => $peer) {
             $queue[] = [
                 'peer' => $key,
-                'url' => $peer['url'] . '/wp-json/tegatai/v1/hive/receive',
+                'url' => self::endpoint_url($peer['url']),
                 'payload' => ['ip' => $ip, 'reason' => (string)$reason, 'level' => (string)$level],
                 'retries' => 0,
                 'queued_at' => time(),
@@ -435,7 +435,7 @@ class Tegatai_Hive {
      * otherwise HMAC (v1). Returns the HTTP response or a WP_Error.
      */
     private static function send_to_peer(array $peer, array $payload, $ops, $ssl_verify, $timeout) {
-        $url = $peer['url'] . '/wp-json/tegatai/v1/hive/receive';
+        $url = self::endpoint_url($peer['url']);
         if (!empty($peer['pubkey'])) {
             $sk = self::own_secret_key();
             if ($sk === '') return new WP_Error('no_key', __('This node has no Hive key yet (wp tegatai hive-keygen).', 'tegatai-secure'));
@@ -444,6 +444,16 @@ class Tegatai_Hive {
         $secret = self::secret_for_peer($peer, $ops);
         if (empty($secret)) return new WP_Error('no_secret', __('No secret configured for this peer', 'tegatai-secure'));
         return self::send_signed($url, $payload, $secret, $ssl_verify, $timeout, $peer['url']);
+    }
+
+    /**
+     * Hive endpoint of a peer. The plain REST form (?rest_route=) works on every WordPress site,
+     * also when /wp-json/ is renamed (WP Masking), blocked by server rules or taken over by
+     * maintenance or caching plugins. Only the route is in the URL; the message itself is in
+     * the POST body, signed and (v2) encrypted, and the connection uses HTTPS.
+     */
+    public static function endpoint_url($peer_url) {
+        return untrailingslashit((string) $peer_url) . '/?rest_route=/tegatai/v1/hive/receive';
     }
 
     /**

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.0.1
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -419,6 +419,6 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `2.0.1`
+Current Version: `2.0.2`
 
 See `CHANGELOG.md` for detailed release notes.
