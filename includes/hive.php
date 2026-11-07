@@ -44,10 +44,12 @@ class Tegatai_Hive {
     }
 
     /**
-     * Peers are configured one per line as "URL" or "URL | pair-secret".
-     * A pair secret is shared only between this node and that peer, so a compromised
-     * peer cannot impersonate any other node and can be revoked individually.
-     * Peers without their own secret fall back to the network-wide shared secret.
+     * Peers are configured one per line as "URL", "URL | pair-secret" or "URL | ed25519:<public key>".
+     * - ed25519 (protocol v2): the peer signs with its own private key; this node only knows the
+     *   public key. A compromised peer can never impersonate another node, and messages are
+     *   encrypted end to end (X25519 derived from the same keys).
+     * - pair secret / shared secret (protocol v1, HMAC-SHA256): kept for nodes that are not
+     *   switched yet. A pair secret is shared only between this node and that peer.
      */
     public static function get_peers($ops = null) {
         $ops = $ops ?? self::get_options();
@@ -59,9 +61,17 @@ class Tegatai_Hive {
             $parts = array_map('trim', explode('|', $line, 2));
             $url = esc_url_raw($parts[0]);
             if (!$url) continue;
+            $second = isset($parts[1]) ? $parts[1] : '';
+            $pubkey = '';
+            if (stripos($second, 'ed25519:') === 0) {
+                $pubkey = self::decode_public_key(substr($second, 8));
+                if ($pubkey === '') continue; // invalid key: never fall back to a weaker mode
+                $second = '';
+            }
             $peers[self::normalize_node($url)] = [
                 'url'    => untrailingslashit($url),
-                'secret' => isset($parts[1]) ? $parts[1] : '',
+                'secret' => $second,
+                'pubkey' => $pubkey,
             ];
         }
         return $peers;
@@ -76,6 +86,92 @@ class Tegatai_Hive {
     private static function secret_for_peer($peer, $ops) {
         if (!empty($peer['secret'])) return $peer['secret'];
         return self::get_shared_secret($ops);
+    }
+
+    // --- Ed25519 node key (protocol v2) ---
+
+    public static function sodium_available() {
+        return function_exists('sodium_crypto_sign_detached') && function_exists('sodium_crypto_box');
+    }
+
+    /**
+     * Private key file next to tegatai-secrets.php (outside the web root).
+     * Another location: define('TEGATAI_HIVE_KEY_FILE', '/path/tegatai-hive-key.php') in wp-config.php.
+     */
+    public static function key_file() {
+        if (defined('TEGATAI_HIVE_KEY_FILE')) return (string) TEGATAI_HIVE_KEY_FILE;
+        return dirname(tegatai_secrets_file()) . '/tegatai-hive-key.php';
+    }
+
+    /**
+     * This node's Ed25519 secret key (64 bytes) or ''. Read from TEGATAI_HIVE_PRIVATE_KEY
+     * (wp-config.php) or from the key file written by "wp tegatai hive-keygen".
+     * Tegatai never creates this key on its own.
+     */
+    public static function own_secret_key() {
+        static $key = null;
+        if ($key !== null) return $key;
+        $key = '';
+        if (!self::sodium_available()) return $key;
+        $b64 = '';
+        if (defined('TEGATAI_HIVE_PRIVATE_KEY')) {
+            $b64 = (string) TEGATAI_HIVE_PRIVATE_KEY;
+        } else {
+            $file = self::key_file();
+            if ($file !== '' && @is_file($file) && @is_readable($file)) {
+                $data = include $file;
+                if (is_array($data) && isset($data['private_key']) && is_string($data['private_key'])) $b64 = $data['private_key'];
+            }
+        }
+        $raw = base64_decode(preg_replace('/^ed25519:/i', '', trim($b64)), true);
+        if (is_string($raw) && strlen($raw) === SODIUM_CRYPTO_SIGN_SECRETKEYBYTES) $key = $raw;
+        return $key;
+    }
+
+    /** Public key of this node as "ed25519:<base64>" or ''. */
+    public static function own_public_key() {
+        $sk = self::own_secret_key();
+        return $sk === '' ? '' : 'ed25519:' . base64_encode(sodium_crypto_sign_publickey_from_secretkey($sk));
+    }
+
+    private static function decode_public_key($b64) {
+        if (!self::sodium_available()) return '';
+        $raw = base64_decode(trim((string) $b64), true);
+        return (is_string($raw) && strlen($raw) === SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES) ? $raw : '';
+    }
+
+    /**
+     * Creates a new key pair and writes the private key to the key file (0600, folder 0700).
+     * Only called by the WP-CLI command the admin runs explicitly. Refuses to overwrite an
+     * existing key unless $replace is true. Returns the public key or a WP_Error.
+     */
+    public static function write_new_key($replace = false) {
+        if (!self::sodium_available()) return new WP_Error('sodium', 'The PHP sodium extension is missing.');
+        if (defined('TEGATAI_HIVE_PRIVATE_KEY')) return new WP_Error('constant', 'TEGATAI_HIVE_PRIVATE_KEY is set in wp-config.php; remove it there first.');
+        $file = self::key_file();
+        if (@is_file($file) && !$replace) return new WP_Error('exists', 'A key already exists: ' . $file . ' (use --replace to create a new one; all peers then need the new public key).');
+        $dir = dirname($file);
+        if (!is_dir($dir) && !@mkdir($dir, 0700, true)) return new WP_Error('dir', 'Folder could not be created: ' . $dir);
+        if (!is_writable($dir)) return new WP_Error('dir', 'Folder is not writable: ' . $dir);
+
+        $pair = sodium_crypto_sign_keypair();
+        $sk   = sodium_crypto_sign_secretkey($pair);
+        $pk   = sodium_crypto_sign_publickey($pair);
+        $php  = "<?php\n// Tegatai Hive private key (Ed25519) of " . home_url() . ". Never share or copy this file to another site.\n"
+              . "if ( ! defined( 'ABSPATH' ) ) exit;\n"
+              . "return [ 'private_key' => '" . base64_encode($sk) . "', 'created' => '" . gmdate('c') . "' ];\n";
+        sodium_memzero($sk);
+        sodium_memzero($pair);
+
+        $tmp = $file . '.tmp-' . bin2hex(random_bytes(4));
+        $old = umask(0077);
+        $ok  = file_put_contents($tmp, $php, LOCK_EX);
+        umask($old);
+        if ($ok === false) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
+        @chmod($tmp, 0600);
+        if (!@rename($tmp, $file)) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
+        if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
+        return 'ed25519:' . base64_encode($pk);
     }
 
     // --- Never-ban protection ---
@@ -147,12 +243,23 @@ class Tegatai_Hive {
             return new WP_Error('bad_request', 'Missing payload or signature.', ['status' => 400]);
         }
 
+        $peers = self::get_peers($ops);
+        $peer = ($claimed_node !== '' && isset($peers[$claimed_node])) ? $peers[$claimed_node] : null;
+
+        if (stripos($signature, 'ed25519:') === 0) {
+            return $this->receive_v2($raw_body, substr($signature, 8), $claimed_node, $peer, $ops);
+        }
+
+        // Protocol v1 (HMAC). A peer with an Ed25519 key must never be accepted over HMAC (downgrade).
+        if ($peer && !empty($peer['pubkey'])) {
+            return new WP_Error('unauthorized', 'This peer uses Ed25519; HMAC is not accepted.', ['status' => 403]);
+        }
+
         // Pick the key by the claimed sender. Unknown or anonymous senders are only accepted
         // with the shared secret, and only while strict peer mode is off (legacy nodes).
-        $peers = self::get_peers($ops);
-        if ($claimed_node !== '' && isset($peers[$claimed_node])) {
-            $secret = self::secret_for_peer($peers[$claimed_node], $ops);
-            $node_label = $peers[$claimed_node]['url'];
+        if ($peer) {
+            $secret = self::secret_for_peer($peer, $ops);
+            $node_label = $peer['url'];
         } elseif (empty($ops['strict_peers'])) {
             $secret = self::get_shared_secret($ops);
             $node_label = 'legacy:' . ($claimed_node !== '' ? $claimed_node : 'unknown');
@@ -169,7 +276,7 @@ class Tegatai_Hive {
         }
 
         $data = json_decode($raw_body, true);
-        if (json_last_error() !== JSON_ERROR_NONE || empty($data['timestamp']) || empty($data['req_id'])) {
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($data) || empty($data['timestamp']) || empty($data['req_id'])) {
             return new WP_Error('invalid_payload', 'Malformed payload data.', ['status' => 400]);
         }
 
@@ -177,18 +284,84 @@ class Tegatai_Hive {
         if (isset($data['node']) && self::normalize_node($data['node']) !== $claimed_node) {
             return new WP_Error('invalid_payload', 'Node mismatch.', ['status' => 403]);
         }
+        // Since 2.0 the recipient is signed too: a message for another node is rejected
+        // (older senders do not send it yet).
+        if (isset($data['to']) && self::normalize_node($data['to']) !== self::normalize_node(home_url())) {
+            return new WP_Error('invalid_payload', 'Message is addressed to another node.', ['status' => 403]);
+        }
 
+        $check = self::check_fresh($data);
+        if (is_wp_error($check)) return $check;
+
+        return self::apply_payload($data, $node_label, $ops);
+    }
+
+    /**
+     * Protocol v2: Ed25519 signature over the raw body, payload encrypted with crypto_box
+     * (X25519 keys derived from both nodes' Ed25519 keys). Only configured peers with a key.
+     */
+    private function receive_v2($raw_body, $signature_b64, $claimed_node, $peer, $ops) {
+        if (!$peer || empty($peer['pubkey'])) {
+            return new WP_Error('unknown_peer', 'Sender is not a configured Ed25519 peer.', ['status' => 403]);
+        }
+        $sk = self::own_secret_key();
+        if ($sk === '') {
+            return new WP_Error('no_key', 'This node has no Hive key yet (wp tegatai hive-keygen).', ['status' => 403]);
+        }
+        $sig = base64_decode(trim($signature_b64), true);
+        if (!is_string($sig) || strlen($sig) !== SODIUM_CRYPTO_SIGN_BYTES || !sodium_crypto_sign_verify_detached($sig, $raw_body, $peer['pubkey'])) {
+            return new WP_Error('unauthorized', 'Ed25519 signature verification failed.', ['status' => 403]);
+        }
+
+        $data = json_decode($raw_body, true);
+        if (!is_array($data) || (int)($data['v'] ?? 0) !== 2 || empty($data['timestamp']) || empty($data['req_id']) || empty($data['nonce']) || empty($data['box'])) {
+            return new WP_Error('invalid_payload', 'Malformed payload data.', ['status' => 400]);
+        }
+        if (self::normalize_node($data['node'] ?? '') !== $claimed_node) {
+            return new WP_Error('invalid_payload', 'Node mismatch.', ['status' => 403]);
+        }
+        if (self::normalize_node($data['to'] ?? '') !== self::normalize_node(home_url())) {
+            return new WP_Error('invalid_payload', 'Message is addressed to another node.', ['status' => 403]);
+        }
+
+        $check = self::check_fresh($data);
+        if (is_wp_error($check)) return $check;
+
+        $nonce = base64_decode((string)$data['nonce'], true);
+        $box   = base64_decode((string)$data['box'], true);
+        $plain = false;
+        if (is_string($nonce) && strlen($nonce) === SODIUM_CRYPTO_BOX_NONCEBYTES && is_string($box)) {
+            $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey(
+                sodium_crypto_sign_ed25519_sk_to_curve25519($sk),
+                sodium_crypto_sign_ed25519_pk_to_curve25519($peer['pubkey'])
+            );
+            $plain = sodium_crypto_box_open($box, $nonce, $kp);
+            sodium_memzero($kp);
+        }
+        $payload = is_string($plain) ? json_decode($plain, true) : null;
+        if (!is_array($payload)) {
+            return new WP_Error('unauthorized', 'Payload could not be decrypted.', ['status' => 403]);
+        }
+
+        return self::apply_payload($payload, $peer['url'], $ops);
+    }
+
+    /** Timestamp window and one-time request ID (replay protection), same for v1 and v2. */
+    private static function check_fresh(array $data) {
         if (abs(time() - intval($data['timestamp'])) > 60) {
             return new WP_Error('replay_attack', 'Request expired (Time drift > 60s).', ['status' => 403]);
         }
-
         // Atomic claim; the nonce outlives the full ±60 s timestamp window.
         if (!tegatai_claim_nonce('tg_hive_req_' . md5((string)$data['req_id']), 180)) {
             return new WP_Error('duplicate_request', 'Request ID already processed.', ['status' => 429]);
         }
+        return true;
+    }
 
+    /** Applies a verified ban (or answers a connection test). */
+    private static function apply_payload(array $data, $node_label, $ops) {
         if (!empty($data['is_test'])) {
-            return rest_ensure_response(['success' => true, 'message' => 'HMAC Verified. Connection successful.']);
+            return rest_ensure_response(['success' => true, 'message' => 'Signature verified. Connection successful.']);
         }
 
         $ip = sanitize_text_field($data['ip'] ?? '');
@@ -257,8 +430,58 @@ class Tegatai_Hive {
         }
     }
 
-    private static function send_signed($url, array $payload, $secret, $ssl_verify, $timeout) {
+    /**
+     * Sends a payload to a peer: Ed25519 + encryption when the peer has a public key (v2),
+     * otherwise HMAC (v1). Returns the HTTP response or a WP_Error.
+     */
+    private static function send_to_peer(array $peer, array $payload, $ops, $ssl_verify, $timeout) {
+        $url = $peer['url'] . '/wp-json/tegatai/v1/hive/receive';
+        if (!empty($peer['pubkey'])) {
+            $sk = self::own_secret_key();
+            if ($sk === '') return new WP_Error('no_key', __('This node has no Hive key yet (wp tegatai hive-keygen).', 'tegatai-secure'));
+            return self::send_v2($url, $peer, $payload, $sk, $ssl_verify, $timeout);
+        }
+        $secret = self::secret_for_peer($peer, $ops);
+        if (empty($secret)) return new WP_Error('no_secret', __('No secret configured for this peer', 'tegatai-secure'));
+        return self::send_signed($url, $payload, $secret, $ssl_verify, $timeout, $peer['url']);
+    }
+
+    private static function send_v2($url, array $peer, array $payload, $sk, $ssl_verify, $timeout) {
+        $nonce = random_bytes(SODIUM_CRYPTO_BOX_NONCEBYTES);
+        $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey(
+            sodium_crypto_sign_ed25519_sk_to_curve25519($sk),
+            sodium_crypto_sign_ed25519_pk_to_curve25519($peer['pubkey'])
+        );
+        $box = sodium_crypto_box(wp_json_encode($payload), $nonce, $kp);
+        sodium_memzero($kp);
+
+        $body = wp_json_encode([
+            'v'         => 2,
+            'node'      => home_url(),
+            'to'        => $peer['url'],
+            'timestamp' => time(),
+            'req_id'    => bin2hex(random_bytes(16)),
+            'nonce'     => base64_encode($nonce),
+            'box'       => base64_encode($box),
+        ]);
+
+        return wp_remote_post($url, [
+            'blocking' => true,
+            'timeout' => $timeout,
+            'sslverify' => $ssl_verify,
+            'headers' => [
+                'X-Tegatai-Signature' => 'ed25519:' . base64_encode(sodium_crypto_sign_detached($body, $sk)),
+                'X-Tegatai-Node' => home_url(),
+                'X-Tegatai-Version' => '2',
+                'Content-Type' => 'application/json; charset=utf-8'
+            ],
+            'body' => $body
+        ]);
+    }
+
+    private static function send_signed($url, array $payload, $secret, $ssl_verify, $timeout, $to = '') {
         $payload['node'] = home_url();
+        if ($to !== '') $payload['to'] = $to; // recipient is signed too (ignored by nodes before 2.0)
         $payload['timestamp'] = time();
         $payload['req_id'] = bin2hex(random_bytes(16));
         $json_payload = wp_json_encode($payload);
@@ -294,12 +517,16 @@ class Tegatai_Hive {
                 continue;
             }
 
+            // Peers removed from the list are not contacted any more
             $peer = isset($item['peer'], $peers[$item['peer']]) ? $peers[$item['peer']] : null;
-            $secret = $peer ? self::secret_for_peer($peer, $ops) : self::get_shared_secret($ops);
-            if (empty($secret) || empty($item['payload']) || !is_array($item['payload'])) continue;
+            if (!$peer || empty($item['payload']) || !is_array($item['payload'])) continue;
 
             $payload = array_intersect_key($item['payload'], array_flip(['ip', 'reason', 'level']));
-            $response = self::send_signed($item['url'], $payload, $secret, $ssl_verify, 5);
+            $response = self::send_to_peer($peer, $payload, $ops, $ssl_verify, 5);
+            if (is_wp_error($response) && in_array($response->get_error_code(), ['no_key', 'no_secret'], true)) {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-QUEUE', "Dropped payload for {$peer['url']}: " . $response->get_error_message());
+                continue;
+            }
             $code = is_wp_error($response) ? 0 : wp_remote_retrieve_response_code($response);
 
             // 403 protected_ip / 429 duplicate are final answers, retrying would not help.
@@ -342,26 +569,24 @@ class Tegatai_Hive {
         $results = [];
 
         foreach ($peers as $peer) {
-            $secret = self::secret_for_peer($peer, $ops);
-            if (empty($secret)) {
-                $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => __('No secret configured for this peer', 'tegatai-secure')];
-                continue;
-            }
-            $response = self::send_signed($peer['url'] . '/wp-json/tegatai/v1/hive/receive', [
+            $response = self::send_to_peer($peer, [
                 'ip' => '127.0.0.1',
                 'reason' => 'Connection Test',
                 'level' => 'low',
                 'is_test' => true,
-            ], $secret, $ssl_verify, 5);
+            ], $ops, $ssl_verify, 5);
 
             if (is_wp_error($response)) {
                 $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $response->get_error_message()];
             } else {
                 $code = wp_remote_retrieve_response_code($response);
                 if ($code === 200) {
-                    $results[] = ['url' => $peer['url'], 'status' => 'success', 'msg' => __('OK - HMAC Verified', 'tegatai-secure')];
+                    $results[] = ['url' => $peer['url'], 'status' => 'success', 'msg' => !empty($peer['pubkey']) ? __('OK - Ed25519 verified, encrypted', 'tegatai-secure') : __('OK - HMAC Verified', 'tegatai-secure')];
                 } elseif ($code === 403) {
-                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => __('HTTP 403 - Invalid Signature, unknown peer or expired', 'tegatai-secure')];
+                    $msg = __('HTTP 403 - Invalid Signature, unknown peer or expired', 'tegatai-secure');
+                    $err = json_decode((string) wp_remote_retrieve_body($response), true);
+                    if (is_array($err) && !empty($err['message'])) $msg .= ' (' . sanitize_text_field((string) $err['message']) . ')';
+                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $msg];
                 } else {
                     $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => 'HTTP ' . $code];
                 }
@@ -481,7 +706,7 @@ class Tegatai_Hive {
         <div class="teg-wrap">
             <div class="teg-header">
                 <div class="teg-title"><span class="dashicons dashicons-networking" style="font-size:32px;"></span> Tegatai Hive</div>
-                <div class="teg-badge">v1.2</div>
+                <div class="teg-badge">v2</div>
             </div>
             
             <div class="teg-inner-nav">
@@ -500,7 +725,7 @@ class Tegatai_Hive {
                 <div class="teg-grid">
                     <div class="teg-card" style="grid-column: span 2;">
                         <h3><span class="dashicons dashicons-info"></span> <?php esc_html_e('Hive Network Status', 'tegatai-secure'); ?></h3>
-                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('The Hive uses HMAC-SHA256 payload signing, strict timestamps, and request IDs to create a zero-trust, replay-resistant defense grid.', 'tegatai-secure'); ?></p>
+                        <p class="teg-switch-desc" style="margin-bottom:15px;"><?php esc_html_e('Nodes with an Ed25519 key sign every message with their own private key and encrypt it end to end; other nodes use HMAC-SHA256. Timestamps, request IDs and the signed recipient make messages replay-resistant.', 'tegatai-secure'); ?></p>
                         
                         <div class="teg-switch-row">
                             <div><span class="teg-switch-label"><?php esc_html_e('Enable Broadcast & Receive', 'tegatai-secure'); ?></span></div>
@@ -516,7 +741,28 @@ class Tegatai_Hive {
                     </div>
 
                     <div class="teg-card">
+                        <h3><span class="dashicons dashicons-lock"></span> <?php esc_html_e('Node Key (Ed25519)', 'tegatai-secure'); ?></h3>
+                        <?php $own_pk = self::own_public_key(); ?>
+                        <?php if (!self::sodium_available()) : ?>
+                            <div style="background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:12px; border-radius:6px; font-size:12px;"><?php esc_html_e('The PHP sodium extension is missing, Ed25519 is not available on this server.', 'tegatai-secure'); ?></div>
+                        <?php elseif ($own_pk !== '') : ?>
+                            <div style="background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; padding:12px; border-radius:6px; font-size:12px; margin-bottom:10px;">
+                                <strong>🔒 <?php esc_html_e('Private key loaded from the secrets folder or wp-config.php', 'tegatai-secure'); ?></strong><br>
+                                <?php esc_html_e('Add this line to the peer list of every other node:', 'tegatai-secure'); ?>
+                            </div>
+                            <input type="text" readonly class="teg-form-input" style="font-family:monospace; font-size:11px;" onclick="this.select();" value="<?php echo esc_attr(home_url() . ' | ' . $own_pk); ?>">
+                        <?php else : ?>
+                            <div style="background:#fffbeb; border:1px solid #fde68a; color:#b45309; padding:12px; border-radius:6px; font-size:12px;">
+                                <strong><?php esc_html_e('No node key yet.', 'tegatai-secure'); ?></strong><br>
+                                <?php esc_html_e('Create it on the server as the site\'s PHP user (Tegatai never creates keys on its own). The private key is written to the secrets folder and never shown:', 'tegatai-secure'); ?>
+                                <code style="display:block; margin-top:8px; word-break:break-all;">sudo -u &lt;fpm-user&gt; wp tegatai hive-keygen --path=<?php echo esc_html(untrailingslashit(ABSPATH)); ?></code>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="teg-card">
                         <h3><span class="dashicons dashicons-admin-network"></span> <?php esc_html_e('HMAC Shared Secret', 'tegatai-secure'); ?></h3>
+                        <p class="teg-switch-desc"><?php esc_html_e('Only used for peers without an Ed25519 key (nodes that are not switched yet).', 'tegatai-secure'); ?></p>
                         <?php if (defined('TEGATAI_HIVE_SECRET')) : ?>
                             <div style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
                                 <strong>🔒 <?php esc_html_e('Secret loaded from tegatai-secrets.php or wp-config.php', 'tegatai-secure'); ?></strong><br>
@@ -547,12 +793,19 @@ class Tegatai_Hive {
 
                     <div class="teg-card">
                         <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-secure'); ?></h3>
-                        <p class="teg-switch-desc"><?php esc_html_e('One peer per line: "URL" or "URL | pair secret". A pair secret is shared only with that peer (configure the same value on both sides); peers without one use the shared secret.', 'tegatai-secure'); ?></p>
-                        <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com | tg_hmac_...&#10;https://another-site.net"><?php echo esc_textarea($ops['node_urls']); ?></textarea>
+                        <p class="teg-switch-desc"><?php esc_html_e('One peer per line: "URL | ed25519:public key" (recommended), "URL | pair secret" or "URL" (shared secret). Peers with a key are only accepted with their Ed25519 signature.', 'tegatai-secure'); ?></p>
+                        <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com | ed25519:...&#10;https://another-site.net | tg_hmac_..."><?php echo esc_textarea($ops['node_urls']); ?></textarea>
+                        <?php
+                        $peer_list = self::get_peers($ops);
+                        if ($peer_list) {
+                            $n_ed = count(array_filter($peer_list, function ($p) { return !empty($p['pubkey']); }));
+                            echo '<p class="teg-switch-desc">' . esc_html(sprintf(/* translators: 1: peers with Ed25519, 2: all peers */ __('%1$d of %2$d peers use Ed25519.', 'tegatai-secure'), $n_ed, count($peer_list))) . '</p>';
+                        }
+                        ?>
                         <div class="teg-switch-row">
                             <div>
                                 <span class="teg-switch-label"><?php esc_html_e('Strict peer mode', 'tegatai-secure'); ?></span>
-                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Only accept bans from listed peers that identify themselves (requires the current Tegatai version on all nodes).', 'tegatai-secure'); ?></span>
+                                <span class="teg-switch-desc" style="margin:0;"><?php esc_html_e('Only accept HMAC bans from listed peers that identify themselves. Ed25519 peers are always strict.', 'tegatai-secure'); ?></span>
                             </div>
                             <label class="switch"><input type="checkbox" name="strict_peers" value="1" <?php checked($ops['strict_peers'], 1); ?>><span class="slider"></span></label>
                         </div>
@@ -698,4 +951,38 @@ class Tegatai_Hive {
         </div>
         <?php
     }
+}
+
+/**
+ * WP-CLI commands for the Hive node key. Run them as the site's FPM user, never as root,
+ * so the key file belongs to the user PHP runs as:
+ *   sudo -u <fpm-user> wp tegatai hive-keygen --path=/path/to/site
+ */
+if (defined('WP_CLI') && WP_CLI) {
+    /**
+     * Creates this node's Ed25519 key pair for The Hive.
+     *
+     * The private key is written to secrets/tegatai-hive-key.php next to tegatai-secrets.php
+     * (file 0600, folder 0700) and is never printed. Only the public key is shown; add it to
+     * the peer lists of the other nodes as "URL | ed25519:...".
+     *
+     * [--replace]
+     * : Replace an existing key. All peers then need the new public key.
+     */
+    WP_CLI::add_command('tegatai hive-keygen', function ($args, $assoc) {
+        $r = Tegatai_Hive::write_new_key(!empty($assoc['replace']));
+        if (is_wp_error($r)) WP_CLI::error($r->get_error_message());
+        WP_CLI::success('Private key written to ' . Tegatai_Hive::key_file());
+        WP_CLI::log('Add this line to the peer list of every other node:');
+        WP_CLI::log(home_url() . ' | ' . $r);
+    });
+
+    /**
+     * Prints this node's public key line for the peer lists of the other nodes.
+     */
+    WP_CLI::add_command('tegatai hive-pubkey', function () {
+        $pk = Tegatai_Hive::own_public_key();
+        if ($pk === '') WP_CLI::error('No Hive key yet. Create one with: wp tegatai hive-keygen');
+        WP_CLI::log(home_url() . ' | ' . $pk);
+    });
 }

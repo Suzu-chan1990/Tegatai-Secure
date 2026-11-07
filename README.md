@@ -152,16 +152,34 @@ Tegatai Hive allows multiple WordPress installations to communicate and synchron
 
 ## Features
 
-* HMAC-SHA256 signed payloads
-* Strict timestamp validation
-* Replay-attack protection
-* Request-ID verification
-* Distributed IP ban synchronization
-* Secure node-to-node communication
-* Optional SSL verification
-* Zero-trust architecture
+* **Ed25519 node keys (protocol v2):** every node signs its messages with its own private key; the other nodes only know its public key. A compromised node can never send messages in the name of another node.
+* **End-to-end encryption:** v2 payloads (IP, reason, level) are encrypted with `crypto_box` (X25519 keys derived from the same Ed25519 keys) – also behind a CDN or proxy that terminates TLS.
+* **Signed recipient:** every message names its receiver, so it cannot be replayed to another node.
+* Strict timestamp validation (±60 s) and one-time request IDs (replay protection)
+* Distributed IP ban synchronization with per-peer rate limit and never-ban allowlist
+* **HMAC-SHA256 (protocol v1)** for nodes that are not switched yet; a peer with an Ed25519 key is never accepted over HMAC (no downgrade)
 
-Every node validates incoming requests cryptographically before applying actions.
+## Setting up node keys
+
+Tegatai never creates keys on its own. Create the key once per site on the server, **as the site's PHP-FPM user** (never as root):
+
+```bash
+sudo -u <fpm-user> wp tegatai hive-keygen --path=/path/to/site
+```
+
+* The private key is written to `secrets/tegatai-hive-key.php` next to `tegatai-secrets.php` (outside the web root, file `0600`, folder `0700`). It is never printed, and the command refuses to overwrite an existing key (`--replace` creates a new one; all peers then need the new public key).
+* Another location: `define('TEGATAI_HIVE_KEY_FILE', '/path/tegatai-hive-key.php');` or the key itself as `TEGATAI_HIVE_PRIVATE_KEY` in `wp-config.php`.
+* The command prints the line for the other nodes. It is also shown on the Hive page and with `wp tegatai hive-pubkey`.
+
+Peer list (one per line), on every node all other nodes:
+
+```text
+https://site-a.example | ed25519:<public key of site A>
+https://site-b.example | ed25519:<public key of site B>
+https://old-node.example | tg_hmac_pair-secret        (not switched yet, HMAC)
+```
+
+Nodes can be switched one by one: peers with a key use v2, peers without one keep using HMAC. To revoke a node, remove its line on the others.
 
 ---
 
@@ -409,7 +427,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `1.9`
+Current Version: `2.0`
 
 See `CHANGELOG.md` for detailed release notes.
 

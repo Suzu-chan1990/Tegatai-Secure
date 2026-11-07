@@ -1,3 +1,24 @@
+## [2.0] - The Hive: Ed25519 and Encryption
+
+### New
+
+* **Ed25519 node keys (protocol v2):** every site signs Hive messages with its own private key; the other sites only know its public key (`URL | ed25519:<public key>` in the peer list). A compromised site can no longer send bans in the name of another site, and a site is revoked by removing its line on the others – no new shared secret for everyone.
+* **End-to-end encryption:** v2 messages carry the IP, reason and level encrypted with libsodium `crypto_box` (X25519 keys derived from the Ed25519 keys). Readable only by the receiving site, also behind a CDN or proxy that terminates TLS or with SSL verification off.
+* **`wp tegatai hive-keygen`:** creates the key pair when the admin runs it (Tegatai never creates keys on its own). The private key goes to `secrets/tegatai-hive-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`), is never printed and is not overwritten without `--replace`. Only the public key line is shown. Run it as the site's PHP-FPM user. Also `wp tegatai hive-pubkey`, and the public key on the Hive page.
+* Other key locations: `TEGATAI_HIVE_KEY_FILE` (path) or `TEGATAI_HIVE_PRIVATE_KEY` (the key) in `wp-config.php`.
+
+### Security
+
+* **Signed recipient:** every message (v1 and v2) contains the receiving site; a message for another site is rejected, so it cannot be replayed to a different node within the time window.
+* **No downgrade:** a peer with an Ed25519 key is only accepted with its Ed25519 signature, never over HMAC. Ed25519 peers are always strict (unknown senders are rejected).
+* **Peers removed from the list** are no longer contacted from the retry queue.
+* The connection test shows the method per peer ("Ed25519 verified, encrypted" / "HMAC Verified") and the reason of a 403.
+
+### Compatibility
+
+* Sites can be switched one by one: peers without a key keep using HMAC-SHA256 (protocol v1) with their pair secret or the shared secret. Sites before 2.0 ignore the new recipient field.
+* Requires the PHP sodium extension (bundled with PHP 8.4); without it the Hive page shows a notice and only HMAC is used.
+
 ## [1.9] - WP Masking: File Names
 
 ### New
