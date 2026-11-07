@@ -446,6 +446,30 @@ class Tegatai_Hive {
         return self::send_signed($url, $payload, $secret, $ssl_verify, $timeout, $peer['url']);
     }
 
+    /**
+     * Interprets a peer's answer. Only a JSON answer of the Hive endpoint counts:
+     * a plain HTTP 200 (e.g. a redirect target, a cached page or a proxy) is not a delivery.
+     * Returns ['ok' => bool, 'final' => bool (do not retry), 'msg' => string].
+     */
+    private static function read_answer($response) {
+        if (is_wp_error($response)) return ['ok' => false, 'final' => false, 'msg' => $response->get_error_message()];
+        $code = (int) wp_remote_retrieve_response_code($response);
+        if ($code >= 300 && $code < 400) {
+            $loc = (string) wp_remote_retrieve_header($response, 'location');
+            return ['ok' => false, 'final' => false, 'msg' => sprintf('HTTP %d redirect to %s - the Hive endpoint must answer directly (check the peer URL, www/https and server rules)', $code, $loc !== '' ? $loc : '?')];
+        }
+        $json = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (!is_array($json)) {
+            return ['ok' => false, 'final' => false, 'msg' => sprintf('HTTP %d, but no answer from the Tegatai Hive endpoint (Tegatai 2.0 not active there, cache or proxy in between?)', $code)];
+        }
+        if ($code === 200 && !empty($json['success'])) {
+            return ['ok' => true, 'final' => true, 'msg' => (string) ($json['message'] ?? 'OK')];
+        }
+        // A real refusal of the endpoint (signature, protected IP, duplicate …): retrying does not help
+        $final = isset($json['code']) && in_array($code, [400, 403, 429], true);
+        return ['ok' => false, 'final' => $final, 'msg' => sprintf('HTTP %d %s', $code, sanitize_text_field((string) ($json['message'] ?? '')))];
+    }
+
     private static function send_v2($url, array $peer, array $payload, $sk, $ssl_verify, $timeout) {
         $nonce = random_bytes(SODIUM_CRYPTO_BOX_NONCEBYTES);
         $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey(
@@ -467,6 +491,7 @@ class Tegatai_Hive {
 
         return wp_remote_post($url, [
             'blocking' => true,
+            'redirection' => 0, // a redirect turns the POST into a GET on another page; never follow it
             'timeout' => $timeout,
             'sslverify' => $ssl_verify,
             'headers' => [
@@ -488,6 +513,7 @@ class Tegatai_Hive {
 
         return wp_remote_post($url, [
             'blocking' => true,
+            'redirection' => 0, // a redirect turns the POST into a GET on another page; never follow it
             'timeout' => $timeout,
             'sslverify' => $ssl_verify,
             'headers' => [
@@ -527,21 +553,24 @@ class Tegatai_Hive {
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-QUEUE', "Dropped payload for {$peer['url']}: " . $response->get_error_message());
                 continue;
             }
-            $code = is_wp_error($response) ? 0 : wp_remote_retrieve_response_code($response);
+            $answer = self::read_answer($response);
 
-            // 403 protected_ip / 429 duplicate are final answers, retrying would not help.
-            if ($code === 200 || $code === 403 || $code === 429) {
-                if ($retries > 0 && $code === 200 && class_exists('Tegatai_Logger')) {
+            if ($answer['ok']) {
+                if ($retries > 0 && class_exists('Tegatai_Logger')) {
                     Tegatai_Logger::log('HIVE-RETRY', "Successfully delivered delayed payload to " . $item['url']);
                 }
+                continue;
+            }
+            // Refused by the peer's Hive endpoint (protected IP, duplicate, signature): retrying would not help.
+            if ($answer['final']) {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIVE-QUEUE', "Peer {$item['url']} refused the payload: {$answer['msg']}");
                 continue;
             }
 
             $item['retries'] = $retries + 1;
             $new_queue[] = $item;
             if (class_exists('Tegatai_Logger')) {
-                $err = is_wp_error($response) ? $response->get_error_message() : $code;
-                Tegatai_Logger::log('HIVE-QUEUE', "Failed to deliver to {$item['url']} ($err). Will retry.");
+                Tegatai_Logger::log('HIVE-QUEUE', "Failed to deliver to {$item['url']} ({$answer['msg']}). Will retry.");
             }
         }
 
@@ -576,20 +605,12 @@ class Tegatai_Hive {
                 'is_test' => true,
             ], $ops, $ssl_verify, 5);
 
-            if (is_wp_error($response)) {
-                $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $response->get_error_message()];
+            // Success only when the peer's Hive endpoint itself confirms the verified message
+            $answer = self::read_answer($response);
+            if ($answer['ok']) {
+                $results[] = ['url' => $peer['url'], 'status' => 'success', 'msg' => !empty($peer['pubkey']) ? __('OK - Ed25519 verified, encrypted', 'tegatai-secure') : __('OK - HMAC Verified', 'tegatai-secure')];
             } else {
-                $code = wp_remote_retrieve_response_code($response);
-                if ($code === 200) {
-                    $results[] = ['url' => $peer['url'], 'status' => 'success', 'msg' => !empty($peer['pubkey']) ? __('OK - Ed25519 verified, encrypted', 'tegatai-secure') : __('OK - HMAC Verified', 'tegatai-secure')];
-                } elseif ($code === 403) {
-                    $msg = __('HTTP 403 - Invalid Signature, unknown peer or expired', 'tegatai-secure');
-                    $err = json_decode((string) wp_remote_retrieve_body($response), true);
-                    if (is_array($err) && !empty($err['message'])) $msg .= ' (' . sanitize_text_field((string) $err['message']) . ')';
-                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $msg];
-                } else {
-                    $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => 'HTTP ' . $code];
-                }
+                $results[] = ['url' => $peer['url'], 'status' => 'error', 'msg' => $answer['msg']];
             }
         }
 

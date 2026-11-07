@@ -1,3 +1,12 @@
+## [2.0.1] - The Hive: delivery check
+
+### Fixed
+
+* **Hive messages were counted as delivered without reaching the peer.** A redirect of the peer's endpoint (e.g. without/with `www`, `http` → `https`, a server rule) was followed automatically; the POST became a GET on another page that answered with HTTP 200. The connection test then showed "OK" and queued bans were dropped as delivered.
+  * Redirects are no longer followed. The connection test shows "HTTP 301 redirect to …" with the target, so the peer URL can be corrected.
+  * A message only counts as delivered when the peer's Hive endpoint itself confirms it (JSON answer). Any other HTTP 200 (cached page, proxy, Tegatai not active) is reported as an error and retried.
+  * Refusals of the peer's endpoint (signature, protected IP, duplicate) are logged and not retried.
+
 ## [2.0] - The Hive: Ed25519 and Encryption
 
 ### New

@@ -427,7 +427,7 @@ See `LICENSE`.
 
 # 📜 Changelog
 
-Current Version: `2.0`
+Current Version: `2.0.1`
 
 See `CHANGELOG.md` for detailed release notes.
 
