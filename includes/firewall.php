@@ -102,7 +102,7 @@ class Tegatai_Firewall {
         }
 
         // GeoIP
-        if (!empty($ops['geoip_mode']) && $ops['geoip_mode'] !== 'off') {
+        if (Tegatai_GeoIP::enabled($ops)) {
             $this->check_geoip($ops);
         }
 
@@ -184,25 +184,13 @@ class Tegatai_Firewall {
             $is_login = ($pagenow === 'wp-login.php') || ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['REQUEST_URI'] ?? '', 'xmlrpc.php') !== false);
             if (!$is_login) return; 
         }
+        // Unknown countries, a missing database and an empty list never block (fail open)
         $country = $this->get_country_code();
-        if ($country === 'XX') return; // Fail Open
+        if (!Tegatai_GeoIP::is_blocked($ops, $country)) return;
 
-        $list_raw = isset($ops['geoip_list']) ? strtoupper($ops['geoip_list']) : '';
-        // Drop empty entries: an empty whitelist must not block every visitor (and every admin).
-        $countries = array_values(array_filter(array_map('trim', explode(',', $list_raw)), 'strlen'));
-        if (empty($countries)) return;
-
-        if ($ops['geoip_mode'] === 'blacklist') {
-            if (in_array($country, $countries, true)) {
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country");
-                wp_die(esc_html("Access from your country ($country) is not allowed."), "GeoIP Block", ['response' => 403]);
-            }
-        } elseif ($ops['geoip_mode'] === 'whitelist') {
-            if (!in_array($country, $countries, true)) {
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country (Not Whitelisted)");
-                wp_die(esc_html("Access from your country ($country) is not allowed."), "GeoIP Block", ['response' => 403]);
-            }
-        }
+        $suffix = $ops['geoip_mode'] === 'whitelist' ? ' (Not Whitelisted)' : '';
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('GEO-BLK', "Blocked Country: $country$suffix");
+        wp_die(esc_html("Access from your country ($country) is not allowed."), "GeoIP Block", ['response' => 403]);
     }
 
     private function get_country_code() {
@@ -216,23 +204,8 @@ class Tegatai_Firewall {
         $ip = $this->get_client_ip();
         if ($this->is_protected_ip($ip) || !filter_var($ip, FILTER_VALIDATE_IP)) return 'XX';
 
-        $cache_key = 'teg_geo_' . md5($ip);
-
-        // Check Unified Cache first
-        $cached = $this->get_hit_count($cache_key, 86400);
-        if ($cached) return $cached;
-
-        $response = wp_remote_get('https://get.geojs.io/v1/ip/country/' . rawurlencode($ip) . '.json', ['timeout' => 2, 'sslverify' => true]);
-        if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) == 200) {
-            $body = json_decode(wp_remote_retrieve_body($response), true);
-            $cc = isset($body['countryCode']) ? strtoupper((string)$body['countryCode']) : 'XX';
-            if (!preg_match('/^[A-Z]{2}$/', $cc)) $cc = 'XX';
-            $this->set_hit_count($cache_key, $cc, 86400); // Speichere in Unified Cache
-            return $cc;
-        }
-        // Cache failures briefly, otherwise an unreachable API adds the 2s timeout to every request.
-        $this->set_hit_count($cache_key, 'XX', 600);
-        return 'XX';
+        // Local database lookup, the IP never leaves the server
+        return Tegatai_GeoIP::country($ip);
     }
 
     private function check_whitelist($l) { 

@@ -1,3 +1,27 @@
+## [2.1.0] - Local GeoIP, backup keys, IP Prison
+
+### New
+
+* **Backup key pair (format v3), same approach as the Hive keys:** `wp tegatai backup-keygen` creates an X25519 key pair in `secrets/tegatai-backup-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`; other location via `TEGATAI_BACKUP_KEY_FILE`). Tegatai never creates it on its own and does not overwrite it without `--replace`.
+  * Every backup gets its own random key, sealed to the public key (`crypto_box_seal`). The data is encrypted in 1 MB chunks with XChaCha20-Poly1305 (`crypto_secretstream`); magic and sealed key are authenticated with every chunk, and changed, reordered or cut-off files are rejected.
+  * A key file with only `public_key` lets the server write backups it cannot read itself (private key kept offline).
+  * Without a key, backups keep using AES-256-GCM with `TEGATAI_BACKUP_SECRET`. Older GCM and CBC backups can still be downloaded.
+  * The Backups tab shows which encryption is active.
+* **Local GeoIP:** countries are looked up in the DB-IP "IP to Country Lite" database (CC BY 4.0) with the bundled MaxMind DB reader (`lib/maxmind-db-reader`, Apache-2.0). Visitor IPs are no longer sent to `get.geojs.io`. The database is stored in `uploads/tegatai-geoip/`, downloaded only while the GeoIP block is on (daily check, renewed after 30 days) or with the new **Download database** button on the GeoIP tab, which also shows the edition and the last download result.
+
+### Fixed
+
+* **IP Prison tab was empty:** the tab had no output. It now lists all active bans (IP, reason, source, level, expiry; newest 500) with a **Release** button per IP. Releasing only affects this site.
+* **GeoIP with a country list of one code per line did not work:** the settings ask for one code per line, but the list was split at commas only. A blacklist never blocked, and on the firewall side a whitelist blocked every visitor. Codes may now be separated by new lines, commas, semicolons or spaces.
+* **GeoIP mode "Disabled" still looked up every visitor:** the code checked for `off`, the setting saves `disabled`. Lookups now only run in blacklist or whitelist mode.
+* An empty whitelist blocked all logins (login side) while the firewall side allowed all; both now block nothing with an empty list.
+* The country code example said `EN` (not a country code); now `DE`, `AT`.
+* The scanner exclusion field showed a site-specific path as default value; it is now empty (placeholder `/wp-content/cache/`). Saved exclusions are not changed.
+
+### Docs
+
+* README rewritten: plain description, screenshots, correct requirements and backup description, list of external services.
+
 ## [2.0.2] - The Hive: endpoint via rest_route
 
 ### Changed

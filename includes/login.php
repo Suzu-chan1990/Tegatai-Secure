@@ -101,19 +101,6 @@ class Tegatai_LoginGuard {
         return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'] ?? ''));
     }
 
-    // Unified Cache Engine for GeoIP (Memory First)
-    private function get_cache($key) {
-        if (function_exists('apcu_fetch')) return apcu_fetch($key);
-        if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) return wp_cache_get($key, 'tegatai');
-        return get_transient($key);
-    }
-
-    private function set_cache($key, $val, $ttl) {
-        if (function_exists('apcu_store')) { apcu_store($key, $val, $ttl); return; }
-        if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) { wp_cache_set($key, $val, 'tegatai', $ttl); return; }
-        set_transient($key, $val, $ttl);
-    }
-
     // --- TURNSTILE LOGIC ---
     // Cloudflare Turnstile can only be loaded from Cloudflare (no self-hosting possible); wp-login.php has no enqueue for async defer
     public function turnstile_script() { echo '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'; } // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, WordPress.WP.EnqueuedResources.NonEnqueuedScript
@@ -160,7 +147,7 @@ class Tegatai_LoginGuard {
             }
         }
 
-        if (empty($ops['geoip_mode']) || $ops['geoip_mode'] === 'off') return;
+        if (!Tegatai_GeoIP::enabled($ops)) return;
 
         $ip = $this->get_client_ip();
         $country = $this->get_country_code($ip);
@@ -178,24 +165,12 @@ class Tegatai_LoginGuard {
     }
 
     private function is_country_blocked($ops, $country) {
-        if (empty($ops['geoip_mode']) || $ops['geoip_mode'] === 'off') return false;
-        if ($country === 'LO') return false;
-        if ($country === 'XX') return false; // Fail Open
-
-        $list_raw = isset($ops['geoip_list']) ? strtoupper($ops['geoip_list']) : '';
-        $countries = array_filter(array_map('trim', explode(',', $list_raw)));
-
-        if ($ops['geoip_mode'] === 'blacklist') {
-            return in_array($country, $countries, true);
-        } elseif ($ops['geoip_mode'] === 'whitelist') {
-            return empty($countries) || !in_array($country, $countries, true);
-        }
-        return false;
+        return Tegatai_GeoIP::is_blocked($ops, $country);
     }
 
     private function is_ip_geo_blocked($ip) {
         $ops = tegatai_get_setting('tegatai_options');
-        if (empty($ops['geoip_mode']) || $ops['geoip_mode'] === 'off') return false;
+        if (!Tegatai_GeoIP::enabled($ops)) return false;
         return $this->is_country_blocked($ops, $this->get_country_code($ip));
     }
 
@@ -221,27 +196,14 @@ class Tegatai_LoginGuard {
         // Local, private and reserved addresses cannot be located
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return 'LO';
 
-        // Country header from a configured proxy (e.g. Cloudflare) avoids the external lookup
+        // Country header from a configured proxy (e.g. Cloudflare) is used when present
         if (class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'is_trusted_proxy_request') && Tegatai_Logger::is_trusted_proxy_request()) {
             $hdr = isset($_SERVER['HTTP_CF_IPCOUNTRY']) ? strtoupper(trim((string) $_SERVER['HTTP_CF_IPCOUNTRY'])) : '';
             if (preg_match('/^[A-Z]{2}$/', $hdr) && $hdr !== 'XX') return $hdr;
         }
 
-        $cache_key = 'teg_geo_v2_' . md5($ip);
-
-        $cached = $this->get_cache($cache_key);
-        if ($cached) return $cached;
-
-        $response = wp_remote_get("https://get.geojs.io/v1/ip/country/{$ip}.json", ['timeout' => 3]);
-        if (!is_wp_error($response) && wp_remote_retrieve_response_code($response) == 200) {
-            $body = json_decode(wp_remote_retrieve_body($response), true);
-            $cc = isset($body['countryCode']) && is_string($body['countryCode']) ? strtoupper($body['countryCode']) : 'XX';
-            $this->set_cache($cache_key, $cc, 3600);
-            return $cc;
-        }
-        // Cache failures briefly so an unreachable API does not add a timeout to every request
-        $this->set_cache($cache_key, 'XX', 300);
-        return 'XX';
+        // Local database lookup, the IP never leaves the server
+        return Tegatai_GeoIP::country($ip);
     }
 
     // Standard Helpers

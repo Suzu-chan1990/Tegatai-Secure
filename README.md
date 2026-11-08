@@ -1,85 +1,187 @@
 <p align="center"><img src="./assets/banner-772x250.png" width="772" alt="Tegatai Secure"></p>
 
-![WordPress](https://img.shields.io/badge/WordPress-7.x%2B-blue)
-![PHP](https://img.shields.io/badge/PHP-8.x-purple)
+![WordPress](https://img.shields.io/badge/WordPress-7.1%2B-blue)
+![PHP](https://img.shields.io/badge/PHP-8.4%2B-purple)
 ![License](https://img.shields.io/badge/license-GPLv2%2B-green)
-![Security](https://img.shields.io/badge/security-active-red)
-![Status](https://img.shields.io/badge/status-stable-brightgreen)
 
-# 🛡️ Tegatai Secure (WordPress Security)
+# Tegatai Secure
 
-**Tegatai Secure** is a high-performance, enterprise-grade security suite for WordPress. Unlike traditional security plugins that process everything at the PHP level, Tegatai integrates directly with your server (**Nginx, Apache, or LiteSpeed**) to block malicious traffic, bots, and brute-force attacks *before* WordPress is even loaded.
+Security plugin for WordPress: firewall, login protection, anti-spam, scanners, server rules, encrypted database backups and a small network ("The Hive") that shares IP bans between your own sites.
 
-It features a zero-load architecture, multiple deep-scanning engines, cryptographic authentication systems, hardened API protection, and encrypted remote communication.
+Many protections are written as server rules (`tegatai-nginx.conf` or `.htaccess`), so the web server blocks those requests before PHP and WordPress start. Everything else runs inside WordPress.
 
-# 📸 Screenshot
-![Dashboard View](./assets/Dashboard.png)
-![Terminal View](./assets/Tegatai_Terminal.png)
-![API-Guard View](./assets/API_Guard.png)
-![Hive View](./assets/The_Hive.png)
+Current version: `2.1.0` – see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
-# 🚀 Key Advantages
+## Screenshots
 
-* **Zero-Load Protection:** Malicious requests are dropped directly by the web server via auto-generated `nginx.conf` or `.htaccess` rules.
-* **Zero-Knowledge Architecture:** Sensitive secrets and master tokens can be completely removed from the database and securely stored in a secrets file outside the web root (or `wp-config.php`).
-* **Cryptographic API Protection:** HMAC-based request signing with replay protection and rolling timestamps.
-* **Enterprise Security without Bloat:** Lightweight architecture focused on performance and real protection.
-* **Server-Level Hardening:** Deep integration with Nginx, Apache, and LiteSpeed.
-* **Fully CLI Compatible:** Designed to avoid unnecessary PHP timeouts and support large-scale automation.
-* **Fully Internationalized:** Translation-ready and multilingual.
+Taken on an empty demo site with sample data. All IP addresses are documentation ranges.
+
+**Dashboard** – security score, recent events, blocked requests, active modules
+
+![Dashboard](./screenshots/01-dashboard.webp)
+
+**Firewall** – WAF switches, URL whitelist, custom regex rules, IP lists
+
+![Firewall](./screenshots/02-firewall.webp)
+
+**IP Prison** – active bans with source and expiry, release per IP
+
+![IP Prison](./screenshots/11-ip-prison.webp)
+
+**Login protection** – login limit, custom login slug, trusted devices, idle logout, magic links
+
+![Login protection](./screenshots/03-login.webp)
+
+**Server rules** – rules written to `tegatai-nginx.conf` / `.htaccess`
+
+![Server rules](./screenshots/04-server-rules.webp)
+
+**WP Masking** – neutral paths for plugins, themes and WordPress core (nginx)
+
+![WP Masking](./screenshots/05-wp-masking.webp)
+
+**Scanner** – malware and integrity scan, file snapshot
+
+![Scanner](./screenshots/06-scanner.webp)
+
+**Secrets** – where each secret is loaded from, commands to create them
+
+![Secrets](./screenshots/07-secrets.webp)
+
+**The Hive** – node key, peer list, ban policy
+
+![The Hive](./screenshots/08-hive.webp)
+
+**API Guard** – token / HMAC protection for your own endpoints
+
+![API Guard](./screenshots/09-api-guard.webp)
+
+**Terminal** – live view of the traffic log
+
+![Terminal](./screenshots/10-terminal.webp)
 
 ---
 
-# 🔐 Zero-Knowledge Security Architecture
+## Requirements
 
-Tegatai Secure introduces a hardened secret-management system designed to minimize attack surfaces.
+* WordPress 7.1 or newer
+* PHP 8.4 or newer, with OpenSSL and sodium (Hive protocol v2, backup keys); zlib for the GeoIP database
+* nginx, Apache or LiteSpeed (WP Masking needs nginx)
+* WP-CLI for the key commands
 
-## 🗝️ Sudo Vault
+---
 
-Critical secrets can be protected using a dedicated Sudo Vault system.
+## Installation
 
-Instead of exposing master keys in the WordPress dashboard or storing them permanently in the database, Tegatai supports secure secret handling through a secrets file outside the web root (see below) or `wp-config.php`.
+1. Copy the plugin folder to `wp-content/plugins/tegatai-Secure`.
+2. Activate it under **Plugins**.
+3. Open **Tegatai Secure** in the admin menu and switch on the modules you want.
 
-### Example:
+### Server rules
 
-```php
-// Generate a Bcrypt hash:
-// php -r "echo password_hash('YourSecretPin123', PASSWORD_BCRYPT);"
+**nginx:** Tegatai writes `tegatai-nginx.conf` into the WordPress folder. Include it once in the `server` block and reload nginx:
 
-define('TEGATAI_SUDO_PIN', '$2y$10$YourGeneratedHashHere');
+```nginx
+server {
+    # ...
+    include /path/to/wordpress/tegatai-nginx.conf;
+}
 ```
 
-The PIN itself is never stored in the database.
+After changing server rules or WP Masking in Tegatai, reload nginx again.
+
+**Apache / LiteSpeed:** the rules are written into `.htaccess`.
 
 ---
 
-## 🔑 API Secret Locking
+## Modules
 
-Sensitive API secrets can also be fully externalized:
+The admin page is split into five areas plus three separate pages.
 
-```php
-define('TEGATAI_API_SECRET', 'your-super-long-random-secret');
-define('TEGATAI_HIVE_SECRET', 'your-hive-network-secret');
-```
+### Protection
 
-When configured:
+* **Firewall:** WAF patterns, bad bots, AI and SEO bots, rate limit, 404 trap, upload guard, URL whitelist, custom regex rules, IP whitelist and blacklist
+* **Login:** login attempt limit, custom login slug, hide `/wp-admin/`, disable application passwords, trusted devices, restricted dashboard, idle logout, magic links, two-factor authentication (email, authenticator app or both)
+* **Anti-spam:** Cloudflare Turnstile, honeypot field, time check, disposable email list, link and referrer checks
+* **GeoIP:** block or allow countries, looked up in a local database (see below)
 
-* Secrets are hidden from the UI
-* Secrets are never exposed through AJAX
-* Secrets are removed from normal database workflows
-* Database leaks become significantly less dangerous
+### Server & System
+
+* **Server rules:** directory listing, sensitive and system files, dotfiles, XML-RPC, PHP in uploads, hotlink protection, protected directories
+* **HTTP headers:** CSP, HSTS, X-Frame-Options and other security headers
+* **WP Masking:** see below
+* **Hardening:** user enumeration, file editor, version footprints, privilege escalation checks, admin honeypot
+
+### Scanners
+
+Malware scanner, WordPress core check, file integrity monitor, database scan (injected scripts), option scan, cron scan, uploads monitor, file permission check. Files found by the scanner can be moved to a quarantine.
+
+### Management
+
+* **IP Prison:** active bans with reason, source (this site or a Hive peer) and expiry; release single IPs
+* **Sessions:** active sessions, end sessions remotely, IP and browser binding, one session per user
+* **Backups:** database backups, see below
+* **Extras & API:** webhook for Discord or Slack, AbuseIPDB, other settings
+* **Secrets:** status of the secrets file
+
+### Logs
+
+Event log and timeline.
+
+### Separate pages
+
+* **Terminal:** live view of the traffic log in the browser
+* **API Guard:** protection for your own endpoints, see below
+* **The Hive:** see below
 
 ---
 
-## 📁 Secrets File (outside the web root)
+## GeoIP
 
-All secrets can live in their own PHP file outside the web root instead of `wp-config.php`.
+Countries are looked up in the free "IP to Country Lite" database by [DB-IP](https://db-ip.com) (CC BY 4.0), read with the bundled MaxMind DB reader. Visitor IPs never leave the server.
 
-Default location (one level above the WordPress directory):
+* The database (a few MB) is stored in `wp-content/uploads/tegatai-geoip/` and is only downloaded while the GeoIP block is on: by the daily maintenance job when it is missing or older than 30 days, or with **Download database** on the GeoIP tab.
+* Behind a trusted proxy the `CF-IPCountry` header is used instead.
+* Unknown countries, a missing database and an empty list never block anyone (fail open).
+* Country codes can be separated by new lines, commas or spaces.
 
+---
+
+## Backups
+
+* Database only (all tables of the site), no files
+* Daily or weekly via WP-Cron, or manually
+* Stored in `wp-content/uploads/tegatai-backups/`, the newest 7 are kept (configurable)
+
+### Encryption
+
+With a backup key (recommended), created like the Hive key:
+
+```bash
+sudo -u <fpm-user> wp tegatai backup-keygen --path=/path/to/site
 ```
+
+* The key pair is written to `secrets/tegatai-backup-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`). Another location: `define('TEGATAI_BACKUP_KEY_FILE', '/path/tegatai-backup-key.php');`
+* Every backup gets its own random key, which is sealed to the public key (X25519, `crypto_box_seal`). The data is encrypted in chunks with XChaCha20-Poly1305 (`crypto_secretstream`); changed, reordered or cut-off files are rejected.
+* Tegatai never creates this key on its own, and the command does not overwrite an existing key (`--replace` creates a new one; older backups then need a copy of the old file).
+* **Keep a copy of the key file outside the server.** Without it the backups cannot be decrypted.
+* Optional: if the file only contains `public_key` (the `private_key` line removed and kept offline), the server can still write backups but cannot decrypt them. To download one decrypted, put the full file back for that time.
+
+Without a backup key, backups are encrypted with AES-256-GCM and `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM, AES-256-CBC) can still be downloaded.
+
+---
+
+## Secrets
+
+Secrets do not have to be stored in the database. Tegatai reads them from a PHP file outside the web root, or from `wp-config.php`.
+
+### Secrets file
+
+Default location, one level above the WordPress folder:
+
+```text
 /var/www/example.com/htdocs/                          <- WordPress
 /var/www/example.com/secrets/tegatai-secrets.php      <- secrets
 ```
@@ -89,125 +191,131 @@ Content:
 ```php
 <?php
 return [
-    'TEGATAI_HIVE_SECRET'   => 'your-hive-network-secret',
-    'TEGATAI_API_SECRET'    => 'your-super-long-random-secret',
-    'TEGATAI_SUDO_PIN'      => '$2y$10$YourGeneratedHashHere',
-    'TEGATAI_BACKUP_SECRET' => 'your-backup-key',
-    'TEGATAI_ABUSEIPDB_KEY' => 'your-abuseipdb-api-key',
+    'TEGATAI_HIVE_SECRET'   => 'tg_hmac_...',
+    'TEGATAI_API_SECRET'    => '...',
+    'TEGATAI_SUDO_PIN'      => '$2y$10$...',
+    'TEGATAI_BACKUP_SECRET' => '...',
+    'TEGATAI_ABUSEIPDB_KEY' => '...',
 ];
 ```
 
-Another location can be set in `wp-config.php` (path only, no secret):
+Another location is set in `wp-config.php` (only the path, no secret):
 
 ```php
 define('TEGATAI_SECRETS_FILE', '/path/outside/webroot/tegatai-secrets.php');
 ```
 
-The file can also be created in **Tegatai → Management → Secrets** with "Create secrets file": it copies the secrets currently defined in `wp-config.php`; afterwards remove the `define()` lines from `wp-config.php`.
+* Only these five names are read. A value that is also defined in `wp-config.php` wins.
+* **Management → Secrets → Create secrets file** copies the secrets currently defined in `wp-config.php` into the file. Remove the `define()` lines from `wp-config.php` afterwards.
+* Permissions: `chmod 600`, owned by the PHP-FPM user.
+* The Secrets tab shows the commands to create each value.
 
-Only these five names are read. A value that is still defined in `wp-config.php` takes precedence. Keep `TEGATAI_BACKUP_SECRET` unchanged when moving it, otherwise existing backups cannot be decrypted. Recommended permissions: `chmod 600`, owned by the PHP user.
+Create values:
 
----
-
-## 🚩 AbuseIPDB Reporting
-
-Tegatai can report banned IPs to [AbuseIPDB](https://www.abuseipdb.com) (Firewall tab → "Report bans to AbuseIPDB").
-
-* Reported bans: honeypot URL, 404 instant ban, 404 scan and the login traps, including bans received through The Hive.
-* Reports are queued and sent in the background via WP-Cron; a ban never waits for the API.
-* Reports contain only the IP, the category and the type of the ban. No URLs, usernames or other request data are sent. Private and reserved IPs are never reported.
-* The same IP is reported at most once per 15 minutes. When the AbuseIPDB limit is reached (HTTP 429), sending pauses until the API allows it again.
-
-The API key is created in your AbuseIPDB account and stored in the secrets file:
-
-```php
-'TEGATAI_ABUSEIPDB_KEY' => 'your-abuseipdb-api-key',
+```bash
+php -r "echo 'tg_hmac_' . bin2hex(random_bytes(32)), PHP_EOL;"           # TEGATAI_HIVE_SECRET
+php -r "echo bin2hex(random_bytes(32)), PHP_EOL;"                        # TEGATAI_API_SECRET / TEGATAI_BACKUP_SECRET
+php -r "echo password_hash('YourPin', PASSWORD_BCRYPT), PHP_EOL;"        # TEGATAI_SUDO_PIN
 ```
 
+### Sudo PIN
+
+`TEGATAI_SUDO_PIN` is a bcrypt hash. The PIN unlocks the display of secrets that are stored in the database. Only the hash is stored, never the PIN.
+
 ---
 
-## 🎭 WP Masking (nginx)
+## AbuseIPDB
+
+Banned IPs can be reported to [AbuseIPDB](https://www.abuseipdb.com) (Firewall → "Report bans to AbuseIPDB"). The API key goes into the secrets file as `TEGATAI_ABUSEIPDB_KEY`.
+
+* Reported: honeypot URL, 404 instant ban, 404 scan, login traps, and bans received through The Hive
+* Sent in the background via WP-Cron; a ban never waits for the API
+* Only the IP, the category and the ban type are sent; no URLs, usernames or other request data
+* Private and reserved IPs are never reported
+* The same IP at most once per 15 minutes; on HTTP 429 sending pauses until the API allows it again
+
+---
+
+## WP Masking (nginx)
 
 Hides the WordPress structure in the pages visitors receive (Server & System → WP Masking).
 
-* **Plugin and theme paths:** `/wp-content/plugins/<folder>/` and `/wp-content/themes/<theme>/` (or your own plugin directory) are shown as `/assets/<name>/`. The names are set per plugin and theme; empty fields get an automatic short name.
-* **WordPress core:** `/wp-includes/` becomes `/lib/`, `/wp-json/` becomes `/api/`, `admin-ajax.php` becomes `/ajax` (all names can be changed). `/wp-json/` keeps working for The Hive and other sites.
-* **Versions and identifiers:** removes `?ver=` parameters, script/style ids, generator tags, RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation rules and the `X-Pingback` header.
-* **Hide file names:** file names of masked files are replaced by a neutral name per file, e.g. `/assets/bar/css/kanri-bar.css` → `/assets/bar/css/t3f9a0c1d2e4`. The folders stay, so relative URLs inside CSS and JS keep working (files loaded that way keep their real name). A changed file gets a new name, which also makes browsers load the new version.
-* **Block original paths:** direct requests for the original paths of masked entries answer 404. Logged-in users and files loaded by pages of the site itself keep access; `/wp-json/tegatai/` (The Hive) stays reachable.
+* **Plugin and theme paths:** `/wp-content/plugins/<folder>/` and `/wp-content/themes/<theme>/` become `/assets/<name>/`. Names are set per plugin and theme; empty fields get a short automatic name.
+* **WordPress core:** `/wp-includes/` → `/lib/`, `/wp-json/` → `/api/`, `admin-ajax.php` → `/ajax` (all names can be changed). `/wp-json/` keeps working.
+* **Versions and identifiers:** removes `?ver=`, script and style ids, generator tags, RSD / wlwmanifest / shortlink / REST links, the emoji script, speculation rules and the `X-Pingback` header.
+* **Hide file names:** masked files get a neutral name per file, e.g. `/assets/bar/css/kanri-bar.css` → `/assets/bar/css/t3f9a0c1d2e4`. Folders stay, so relative URLs in CSS and JS keep working. A changed file gets a new name.
+* **Block original paths:** direct requests for the original paths of masked entries get a 404. Logged-in users and files loaded by the site's own pages keep access.
 
-nginx maps the new paths back to the real files (static files only, never PHP). The rules are part of `tegatai-nginx.conf`. Activation:
+nginx maps the new paths back to the real files (static files only, never PHP). The rules are part of `tegatai-nginx.conf`.
+
+Activation:
 
 1. Switch the options on and save the names.
 2. Reload nginx.
 3. Click **Check new paths**.
 
-Tegatai requests every new path once and only uses the paths that answered with the real file, so a missing nginx reload never breaks the site. New file names are found when pages are visited; Tegatai adds them to the rules and checks them every hour, and uses them once nginx was reloaded. Renamed paths keep working for cached pages. New paths and blocking need nginx (with Apache or LiteSpeed the check finds no working paths and nothing is changed); removing versions and identifiers works on every server.
+Tegatai requests every new path once and only uses paths that returned the real file, so a missing nginx reload does not break the site. New file names are found when pages are visited and checked every hour. With Apache or LiteSpeed the check finds no working paths and nothing changes; removing versions and identifiers works on every server.
 
 ---
 
-# 🌐 Tegatai Hive (Distributed Threat Network)
+## The Hive
 
-Tegatai Hive allows multiple WordPress installations to communicate and synchronize threat intelligence securely.
+Shares IP bans between your own WordPress sites. A ban on one site is sent to the other sites in the peer list.
 
-## Features
+### Protocol
 
-* **Ed25519 node keys (protocol v2):** every node signs its messages with its own private key; the other nodes only know its public key. A compromised node can never send messages in the name of another node.
-* **End-to-end encryption:** v2 payloads (IP, reason, level) are encrypted with `crypto_box` (X25519 keys derived from the same Ed25519 keys) – also behind a CDN or proxy that terminates TLS.
-* **Signed recipient:** every message names its receiver, so it cannot be replayed to another node.
-* Strict timestamp validation (±60 s) and one-time request IDs (replay protection)
-* Distributed IP ban synchronization with per-peer rate limit and never-ban allowlist
-* **HMAC-SHA256 (protocol v1)** for nodes that are not switched yet; a peer with an Ed25519 key is never accepted over HMAC (no downgrade)
+* **v2 (Ed25519):** every site has its own key pair. Messages are signed with the private key; the other sites only know the public key. The payload (IP, reason, level) is encrypted with `crypto_box` (X25519, derived from the same keys).
+* Every message contains the recipient, a timestamp (±60 s) and a one-time request ID.
+* **v1 (HMAC-SHA256):** for sites without a key. A peer with an Ed25519 key is never accepted over HMAC.
+* Endpoint: `/?rest_route=/tegatai/v1/hive/receive`. Redirects are not followed; a message only counts as delivered when the endpoint itself answers.
+* Per-peer rate limit, ban duration and a never-ban allowlist. Firewall whitelists, private ranges, the server itself and IPs of logged-in admins (30 days) are never banned.
 
-## Setting up node keys
+### Node keys
 
-Tegatai never creates keys on its own. Create the key once per site on the server, **as the site's PHP-FPM user** (never as root):
+Tegatai never creates keys on its own. Create the key once per site, **as the site's PHP-FPM user** (not as root):
 
 ```bash
 sudo -u <fpm-user> wp tegatai hive-keygen --path=/path/to/site
 ```
 
-* The private key is written to `secrets/tegatai-hive-key.php` next to `tegatai-secrets.php` (outside the web root, file `0600`, folder `0700`). It is never printed, and the command refuses to overwrite an existing key (`--replace` creates a new one; all peers then need the new public key).
-* Another location: `define('TEGATAI_HIVE_KEY_FILE', '/path/tegatai-hive-key.php');` or the key itself as `TEGATAI_HIVE_PRIVATE_KEY` in `wp-config.php`.
-* The command prints the line for the other nodes. It is also shown on the Hive page and with `wp tegatai hive-pubkey`.
+* The private key is written to `secrets/tegatai-hive-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`). It is never printed.
+* The command does not overwrite an existing key. `--replace` creates a new one; all peers then need the new public key.
+* Other location: `define('TEGATAI_HIVE_KEY_FILE', '/path/tegatai-hive-key.php');`, or the key itself as `TEGATAI_HIVE_PRIVATE_KEY` in `wp-config.php`. If two sites share one secrets folder, give each its own `TEGATAI_HIVE_KEY_FILE`.
+* The line for the other sites is printed by the command, shown on the Hive page and printed by `wp tegatai hive-pubkey`.
 
-Peer list (one per line), on every node all other nodes:
+### Peer list
+
+On every site, list all other sites, one per line:
 
 ```text
 https://site-a.example | ed25519:<public key of site A>
 https://site-b.example | ed25519:<public key of site B>
-https://old-node.example | tg_hmac_pair-secret        (not switched yet, HMAC)
+https://old-site.example | tg_hmac_pair-secret        (no key yet, HMAC)
 ```
 
-Nodes can be switched one by one: peers with a key use v2, peers without one keep using HMAC. To revoke a node, remove its line on the others.
+Sites can be switched one by one. To remove a site from the network, delete its line on the others. When all sites use keys, `TEGATAI_HIVE_SECRET` can be removed and strict peer mode switched on.
 
 ---
 
-# 🛡️ API Gateway & Endpoint Protection
+## API Guard
 
-The integrated API Gateway protects custom endpoints and synchronization routes.
+Protects your own endpoints (match by "contains", exact path or regex).
 
-## Included Features
+* Static token or HMAC signature
+* Timestamp check and one-time request IDs
+* IPv4 / IPv6 CIDR allowlist
+* Rate limit
+* Delay after failed authentication
+* WP-CLI requests are not affected
 
-* Static Token Authentication
-* HMAC v2 Authentication
-* Replay Protection
-* Timestamp Validation
-* Request-ID Verification
-* IPv4 & IPv6 CIDR Allowlists
-* Rate Limiting
-* ReDoS-Protected Regex Routing
-* CLI / WP-CLI bypass support
-* Tarpit delay system for failed authentication
-
-### HMAC Example
+HMAC example:
 
 ```php
-$method = 'POST';
-$uri = '/api/sync';            // exact REQUEST_URI incl. query string
+$method    = 'POST';
+$uri       = '/api/sync';                  // exact REQUEST_URI incl. query string
 $timestamp = time();
-$req_id = bin2hex(random_bytes(16));
-$body = json_encode(['example' => true]);   // raw request body ('' for GET)
+$req_id    = bin2hex(random_bytes(16));
+$body      = json_encode(['example' => true]);   // raw request body ('' for GET)
 
 $signature = hash_hmac(
     'sha256',
@@ -217,217 +325,42 @@ $signature = hash_hmac(
 // Headers: X-Tegatai-Timestamp, X-Tegatai-Req-Id, X-Tegatai-Signature
 ```
 
-> **Breaking change (1.4.2):** The signature now covers the HTTP method and a SHA-256 hash of the raw body. Clients using the old `uri|timestamp|req_id` format must be updated. Each `req_id` is accepted exactly once.
+Each `req_id` is accepted once. Since 1.4.2 the signature includes the method and the body hash; clients using the older `uri|timestamp|req_id` format must be updated.
 
 ---
 
-# 🔥 Complete Feature List
+## WP-CLI
 
-## 🛡️ Web Application Firewall (WAF) & Network
-
-* Bad Bot Blocking
-* AI & SEO Bot Blocking
-* GeoIP Filtering
-* Rate Limiting
-* 404 Trap System
-* IP Prison
-* Distributed Threat Sync (Hive)
-* REST API Restriction
-
----
-
-## ⚡ Server Rules Engine (Nginx / Apache / LiteSpeed)
-
-* Disable PHP in Uploads
-* Dotfile Protection
-* Sensitive File Protection
-* XML-RPC Blocking
-* Hotlink Protection
-* System File Shielding
-* Custom server rule generation
-* WP Masking: neutral paths for plugins, themes and WordPress core (nginx)
-
----
-
-## 🔐 Authentication & Login Guard
-
-* Two-Factor Authentication (TOTP / Email)
-* Login Attempt Limits
-* Magic Links
-* Trusted Device Monitoring
-* Custom Login Slugs
-* Hide `/wp-admin/`
-* Idle Logout
-* Session Hijack Detection
-
----
-
-## 🛑 Anti-Spam & Content Protection
-
-* Cloudflare Turnstile
-* Honeypot Protection
-* Bot Timer Validation
-* Disposable Email Blocking
-* Referrer Checks
-* Link Spam Protection
-
----
-
-## 🔎 Integrity & Malware Scanners
-
-* Malware Scanner
-* File Integrity Monitor (FIM)
-* WordPress Core Verification
-* Database Injection Scanner
-* Dangerous Option Scanner
-* Suspicious Cron Detection
-* Uploads Monitoring
-* File Permission Auditing
-
----
-
-## 💻 System Hardening
-
-* Security Headers
-* CSP / HSTS / X-Frame-Options
-* Privilege Escalation Protection
-* WP Footprint Removal
-* User Enumeration Blocking
-* Admin Honeypot
-* File Editor Disabling
-
----
-
-## 👥 Session Security
-
-* IP & Browser Validation
-* Single Session Enforcement
-* Remote Session Termination
-* Active Session Monitoring
-
----
-
-## 💾 Secure Backups
-
-* Automated Scheduling
-* Remote FTP Transfer
-* AES-256-CBC Encryption
-* Encrypted Credential Storage
-
----
-
-## 📡 Logging & Monitoring
-
-* Live Traffic Logs
-* WAF Event Logs
-* Security Timeline
-* Discord / Slack Notifications
-* Real-Time Threat Monitoring
-
----
-
-# ⚙️ Installation
-
-## Standard Installation
-
-1. Upload the plugin to:
-
-```text
-/wp-content/plugins/tegatai-secure
+```bash
+wp tegatai hive-keygen [--replace]   # create the Hive key of this site
+wp tegatai hive-pubkey               # print the peer line of this site
+wp tegatai backup-keygen [--replace] # create the backup key of this site
 ```
 
-2. Activate the plugin inside WordPress.
-3. Open **Tegatai Secure** in the admin dashboard.
-4. Configure your preferred protection modules.
+Run them as the PHP-FPM user of the site.
 
 ---
 
-## Nginx Integration
+## External services
 
-Tegatai generates an optimized `tegatai-nginx.conf` file.
+GeoIP lookups are local. Tegatai only contacts these services when the matching feature is used:
 
-Example:
-
-```nginx
-server {
-    # Existing configuration
-
-    include /path/to/wordpress/tegatai-nginx.conf;
-}
-```
-
----
-
-## Apache / LiteSpeed
-
-Rules are automatically injected into `.htaccess`.
+| Service | Feature | Data sent |
+|---|---|---|
+| `download.db-ip.com` | GeoIP database download (monthly) | none (plain download) |
+| AbuseIPDB | ban reports | IP, category, ban type |
+| Cloudflare Turnstile | anti-spam / login | Turnstile token |
+| `api.wordpress.org`, `core.svn.wordpress.org` | core file check, restoring a core file | WordPress version and locale, file path |
+| `wpvulnerability.net` | daily vulnerability check of installed plugins | plugin slug |
+| your webhook URL | Discord / Slack notifications | event text, IP, user agent |
+| your own sites | The Hive | encrypted ban messages |
 
 ---
 
-# ⚙️ Requirements
+## Reporting a vulnerability
 
-* WordPress 7.0+
-* PHP 8.x+
-* Recommended: Nginx / OpenResty / LiteSpeed
+Please report security issues privately to `tegatai@anime-mitsuketa.tokyo`. See [SECURITY.md](SECURITY.md).
 
----
-
-# 💻 CLI Compatibility
-
-Tegatai Secure is designed to work in large-scale and automated environments.
-
-Features include:
-
-* WP-CLI compatibility
-* Timeout-safe workflows
-* Cron-safe execution
-* Large dataset handling
-* Server automation support
-
----
-
-# 🔒 Security Philosophy
-
-Tegatai Secure follows a minimalistic security philosophy:
-
-* Prevent attacks before PHP loads
-* Reduce attack surfaces
-* Avoid unnecessary dependencies
-* Keep secrets outside the database whenever possible
-* Prioritize performance and server stability
-* Focus on real-world protection instead of marketing features
-
----
-
-# 🤝 Contributing
-
-See `CONTRIBUTING.md`
-
----
-
-# 🚨 Security Reporting
-
-If you discover a vulnerability, please report it privately.
-
-Contact:
-
-```text
-tegatai@anime-mitsuketa.tokyo
-```
-
----
-
-# 📄 License
+## License
 
 GPL v2 or later.
-
-See `LICENSE`.
-
----
-
-# 📜 Changelog
-
-Current Version: `2.0.2`
-
-See `CHANGELOG.md` for detailed release notes.
-

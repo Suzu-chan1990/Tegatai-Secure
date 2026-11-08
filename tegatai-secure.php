@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 2.0.2
+ * Version: 2.1.0
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,7 +151,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.0.2' );
+define( 'TEGATAI_VERSION', '2.1.0' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 
@@ -318,6 +318,7 @@ require_once TEGATAI_PATH . 'includes/logger.php';
 // WP Masking maps the request URI of its new paths before the firewall reads it
 require_once TEGATAI_PATH . 'includes/mask.php';
 require_once TEGATAI_PATH . 'includes/bans.php';
+require_once TEGATAI_PATH . 'includes/geoip.php';
 require_once TEGATAI_PATH . 'includes/firewall.php';
 require_once TEGATAI_PATH . 'includes/hardening.php';
 require_once TEGATAI_PATH . 'includes/headers.php';
