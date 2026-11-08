@@ -1183,7 +1183,7 @@ class Tegatai_Admin {
         if ($bkeys['public'] !== '') {
             echo '<div style="padding:10px; background:#dcfce7; color:#15803d; border-radius:4px; border:1px solid #bbf7d0; font-size:12px; margin-top:6px;">🔒 ' . esc_html__('Backup key loaded: X25519 + XChaCha20-Poly1305.', 'tegatai-secure') . ($bkeys['secret'] === '' ? ' ' . esc_html__('Only the public key is on this server: new backups are encrypted, but can only be downloaded decrypted with the private key.', 'tegatai-secure') : '') . '</div>';
         } else {
-            echo '<div style="padding:10px; background:#f3f4f6; color:#374151; border-radius:4px; border:1px solid #e5e7eb; font-size:12px; margin-top:6px;">' . esc_html__('No backup key: backups use AES-256-GCM with TEGATAI_BACKUP_SECRET. Create a key pair on the server as the PHP-FPM user:', 'tegatai-secure') . '<br><code>wp tegatai backup-keygen</code></div>';
+            echo '<div style="padding:10px; background:#f3f4f6; color:#374151; border-radius:4px; border:1px solid #e5e7eb; font-size:12px; margin-top:6px;">' . esc_html__('No backup key: backups use XChaCha20-Poly1305 with a key derived from TEGATAI_BACKUP_SECRET. For a key pair (recommended), run on the server as the PHP-FPM user:', 'tegatai-secure') . '<br><code>wp tegatai backup-keygen</code></div>';
         }
         echo '</div>';
         

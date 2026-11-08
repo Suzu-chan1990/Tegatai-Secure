@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.1.0
+Stable tag: 2.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -14,7 +14,7 @@ Security plugin for WordPress: firewall, login protection, anti-spam, scanners, 
 
 Many protections are written as server rules (`tegatai-nginx.conf` or `.htaccess`), so the web server blocks those requests before PHP and WordPress start. Everything else runs inside WordPress.
 
-Current version: `2.1.0` – see [CHANGELOG.md](CHANGELOG.md).
+Current version: `2.1.1` – see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -105,9 +105,13 @@ Countries are looked up in the free "IP to Country Lite" database by [DB-IP](htt
 
 ## Backups
 
-* Database only (all tables of the site), no files
+* Database only (all tables of the database), no files
 * Daily or weekly via WP-Cron, or manually
 * Stored in `wp-content/uploads/tegatai-backups/`, the newest 7 are kept (configurable)
+* Streamed: rows are read one at a time, compressed and encrypted in 1 MB chunks, so memory use does not grow with the database size
+* A backup is written to a temporary file and only gets its final name when everything succeeded. On any error (disk full, database error) the temporary file is deleted, the error is logged, and old backups are not removed.
+* Never unencrypted: without the PHP sodium extension no backup is written
+* The download is a gzip-compressed SQL file with `DROP TABLE IF EXISTS` and `CREATE TABLE` per table; it can be imported with `mysql` or phpMyAdmin
 
 ### Encryption
 
@@ -117,13 +121,13 @@ With a backup key (recommended), created like the Hive key:
 sudo -u <fpm-user> wp tegatai backup-keygen --path=/path/to/site
 ```
 
-* The key pair is written to `secrets/tegatai-backup-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`). Another location: `define('TEGATAI_BACKUP_KEY_FILE', '/path/tegatai-backup-key.php');`
+* The key pair is written to `secrets/tegatai-backup-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`; an existing folder that others can read is set to `0700`, and the command stops if that is not possible). Another location: `define('TEGATAI_BACKUP_KEY_FILE', '/path/tegatai-backup-key.php');`
 * Every backup gets its own random key, which is sealed to the public key (X25519, `crypto_box_seal`). The data is encrypted in chunks with XChaCha20-Poly1305 (`crypto_secretstream`); changed, reordered or cut-off files are rejected.
 * Tegatai never creates this key on its own, and the command does not overwrite an existing key (`--replace` creates a new one; older backups then need a copy of the old file).
 * **Keep a copy of the key file outside the server.** Without it the backups cannot be decrypted.
 * Optional: if the file only contains `public_key` (the `private_key` line removed and kept offline), the server can still write backups but cannot decrypt them. To download one decrypted, put the full file back for that time.
 
-Without a backup key, backups are encrypted with AES-256-GCM and `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM, AES-256-CBC) can still be downloaded.
+Without a backup key, backups use the same XChaCha20-Poly1305 chunks with a key derived from `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM, AES-256-CBC) can still be downloaded.
 
 ---
 

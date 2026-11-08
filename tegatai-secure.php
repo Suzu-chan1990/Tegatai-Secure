@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 2.1.0
+ * Version: 2.1.1
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,7 +151,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.1.0' );
+define( 'TEGATAI_VERSION', '2.1.1' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 
@@ -171,6 +171,76 @@ define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 function tegatai_secrets_file() {
     $file = defined( 'TEGATAI_SECRETS_FILE' ) ? (string) TEGATAI_SECRETS_FILE : dirname( rtrim( ABSPATH, '/\\' ) ) . '/secrets/tegatai-secrets.php';
     return $file;
+}
+
+/**
+ * Prepares the folder for a key file: creates it as 0700, or tightens an existing folder that
+ * group or others can access. Fails when the rights cannot be set (e.g. the folder belongs to
+ * another user), so a key is never written into a readable folder.
+ *
+ * @return true|WP_Error
+ */
+function tegatai_secure_key_dir( $dir ) {
+    if ( ! is_dir( $dir ) ) {
+        $old = umask( 0077 );
+        $ok  = @mkdir( $dir, 0700, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir -- key folder must be created with 0700
+        umask( $old );
+        if ( ! $ok && ! is_dir( $dir ) ) {
+            return new WP_Error( 'dir', 'Folder could not be created: ' . $dir );
+        }
+    }
+    clearstatcache( true, $dir );
+    $perms = @fileperms( $dir );
+    if ( $perms === false ) {
+        return new WP_Error( 'dir', 'Folder permissions could not be read: ' . $dir );
+    }
+    if ( ( $perms & 0077 ) !== 0 ) {
+        if ( ! @chmod( $dir, 0700 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- key folder must not be accessible by others
+            return new WP_Error( 'chmod', sprintf( 'Folder %s has permissions %o and could not be changed to 0700. Run the command as the owner of the folder (the PHP-FPM user) or fix it with: chmod 700 %s', $dir, $perms & 0777, $dir ) );
+        }
+        clearstatcache( true, $dir );
+        if ( ( (int) @fileperms( $dir ) & 0077 ) !== 0 ) {
+            return new WP_Error( 'chmod', 'Folder permissions could not be changed to 0700: ' . $dir );
+        }
+    }
+    if ( ! is_writable( $dir ) ) {
+        return new WP_Error( 'dir', 'Folder is not writable: ' . $dir );
+    }
+    return true;
+}
+
+/**
+ * Writes a key file atomically with 0600 (temporary file, rights checked, then renamed).
+ *
+ * @return true|WP_Error
+ */
+function tegatai_write_key_file( $file, $content ) {
+    $dir_ok = tegatai_secure_key_dir( dirname( $file ) );
+    if ( is_wp_error( $dir_ok ) ) {
+        return $dir_ok;
+    }
+    $tmp = $file . '.tmp-' . bin2hex( random_bytes( 4 ) );
+    $old = umask( 0077 );
+    $ok  = file_put_contents( $tmp, $content, LOCK_EX );
+    umask( $old );
+    if ( $ok !== strlen( $content ) ) {
+        @unlink( $tmp );
+        return new WP_Error( 'write', 'The key file could not be written.' );
+    }
+    @chmod( $tmp, 0600 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- only the PHP user may read the key
+    clearstatcache( true, $tmp );
+    if ( ( (int) @fileperms( $tmp ) & 0077 ) !== 0 ) {
+        @unlink( $tmp );
+        return new WP_Error( 'chmod', 'The key file could not be set to 0600; nothing was written.' );
+    }
+    if ( ! @rename( $tmp, $file ) ) {
+        @unlink( $tmp );
+        return new WP_Error( 'write', 'The key file could not be written.' );
+    }
+    if ( function_exists( 'opcache_invalidate' ) ) {
+        @opcache_invalidate( $file, true );
+    }
+    return true;
 }
 
 // Names accepted from the secrets file.

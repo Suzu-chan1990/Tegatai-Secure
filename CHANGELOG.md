@@ -1,3 +1,18 @@
+## [2.1.1] - Backups: streaming and fail closed
+
+### Changed
+
+* **Backups are streamed:** rows are read unbuffered (one row in memory), gzip-compressed with `deflate_add()` and encrypted in 1 MB chunks straight into the file. Memory use no longer grows with the database size.
+* **Fail closed:** a backup is never written unencrypted. Without a backup key the data is encrypted with XChaCha20-Poly1305 (`crypto_secretstream`, format `TGB4`) and a key derived from `TEGATAI_BACKUP_SECRET`; AES-256-GCM is no longer written. Without the sodium extension no backup is made.
+* **Write errors are detected:** the backup is written to a temporary file (`0600`) and renamed only after every write, the gzip end, `fflush()` and `fclose()` succeeded. On an error (e.g. disk full) the temporary file is deleted, `BACKUP-ERR` is logged, the manual backup shows the error, and the retention cleanup does not run. Leftover temporary files older than a day are removed.
+* **SQL export:** text values are escaped with `mysqli_real_escape_string()` (charset-aware) instead of `addslashes()`; binary columns (BLOB, BINARY, VARBINARY) are written as hex literals, numbers and BIT unquoted, `NULL` as `NULL`. Table names are quoted. Several rows per `INSERT`. The dump sets `NAMES`, turns foreign key checks off, keeps `0` in auto-increment columns and contains `DROP TABLE IF EXISTS` per table; views are skipped. The first line is now an SQL comment (`-- <?php exit; ?>`), so the file can be imported directly. Tested with a restore into an empty database (text with quotes, backslashes, NUL, `%`, Japanese and emoji; binary data; dates; decimals; BIT).
+* **Download** decrypts into a temporary file in the protected backup folder first; a damaged or cut-off backup is rejected before anything is sent. Format `TGB3` and `TGB4` files are decrypted chunk by chunk.
+
+### Fixed
+
+* **Download and delete of backups did nothing:** `sanitize_file_name()` turned `name.sql.php.gz.enc` into `name.sql_.php_.gz.enc`, so the file was not found (download: "File not found", delete: silently nothing). Backup names are now checked against their pattern.
+* **Key folders:** `wp tegatai hive-keygen` and `wp tegatai backup-keygen` set an existing key folder that group or others can access to `0700` and stop with a message if that fails (e.g. folder of another user). The key file is checked for `0600` before it replaces the old one.
+
 ## [2.1.0] - Local GeoIP, backup keys, IP Prison
 
 ### New

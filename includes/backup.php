@@ -1,15 +1,35 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-// phpcs:disable WordPress.DB.DirectDatabaseQuery -- Tegatai uses its own tables (logs, settings) and live security data; queries are prepared and caching would serve stale data
+// phpcs:disable WordPress.DB.DirectDatabaseQuery -- a database backup reads every table directly; caching would serve stale data
 
+/**
+ * Encrypted database backups.
+ *
+ * The dump is streamed: rows are read unbuffered, gzip-compressed and encrypted in 1 MB chunks
+ * and written to a temporary file, which is only renamed to its final name when everything
+ * succeeded. Backups are never written unencrypted (fail closed).
+ *
+ * Formats written:
+ *   TGB3  backup key pair (wp tegatai backup-keygen): random file key sealed to the X25519
+ *         public key, data in XChaCha20-Poly1305 secretstream chunks
+ *   TGB4  no key pair: same secretstream, key derived from TEGATAI_BACKUP_SECRET
+ * Formats still read: TGB2 (AES-256-GCM) and v1 (AES-256-CBC).
+ */
 class Tegatai_Backup {
     private $backup_dir;
+
+    const ENC_MAGIC    = 'TGB2';
+    const ENC_MAGIC_V3 = 'TGB3';
+    const ENC_MAGIC_V4 = 'TGB4';
+    const CHUNK        = 1048576;
+    const INSERT_BATCH = 524288;
+    const TMP_PREFIX   = 'tmp_';
 
     public function __construct() {
         $upload = wp_upload_dir();
         $this->backup_dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
         if (!is_dir($this->backup_dir)) { tegatai_protect_directory($this->backup_dir); }
-        
+
         add_action('admin_post_tegatai_create_backup', [$this, 'create_backup_action']);
         add_action('admin_post_tegatai_delete_backup', [$this, 'delete_backup']);
         add_action('admin_post_tegatai_download_backup', [$this, 'download_backup']);
@@ -27,16 +47,17 @@ class Tegatai_Backup {
     public function create_backup_action() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_admin_referer('teg_backup_nonce');
-        
-        if ($this->create_db_backup('manual')) { 
-            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created')); 
-        } else { 
-            wp_die(esc_html__('Backup Error.', 'tegatai-secure')); 
-        } 
-        exit;
+
+        $r = $this->create_db_backup('manual');
+        if ($r === true) {
+            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=created'));
+            exit;
+        }
+        wp_die(esc_html(__('Backup Error.', 'tegatai-secure') . ' ' . (is_wp_error($r) ? $r->get_error_message() : '')));
     }
 
-    // --- ENCRYPTION KEY MANAGER ---
+    // --- Symmetric key (TGB4 and the old formats) ---
+
     private function get_encryption_key() {
         if (defined('TEGATAI_BACKUP_SECRET')) return TEGATAI_BACKUP_SECRET;
         $secret = get_option('tegatai_backup_secret');
@@ -47,17 +68,13 @@ class Tegatai_Backup {
         return $secret;
     }
 
-    const ENC_MAGIC    = 'TGB2';
-    const ENC_MAGIC_V3 = 'TGB3';
-    const CHUNK        = 1048576;
-
     // Raw 32-byte key. The stored secret is 64 hex chars; passing it directly made OpenSSL
     // silently truncate it to 32 characters (128 bit).
     private function derive_key($purpose) {
         return hash_hmac('sha256', 'tegatai-backup-' . $purpose, $this->get_encryption_key(), true);
     }
 
-    // --- Backup key pair (format v3, same approach as the Hive node keys) ---
+    // --- Backup key pair (TGB3, same approach as the Hive node keys) ---
 
     public static function sodium_available() {
         return function_exists('sodium_crypto_box_seal') && function_exists('sodium_crypto_secretstream_xchacha20poly1305_init_push');
@@ -107,9 +124,6 @@ class Tegatai_Backup {
         if (!self::sodium_available()) return new WP_Error('sodium', 'The PHP sodium extension is missing.');
         $file = self::key_file();
         if (@is_file($file) && !$replace) return new WP_Error('exists', 'A backup key already exists: ' . $file . ' (use --replace to create a new one; backups made with the old key can then only be decrypted with a copy of the old key file).');
-        $dir = dirname($file);
-        if (!is_dir($dir) && !@mkdir($dir, 0700, true)) return new WP_Error('dir', 'Folder could not be created: ' . $dir);
-        if (!is_writable($dir)) return new WP_Error('dir', 'Folder is not writable: ' . $dir);
 
         $pair = sodium_crypto_box_keypair();
         $sk   = sodium_crypto_box_secretkey($pair);
@@ -120,273 +134,443 @@ class Tegatai_Backup {
         sodium_memzero($sk);
         sodium_memzero($pair);
 
-        $tmp = $file . '.tmp-' . bin2hex(random_bytes(4));
-        $old = umask(0077);
-        $ok  = file_put_contents($tmp, $php, LOCK_EX);
-        umask($old);
-        if ($ok === false) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
-        @chmod($tmp, 0600);
-        if (!@rename($tmp, $file)) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
-        if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
-        return $file;
+        $written = tegatai_write_key_file($file, $php);
+        sodium_memzero($php);
+        return is_wp_error($written) ? $written : $file;
     }
+
+    // --- Creating a backup ---
 
     /**
-     * Format v3: "TGB3" | crypto_box_seal(file key) (80 bytes) | secretstream header (24 bytes) |
-     * chunks of [4-byte length | XChaCha20-Poly1305 ciphertext], the last one tagged FINAL.
-     * Every backup gets its own random file key, sealed to the public key, so the server only
-     * needs the public key to write backups. Magic and sealed key are authenticated with every chunk.
+     * Streams the database into an encrypted file.
+     *
+     * @return true|WP_Error
      */
-    private function encrypt_v3($plain, $pk) {
-        $file_key = sodium_crypto_secretstream_xchacha20poly1305_keygen();
-        $sealed   = sodium_crypto_box_seal($file_key, $pk);
-        [$state, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($file_key);
-        sodium_memzero($file_key);
-        $ad  = self::ENC_MAGIC_V3 . $sealed;
-        $out = $ad . $header;
-        $len = strlen($plain);
-        $pos = 0;
-        do {
-            $chunk = (string) substr($plain, $pos, self::CHUNK);
-            $pos  += self::CHUNK;
-            $tag   = $pos >= $len ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE;
-            $c     = sodium_crypto_secretstream_xchacha20poly1305_push($state, $chunk, $ad, $tag);
-            $out  .= pack('N', strlen($c)) . $c;
-        } while ($pos < $len);
-        return $out;
-    }
-
-    private function decrypt_v3($data) {
-        $keys = self::own_keys();
-        if ($keys['secret'] === '') return new WP_Error('nokey', __('This backup needs the private backup key, which is not on this server.', 'tegatai-secure'));
-        $seal_len = SODIUM_CRYPTO_BOX_SEALBYTES + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_KEYBYTES;
-        $hdr_len  = SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES;
-        if (strlen($data) < 4 + $seal_len + $hdr_len) return false;
-        $sealed = substr($data, 4, $seal_len);
-        $header = substr($data, 4 + $seal_len, $hdr_len);
-        $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey($keys['secret'], $keys['public']);
-        $file_key = sodium_crypto_box_seal_open($sealed, $kp);
-        sodium_memzero($kp);
-        if ($file_key === false) return false;
-        $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($header, $file_key);
-        sodium_memzero($file_key);
-        $ad  = self::ENC_MAGIC_V3 . $sealed;
-        $pos = 4 + $seal_len + $hdr_len;
-        $end = strlen($data);
-        $out = '';
-        $final = false;
-        while ($pos < $end) {
-            if ($final || $pos + 4 > $end) return false;
-            $n = unpack('N', substr($data, $pos, 4))[1];
-            $pos += 4;
-            if ($n < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES || $pos + $n > $end) return false;
-            $r = sodium_crypto_secretstream_xchacha20poly1305_pull($state, substr($data, $pos, $n), $ad);
-            if ($r === false) return false;
-            [$chunk, $tag] = $r;
-            $out .= $chunk;
-            $pos += $n;
-            if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) $final = true;
-        }
-        // A file cut off before the FINAL chunk is rejected (truncation is detected)
-        return $final ? $out : false;
-    }
-
-    // Format v2: "TGB2" | 12-byte nonce | 16-byte GCM tag | ciphertext
-    private function encrypt($plain) {
-        $nonce = random_bytes(12);
-        $tag = '';
-        $cipher = openssl_encrypt($plain, 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, $nonce, $tag, self::ENC_MAGIC, 16);
-        return $cipher === false ? false : self::ENC_MAGIC . $nonce . $tag . $cipher;
-    }
-
-    private function decrypt($data) {
-        if (strncmp($data, self::ENC_MAGIC_V3, 4) === 0) {
-            if (!self::sodium_available()) return false;
-            return $this->decrypt_v3($data);
-        }
-        if (strncmp($data, self::ENC_MAGIC, 4) === 0) {
-            $nonce = substr($data, 4, 12);
-            $tag = substr($data, 16, 16);
-            return openssl_decrypt(substr($data, 32), 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, $nonce, $tag, self::ENC_MAGIC);
-        }
-        // Legacy v1 files: AES-256-CBC, IV prepended, hex secret used as key (unauthenticated)
-        $iv_len = openssl_cipher_iv_length('aes-256-cbc');
-        return openssl_decrypt(substr($data, $iv_len), 'aes-256-cbc', $this->get_encryption_key(), OPENSSL_RAW_DATA, substr($data, 0, $iv_len));
-    }
-
     private function create_db_backup($type = 'manual') {
-        global $wpdb;
-        
-        // Ordner + Schutz sicherstellen
-        tegatai_protect_directory($this->backup_dir);
-        
-        // Tabellen exportieren
-        $tables = $wpdb->get_results('SHOW TABLES', ARRAY_N);
-        $sql = "<?php exit; ?>\n-- Tegatai Backup ($type) - " . gmdate('Y-m-d H:i:s') . "\n\n";
-        
-        foreach ($tables as $table) {
-            $tbl = $table[0]; 
-            $row2 = $wpdb->get_row($wpdb->prepare('SHOW CREATE TABLE %i', $tbl), ARRAY_N); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- database backup
-            $sql .= "\n\n" . $row2[1] . ";\n\n"; 
-            
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i', $tbl), ARRAY_N); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- database backup
-            foreach ($rows as $row) {
-                $sql .= "INSERT INTO $tbl VALUES("; 
-                $vals = [];
-                foreach ($row as $v) { 
-                    // PHP 8 FIX: Null-Werte abfangen
-                    if ($v === null) {
-                        $vals[] = 'NULL'; 
-                    } else { 
-                        $v = addslashes($v); 
-                        $v = str_replace("\n", "\\n", $v); 
-                        $vals[] = '"' . $v . '"'; 
-                    }
-                }
-                $sql .= implode(',', $vals) . ");\n";
-            }
+        $r = $this->write_backup($type);
+        if (is_wp_error($r)) {
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-ERR', 'Backup failed: ' . $r->get_error_message());
+            return $r;
         }
-        
-        // SECURITY: Zufalls-Hash im Dateinamen
-        $hash = substr(md5(uniqid(wp_rand(), true)), 0, 8);
-        $filename = 'db_backup_' . gmdate('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php';
-        
-        // 1. ZLIB Komprimierung (Verschlüsselte Daten lassen sich nicht gut packen, also erst komprimieren)
-        if (function_exists('gzencode')) { 
-            $sql = gzencode($sql, 9);
-            $filename .= '.gz'; 
-        }
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', 'Backup created: ' . $r);
 
-        // 2. Encryption: v3 (X25519 + XChaCha20-Poly1305) with a backup key pair, otherwise
-        //    AES-256-GCM with TEGATAI_BACKUP_SECRET. Both are authenticated.
-        $keys = self::own_keys();
-        if ($keys['public'] !== '') {
-            $sql = $this->encrypt_v3($sql, $keys['public']);
-            $filename .= '.enc';
-        } elseif (function_exists('openssl_encrypt') && in_array('aes-256-gcm', openssl_get_cipher_methods(), true)) {
-            $encrypted = $this->encrypt($sql);
-            
-            if ($encrypted !== false) {
-                $sql = $encrypted;
-                $filename .= '.enc';
-            } else {
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-ERR', "AES Encryption failed. Saving unencrypted.");
-            }
-        }
-        
-        $path = $this->backup_dir . $filename;
-        file_put_contents($path, $sql); 
-        
-        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Backup erstellt: $filename"); 
-        
-        // 3. Garbage Collection (Retention Policy)
+        // Retention only after a backup was written completely
         $ops = tegatai_get_setting('tegatai_options');
         $limit = !empty($ops['backup_retention_limit']) ? intval($ops['backup_retention_limit']) : 7;
         $this->enforce_retention($limit);
-
         return true;
     }
 
-    // --- GARBAGE COLLECTION ---
+    /** @return string|WP_Error final file name */
+    private function write_backup($type) {
+        if (!self::sodium_available()) {
+            return new WP_Error('sodium', 'The PHP sodium extension is missing; no backup is written without encryption.');
+        }
+        if (!tegatai_protect_directory($this->backup_dir) || !wp_is_writable($this->backup_dir)) {
+            return new WP_Error('dir', 'Backup folder not writable: ' . $this->backup_dir);
+        }
+        if (function_exists('set_time_limit')) @set_time_limit(0);
+
+        $keys = self::own_keys();
+        $hash = bin2hex(random_bytes(4));
+        $type = sanitize_key($type);
+        $filename = 'db_backup_' . gmdate('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php' . (function_exists('deflate_init') ? '.gz' : '') . '.enc';
+        $tmp = $this->backup_dir . self::TMP_PREFIX . bin2hex(random_bytes(8)) . '.part';
+
+        $old = umask(0077);
+        $fh  = @fopen($tmp, 'xb');
+        umask($old);
+        if (!$fh) return new WP_Error('open', 'Temporary file could not be created in ' . $this->backup_dir);
+
+        try {
+            $stream = $keys['public'] !== ''
+                ? Tegatai_Backup_Stream::sealed($fh, $keys['public'])
+                : Tegatai_Backup_Stream::symmetric($fh, $this->derive_key('stream'));
+            $this->dump_database($stream, $type);
+            $stream->finish();
+            if (!fflush($fh)) throw new RuntimeException('Writing the backup file failed.');
+        } catch (\Throwable $e) {
+            fclose($fh);
+            @unlink($tmp);
+            return new WP_Error('write', $e->getMessage());
+        }
+        if (!fclose($fh)) {
+            @unlink($tmp);
+            return new WP_Error('write', 'Closing the backup file failed.');
+        }
+        if (!@rename($tmp, $this->backup_dir . $filename)) {
+            @unlink($tmp);
+            return new WP_Error('rename', 'The backup file could not be renamed.');
+        }
+        return $filename;
+    }
+
+    /** Writes the SQL dump of all base tables into the stream. */
+    private function dump_database(Tegatai_Backup_Stream $out, $type) {
+        global $wpdb;
+
+        $out->write("-- <?php exit; ?>\n-- Tegatai Backup ($type) - " . gmdate('Y-m-d H:i:s') . " UTC\n\n"
+            . "/*!40101 SET NAMES " . ($wpdb->charset ?: 'utf8mb4') . " */;\n"
+            . "SET FOREIGN_KEY_CHECKS=0;\n"
+            . "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n\n");
+
+        $tables = $wpdb->get_col("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'");
+        if ($wpdb->last_error !== '') throw new RuntimeException('Table list: ' . $wpdb->last_error);
+
+        foreach ($tables as $tbl) {
+            $row = $wpdb->get_row($wpdb->prepare('SHOW CREATE TABLE %i', $tbl), ARRAY_N);
+            if (!is_array($row) || !isset($row[1])) throw new RuntimeException("SHOW CREATE TABLE $tbl failed: " . $wpdb->last_error);
+            $q = $this->quote_name($tbl);
+            $out->write("\nDROP TABLE IF EXISTS $q;\n" . $row[1] . ";\n\n");
+
+            if ($wpdb->dbh instanceof mysqli) {
+                $this->dump_rows_mysqli($wpdb->dbh, $tbl, $out);
+            } else {
+                $this->dump_rows_wpdb($tbl, $out);
+            }
+        }
+        $out->write("\nSET FOREIGN_KEY_CHECKS=1;\n");
+    }
+
+    private function quote_name($name) {
+        return '`' . str_replace('`', '``', (string) $name) . '`';
+    }
+
+    /**
+     * Rows read unbuffered (one row in memory at a time). Values are written by column type:
+     * NULL, numbers unquoted, binary columns as hex literals, text escaped with the connection's
+     * own escaping (charset-aware, unlike addslashes()).
+     */
+    private function dump_rows_mysqli(mysqli $dbh, $tbl, Tegatai_Backup_Stream $out) {
+        $q   = $this->quote_name($tbl);
+        $res = mysqli_query($dbh, "SELECT * FROM $q", MYSQLI_USE_RESULT);
+        if ($res === false) throw new RuntimeException("Reading $tbl failed: " . mysqli_error($dbh));
+
+        $numeric = [MYSQLI_TYPE_BIT, MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24, MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, MYSQLI_TYPE_NEWDECIMAL, MYSQLI_TYPE_YEAR];
+        $binary_types = [MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_STRING, MYSQLI_TYPE_VAR_STRING, MYSQLI_TYPE_GEOMETRY];
+        $kinds = [];
+        foreach (mysqli_fetch_fields($res) as $f) {
+            // Binary data only for blob/string types with the binary charset (63); date and time
+            // columns also report charset 63 but are written as text. BIT values arrive as
+            // decimal strings from mysqlnd and are written as numbers.
+            if ((int) $f->charsetnr === 63 && in_array($f->type, $binary_types, true)) {
+                $kinds[] = 'bin';
+            } elseif (in_array($f->type, $numeric, true)) {
+                $kinds[] = 'num';
+            } else {
+                $kinds[] = 'str';
+            }
+        }
+
+        $batch = '';
+        try {
+            while (($row = mysqli_fetch_row($res)) !== null && $row !== false) {
+                $vals = [];
+                foreach ($row as $i => $v) {
+                    if ($v === null) {
+                        $vals[] = 'NULL';
+                    } elseif ($kinds[$i] === 'num' && is_numeric($v)) {
+                        $vals[] = $v;
+                    } elseif ($kinds[$i] === 'bin') {
+                        $vals[] = $v === '' ? "''" : '0x' . bin2hex($v);
+                    } else {
+                        $vals[] = "'" . mysqli_real_escape_string($dbh, $v) . "'";
+                    }
+                }
+                $batch .= ($batch === '' ? "INSERT INTO $q VALUES\n(" : ",\n(") . implode(',', $vals) . ')';
+                if (strlen($batch) >= self::INSERT_BATCH) {
+                    $out->write($batch . ";\n");
+                    $batch = '';
+                }
+            }
+        } finally {
+            mysqli_free_result($res);
+        }
+        if (mysqli_errno($dbh)) throw new RuntimeException("Reading $tbl failed: " . mysqli_error($dbh));
+        if ($batch !== '') $out->write($batch . ";\n");
+    }
+
+    /** Fallback for database drivers other than mysqli: pages of 500 rows. */
+    private function dump_rows_wpdb($tbl, Tegatai_Backup_Stream $out) {
+        global $wpdb;
+        $q = $this->quote_name($tbl);
+        for ($offset = 0; ; $offset += 500) {
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N);
+            if ($wpdb->last_error !== '') throw new RuntimeException("Reading $tbl failed: " . $wpdb->last_error);
+            if (empty($rows)) break;
+            $lines = [];
+            foreach ($rows as $row) {
+                $vals = [];
+                foreach ($row as $v) {
+                    // _real_escape() adds placeholder escapes for "%"; they are removed again
+                    $vals[] = $v === null ? 'NULL' : "'" . $wpdb->remove_placeholder_escape($wpdb->_real_escape($v)) . "'";
+                }
+                $lines[] = '(' . implode(',', $vals) . ')';
+            }
+            $out->write("INSERT INTO $q VALUES\n" . implode(",\n", $lines) . ";\n");
+            if (count($rows) < 500) break;
+        }
+    }
+
+    // --- Retention ---
+
     private function enforce_retention($limit = 7) {
+        // Leftovers of interrupted runs
+        foreach ((array) glob($this->backup_dir . self::TMP_PREFIX . '*') as $tmp) {
+            if (is_file($tmp) && filemtime($tmp) < time() - DAY_IN_SECONDS) wp_delete_file($tmp);
+        }
+
         $files = glob($this->backup_dir . 'db_backup_*');
         if (!$files || count($files) <= $limit) return;
 
-        // Nach modification time absteigend sortieren (neueste zuerst)
-        usort($files, function($a, $b) {
-            return filemtime($b) - filemtime($a); 
+        usort($files, function ($a, $b) {
+            return filemtime($b) - filemtime($a);
         });
-
-        // Alle Dateien ab dem Index $limit löschen
-        $to_delete = array_slice($files, $limit);
-        foreach ($to_delete as $file) {
+        foreach (array_slice($files, max(1, (int) $limit)) as $file) {
             wp_delete_file($file);
-            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-GC', "Auto-deleted old backup: " . basename($file));
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP-GC', 'Auto-deleted old backup: ' . basename($file));
         }
+    }
+
+    // --- Delete / download ---
+
+    private function backup_path_from_request() {
+        // sanitize_file_name() would rename multi-extension names (".sql.php.gz.enc" gets "_"
+        // inserted), so the name is checked against the pattern of backup files instead
+        $file = basename((string) wp_unslash($_POST['file'] ?? ''));
+        if (!preg_match('/^db_backup_[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)+$/', $file)) return '';
+        $path = $this->backup_dir . $file;
+        return dirname($path) === rtrim($this->backup_dir, '/') ? $path : '';
     }
 
     public function delete_backup() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_admin_referer('teg_backup_nonce');
-        
-        $file = sanitize_file_name(wp_unslash($_POST['file'] ?? '')); 
-        $path = $this->backup_dir . $file;
-        
-        // SECURITY FIX: Robuster Check
-        if (!file_exists($path)) {
-            wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted'));
-            exit;
-        }
 
-        if (dirname($path) !== rtrim($this->backup_dir, '/')) {
-             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SEC-WARN', "Invalid delete path: $path");
-             wp_die("Security Check Failed.");
+        $path = $this->backup_path_from_request();
+        if ($path !== '' && is_file($path)) {
+            wp_delete_file($path);
+            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', 'Deleted: ' . basename($path));
         }
-
-        wp_delete_file($path); 
-        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BACKUP', "Gelöscht: $file"); 
-        
-        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted')); 
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=backups&msg=deleted'));
         exit;
     }
 
+    /**
+     * Decrypts into a temporary file in the protected backup folder first, so a damaged or
+     * cut-off backup is rejected before anything is sent, then streams it to the browser.
+     */
     public function download_backup() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         check_admin_referer('teg_backup_nonce');
-        
-        $file = sanitize_file_name(wp_unslash($_POST['file'] ?? '')); 
-        $path = $this->backup_dir . $file;
-        
-        if (file_exists($path) && dirname($path) === rtrim($this->backup_dir, '/')) {
-            $data = file_get_contents($path);
-            $dl_name = basename($path);
-            
-            // --- ON-THE-FLY DECRYPTION ---
-            if (substr($path, -4) === '.enc') {
-                $decrypted = $this->decrypt($data);
-                if (is_wp_error($decrypted)) {
-                    wp_die(esc_html($decrypted->get_error_message()));
-                }
-                if ($decrypted !== false) {
-                    $data = $decrypted;
-                    $dl_name = str_replace('.enc', '', $dl_name); // Originalendung wiederherstellen (.gz oder .sql)
-                } else {
-                    wp_die(esc_html__('Decryption failed: wrong key (backup key file or TEGATAI_BACKUP_SECRET) or the file was modified.', 'tegatai-secure'));
-                }
-            }
 
-            header('Content-Type: application/octet-stream'); 
-            header('Content-Disposition: attachment; filename="'.$dl_name.'"'); 
-            header('Content-Length: ' . strlen($data)); 
-            echo $data; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- binary file download (SQL dump), not HTML
-            exit;
-        } 
-        wp_die('File not found or access denied.');
+        $path = $this->backup_path_from_request();
+        if ($path === '' || !is_file($path)) wp_die('File not found or access denied.');
+
+        $dl_name = basename($path);
+        $send = $path;
+        $tmp = '';
+        if (substr($path, -4) === '.enc') {
+            $tmp = $this->backup_dir . self::TMP_PREFIX . bin2hex(random_bytes(8)) . '.dl';
+            $r = $this->decrypt_file($path, $tmp);
+            if ($r !== true) {
+                @unlink($tmp);
+                wp_die(esc_html(is_wp_error($r) ? $r->get_error_message() : __('Decryption failed: wrong key (backup key file or TEGATAI_BACKUP_SECRET) or the file was modified.', 'tegatai-secure')));
+            }
+            $send = $tmp;
+            $dl_name = substr($dl_name, 0, -4);
+        }
+
+        while (ob_get_level() > 0) ob_end_clean();
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . $dl_name . '"');
+        header('Content-Length: ' . filesize($send));
+        readfile($send);
+        if ($tmp !== '') @unlink($tmp);
+        exit;
+    }
+
+    /** @return true|false|WP_Error */
+    private function decrypt_file($src, $dst) {
+        $in = @fopen($src, 'rb');
+        if (!$in) return new WP_Error('open', 'Backup file could not be opened.');
+        $magic = (string) fread($in, 4);
+
+        if ($magic === self::ENC_MAGIC_V3 || $magic === self::ENC_MAGIC_V4) {
+            if (!self::sodium_available()) { fclose($in); return new WP_Error('sodium', 'The PHP sodium extension is missing.'); }
+            if ($magic === self::ENC_MAGIC_V3) {
+                $keys = self::own_keys();
+                if ($keys['secret'] === '') { fclose($in); return new WP_Error('nokey', __('This backup needs the private backup key, which is not on this server.', 'tegatai-secure')); }
+                $seal_len = SODIUM_CRYPTO_BOX_SEALBYTES + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_KEYBYTES;
+                $sealed = (string) fread($in, $seal_len);
+                if (strlen($sealed) !== $seal_len) { fclose($in); return false; }
+                $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey($keys['secret'], $keys['public']);
+                $file_key = sodium_crypto_box_seal_open($sealed, $kp);
+                sodium_memzero($kp);
+                if ($file_key === false) { fclose($in); return false; }
+                $ad = $magic . $sealed;
+            } else {
+                $file_key = $this->derive_key('stream');
+                $ad = $magic;
+            }
+            $out = @fopen($dst, 'xb');
+            if (!$out) { fclose($in); return new WP_Error('open', 'Temporary file could not be created.'); }
+            $ok = Tegatai_Backup_Stream::decrypt($in, $out, $file_key, $ad);
+            sodium_memzero($file_key);
+            fclose($in);
+            return (fclose($out) && $ok) ? true : false;
+        }
+
+        // Old formats are small enough to be handled in memory
+        fclose($in);
+        $data = file_get_contents($src);
+        if ($data === false) return false;
+        if (strncmp($data, self::ENC_MAGIC, 4) === 0) {
+            $plain = openssl_decrypt(substr($data, 32), 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, substr($data, 4, 12), substr($data, 16, 16), self::ENC_MAGIC);
+        } else {
+            // v1: AES-256-CBC, IV prepended, hex secret used as key (unauthenticated)
+            $iv_len = openssl_cipher_iv_length('aes-256-cbc');
+            $plain = openssl_decrypt(substr($data, $iv_len), 'aes-256-cbc', $this->get_encryption_key(), OPENSSL_RAW_DATA, substr($data, 0, $iv_len));
+        }
+        if ($plain === false) return false;
+        return file_put_contents($dst, $plain) === strlen($plain);
     }
 
     public static function get_backups() {
-        $upload = wp_upload_dir(); 
-        $dir = trailingslashit($upload['basedir']) . 'tegatai-backups/'; 
+        $upload = wp_upload_dir();
+        $dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
         $files = [];
-        
-        if (file_exists($dir)) {
-            foreach (scandir($dir) as $file) {
-                if (!in_array($file, ['.', '..', '.htaccess', 'index.php', 'web.config'], true)) {
-                    $files[] = [
-                        'name' => $file, 
-                        'size' => round(filesize($dir . $file) / 1024, 2) . ' KB', 
-                        'date' => gmdate("Y-m-d H:i", filemtime($dir . $file))
-                    ];
-                }
-            }
-        } 
-        
-        // Nach neuestem Datum sortieren
-        usort($files, function($a, $b) {
-            return strtotime($b['date']) - strtotime($a['date']);
+
+        foreach ((array) glob($dir . 'db_backup_*') as $path) {
+            if (!is_file($path)) continue;
+            $files[] = [
+                'name'  => basename($path),
+                'size'  => round(filesize($path) / 1024, 2) . ' KB',
+                'date'  => gmdate('Y-m-d H:i', filemtime($path)),
+                'mtime' => filemtime($path),
+            ];
+        }
+        usort($files, function ($a, $b) {
+            return $b['mtime'] - $a['mtime'];
         });
-        
         return $files;
+    }
+}
+
+/**
+ * gzip + XChaCha20-Poly1305 secretstream writer. Layout after the magic (and sealed key):
+ * 24-byte stream header, then chunks of [4-byte length | ciphertext]; the last chunk is tagged
+ * FINAL, so a cut-off file is detected. Magic (and sealed key) are authenticated with every chunk.
+ */
+class Tegatai_Backup_Stream {
+    private $fh;
+    private $state;
+    private $ad;
+    private $z = null;
+    private $buf = '';
+
+    /** TGB3: random file key sealed to the backup public key. */
+    public static function sealed($fh, $public_key) {
+        $file_key = sodium_crypto_secretstream_xchacha20poly1305_keygen();
+        $sealed   = sodium_crypto_box_seal($file_key, $public_key);
+        $s = new self($fh, Tegatai_Backup::ENC_MAGIC_V3 . $sealed, $file_key);
+        sodium_memzero($file_key);
+        return $s;
+    }
+
+    /** TGB4: key derived from TEGATAI_BACKUP_SECRET. */
+    public static function symmetric($fh, $key) {
+        return new self($fh, Tegatai_Backup::ENC_MAGIC_V4, $key);
+    }
+
+    private function __construct($fh, $prefix, $key) {
+        $this->fh = $fh;
+        $this->ad = $prefix;
+        [$this->state, $header] = sodium_crypto_secretstream_xchacha20poly1305_init_push($key);
+        $this->put($prefix . $header);
+        if (function_exists('deflate_init')) {
+            $this->z = deflate_init(ZLIB_ENCODING_GZIP, ['level' => 6]);
+            if ($this->z === false) throw new RuntimeException('gzip could not be started.');
+        }
+    }
+
+    private function put($bytes) {
+        $len = strlen($bytes);
+        $done = 0;
+        while ($done < $len) {
+            $n = @fwrite($this->fh, $done === 0 ? $bytes : substr($bytes, $done));
+            if ($n === false || $n === 0) throw new RuntimeException('Writing the backup file failed (disk full?).');
+            $done += $n;
+        }
+    }
+
+    private function push($chunk, $final) {
+        $tag = $final ? SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL : SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_MESSAGE;
+        $c = sodium_crypto_secretstream_xchacha20poly1305_push($this->state, $chunk, $this->ad, $tag);
+        $this->put(pack('N', strlen($c)) . $c);
+    }
+
+    public function write($data) {
+        if ($data === '') return;
+        if ($this->z) {
+            $data = deflate_add($this->z, $data, ZLIB_NO_FLUSH);
+            if ($data === false) throw new RuntimeException('gzip compression failed.');
+        }
+        $this->buf .= $data;
+        while (strlen($this->buf) > Tegatai_Backup::CHUNK) {
+            $this->push(substr($this->buf, 0, Tegatai_Backup::CHUNK), false);
+            $this->buf = substr($this->buf, Tegatai_Backup::CHUNK);
+        }
+    }
+
+    public function finish() {
+        if ($this->z) {
+            $tail = deflate_add($this->z, '', ZLIB_FINISH);
+            if ($tail === false) throw new RuntimeException('gzip compression failed.');
+            $this->buf .= $tail;
+        }
+        while (strlen($this->buf) > Tegatai_Backup::CHUNK) {
+            $this->push(substr($this->buf, 0, Tegatai_Backup::CHUNK), false);
+            $this->buf = substr($this->buf, Tegatai_Backup::CHUNK);
+        }
+        $this->push($this->buf, true);
+        $this->buf = '';
+    }
+
+    /**
+     * Reads the stream header and all chunks from $in (positioned after magic and sealed key)
+     * and writes the plaintext (the .gz data) to $out. False on any damage, a missing FINAL
+     * chunk or data after it.
+     */
+    public static function decrypt($in, $out, $key, $ad) {
+        $header = (string) fread($in, SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
+        if (strlen($header) !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES) return false;
+        try {
+            $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($header, $key);
+        } catch (\Throwable $e) {
+            return false;
+        }
+        $final = false;
+        while (true) {
+            $len = (string) fread($in, 4);
+            if ($len === '') break;
+            if ($final || strlen($len) !== 4) return false;
+            $n = unpack('N', $len)[1];
+            if ($n < SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_ABYTES || $n > Tegatai_Backup::CHUNK + 1024) return false;
+            $c = '';
+            while (strlen($c) < $n && !feof($in)) {
+                $part = fread($in, $n - strlen($c));
+                if ($part === false || $part === '') break;
+                $c .= $part;
+            }
+            if (strlen($c) !== $n) return false;
+            $r = sodium_crypto_secretstream_xchacha20poly1305_pull($state, $c, $ad);
+            if ($r === false) return false;
+            [$plain, $tag] = $r;
+            if ($plain !== '' && fwrite($out, $plain) !== strlen($plain)) return false;
+            if ($tag === SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_TAG_FINAL) $final = true;
+        }
+        return $final;
     }
 }
 

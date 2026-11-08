@@ -150,9 +150,8 @@ class Tegatai_Hive {
         if (defined('TEGATAI_HIVE_PRIVATE_KEY')) return new WP_Error('constant', 'TEGATAI_HIVE_PRIVATE_KEY is set in wp-config.php; remove it there first.');
         $file = self::key_file();
         if (@is_file($file) && !$replace) return new WP_Error('exists', 'A key already exists: ' . $file . ' (use --replace to create a new one; all peers then need the new public key).');
-        $dir = dirname($file);
-        if (!is_dir($dir) && !@mkdir($dir, 0700, true)) return new WP_Error('dir', 'Folder could not be created: ' . $dir);
-        if (!is_writable($dir)) return new WP_Error('dir', 'Folder is not writable: ' . $dir);
+        $dir_ok = tegatai_secure_key_dir(dirname($file));
+        if (is_wp_error($dir_ok)) return $dir_ok;
 
         $pair = sodium_crypto_sign_keypair();
         $sk   = sodium_crypto_sign_secretkey($pair);
@@ -163,14 +162,9 @@ class Tegatai_Hive {
         sodium_memzero($sk);
         sodium_memzero($pair);
 
-        $tmp = $file . '.tmp-' . bin2hex(random_bytes(4));
-        $old = umask(0077);
-        $ok  = file_put_contents($tmp, $php, LOCK_EX);
-        umask($old);
-        if ($ok === false) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
-        @chmod($tmp, 0600);
-        if (!@rename($tmp, $file)) { @unlink($tmp); return new WP_Error('write', 'The key file could not be written.'); }
-        if (function_exists('opcache_invalidate')) @opcache_invalidate($file, true);
+        $written = tegatai_write_key_file($file, $php);
+        sodium_memzero($php);
+        if (is_wp_error($written)) return $written;
         return 'ed25519:' . base64_encode($pk);
     }
 
