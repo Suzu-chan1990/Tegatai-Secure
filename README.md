@@ -10,7 +10,7 @@ Security plugin for WordPress: firewall, login protection, anti-spam, scanners, 
 
 Many protections are written as server rules (`tegatai-nginx.conf` or `.htaccess`), so the web server blocks those requests before PHP and WordPress start. Everything else runs inside WordPress.
 
-Current version: `2.1.1` – see [CHANGELOG.md](CHANGELOG.md).
+Current version: `2.1.3` – see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -155,9 +155,11 @@ Countries are looked up in the free "IP to Country Lite" database by [DB-IP](htt
 * Daily or weekly via WP-Cron, or manually
 * Stored in `wp-content/uploads/tegatai-backups/`, the newest 7 are kept (configurable)
 * Streamed: rows are read one at a time, compressed and encrypted in 1 MB chunks, so memory use does not grow with the database size
+* Consistent: all InnoDB tables are read in one snapshot transaction (like `mysqldump --single-transaction`), so they show the same point in time even while the site keeps writing. Tables without transactions (MyISAM etc.) are named in the dump and the log.
 * A backup is written to a temporary file and only gets its final name when everything succeeded. On any error (disk full, database error) the temporary file is deleted, the error is logged, and old backups are not removed.
 * Never unencrypted: without the PHP sodium extension no backup is written
-* The download is a gzip-compressed SQL file with `DROP TABLE IF EXISTS` and `CREATE TABLE` per table; it can be imported with `mysql` or phpMyAdmin
+* The download is a gzip-compressed SQL file with `DROP TABLE IF EXISTS` and `CREATE TABLE` per table; it can be imported with `mysql` or phpMyAdmin. Like mysqldump it sets `NO_AUTO_VALUE_ON_ZERO` (a stored `0` id stays `0`) and restores the session settings of the importing connection at the end; it imports under any SQL mode, also `NO_BACKSLASH_ESCAPES` and `ANSI_QUOTES`.
+* **Only base tables** (structure and data) are saved. Views, triggers, stored routines and events are not. If the database has any, the dump names them at the top and the log shows them with each backup. WordPress itself uses none of them.
 
 ### Encryption
 
@@ -173,7 +175,7 @@ sudo -u <fpm-user> wp tegatai backup-keygen --path=/path/to/site
 * **Keep a copy of the key file outside the server.** Without it the backups cannot be decrypted.
 * Optional: if the file only contains `public_key` (the `private_key` line removed and kept offline), the server can still write backups but cannot decrypt them. To download one decrypted, put the full file back for that time.
 
-Without a backup key, backups use the same XChaCha20-Poly1305 chunks with a key derived from `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM, AES-256-CBC) can still be downloaded.
+Without a backup key, backups use the same XChaCha20-Poly1305 chunks with a key derived from `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM from 1.5 to 2.1.0, AES-256-CBC before 1.5) can still be downloaded. AES-256-GCM files are decrypted in memory (PHP has no streaming GCM); for a very large one, the download says how much memory it needs. Decrypted downloads go through a temporary `0600` file in the backup folder, which is deleted right after.
 
 ---
 

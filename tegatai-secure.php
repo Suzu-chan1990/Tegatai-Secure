@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Security
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 2.1.1
+ * Version: 2.1.3
  * Author: すずちゃん
  * License: GPL2
  * Text Domain: tegatai-secure
@@ -151,7 +151,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.1.1' );
+define( 'TEGATAI_VERSION', '2.1.3' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 

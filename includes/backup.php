@@ -13,7 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  *   TGB3  backup key pair (wp tegatai backup-keygen): random file key sealed to the X25519
  *         public key, data in XChaCha20-Poly1305 secretstream chunks
  *   TGB4  no key pair: same secretstream, key derived from TEGATAI_BACKUP_SECRET
- * Formats still read: TGB2 (AES-256-GCM) and v1 (AES-256-CBC).
+ * Formats still read: TGB2 (AES-256-GCM, Tegatai 1.5 to 2.1.0) and v1 (AES-256-CBC, before 1.5).
  */
 class Tegatai_Backup {
     private $backup_dir;
@@ -206,13 +206,75 @@ class Tegatai_Backup {
     }
 
     /** Writes the SQL dump of all base tables into the stream. */
+    /**
+     * Writes the SQL dump of all base tables into the stream.
+     *
+     * Export side: the session runs with a fixed sql_mode during the dump (no ANSI_QUOTES, so
+     * SHOW CREATE TABLE uses backticks; no NO_BACKSLASH_ESCAPES, so values are escaped with
+     * backslashes) and gets its old mode back afterwards.
+     * Import side: the dump saves the session settings of the importing connection, sets
+     * NAMES, FOREIGN_KEY_CHECKS=0 and SQL_MODE='NO_AUTO_VALUE_ON_ZERO' (a stored 0 in an
+     * AUTO_INCREMENT column stays 0; backslash escapes are valid even if the importer's mode
+     * had NO_BACKSLASH_ESCAPES) and restores them at the end, like mysqldump.
+     */
     private function dump_database(Tegatai_Backup_Stream $out, $type) {
         global $wpdb;
 
-        $out->write("-- <?php exit; ?>\n-- Tegatai Backup ($type) - " . gmdate('Y-m-d H:i:s') . " UTC\n\n"
-            . "/*!40101 SET NAMES " . ($wpdb->charset ?: 'utf8mb4') . " */;\n"
-            . "SET FOREIGN_KEY_CHECKS=0;\n"
-            . "SET SQL_MODE='NO_AUTO_VALUE_ON_ZERO';\n\n");
+        $old_mode = $wpdb->get_var('SELECT @@SESSION.sql_mode');
+        if ($old_mode === null) throw new RuntimeException('sql_mode could not be read: ' . $wpdb->last_error);
+        if ($wpdb->query("SET SESSION sql_mode = 'NO_AUTO_VALUE_ON_ZERO'") === false) {
+            throw new RuntimeException('sql_mode could not be set: ' . $wpdb->last_error);
+        }
+        // One consistent snapshot for all InnoDB tables (like mysqldump --single-transaction):
+        // every table shows the same point in time, also while the site keeps writing.
+        // Read only; non-transactional tables (MyISAM, Aria, MEMORY) are not covered.
+        $wpdb->query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+        if ($wpdb->query('START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY') === false) {
+            $wpdb->query($wpdb->prepare('SET SESSION sql_mode = %s', $old_mode));
+            throw new RuntimeException('Snapshot transaction could not be started: ' . $wpdb->last_error);
+        }
+        try {
+            $notes = $this->dump_objects($out, $type);
+        } finally {
+            $wpdb->query('COMMIT');
+            $wpdb->query($wpdb->prepare('SET SESSION sql_mode = %s', $old_mode));
+        }
+        if ($notes && class_exists('Tegatai_Logger')) {
+            Tegatai_Logger::log('BACKUP', implode(' ', $notes));
+        }
+    }
+
+    private function dump_objects(Tegatai_Backup_Stream $out, $type) {
+        global $wpdb;
+        $charset = preg_match('/^[A-Za-z0-9_]+$/', (string) $wpdb->charset) ? $wpdb->charset : 'utf8mb4';
+
+        // Objects this backup does not contain are named in the dump and in the log
+        $skipped = [];
+        foreach ([
+            'views'    => "SELECT COUNT(*) FROM information_schema.VIEWS WHERE TABLE_SCHEMA = DATABASE()",
+            'triggers' => "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA = DATABASE()",
+            'routines' => "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE()",
+            'events'   => "SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = DATABASE()",
+        ] as $what => $sql) {
+            $n = (int) $wpdb->get_var($sql);
+            if ($n > 0) $skipped[] = "$what: $n";
+        }
+
+        // Tables without transactions are read without the snapshot
+        $non_tx = $wpdb->get_col("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' AND ENGINE NOT IN ('InnoDB')");
+
+        $out->write("-- <?php exit; ?>\n"
+            . "-- Tegatai Backup ($type) - " . gmdate('Y-m-d H:i:s') . " UTC\n"
+            . "-- Contains: all base tables (structure and data) of the database, InnoDB tables from one consistent snapshot.\n"
+            . ($non_tx ? '-- Not in the snapshot (no transactions): ' . implode(', ', $non_tx) . "\n" : '')
+            . ($skipped ? '-- Not contained: ' . implode(', ', $skipped) . "\n" : '')
+            . "\n"
+            . "/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;\n"
+            . "/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;\n"
+            . "/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;\n"
+            . "/*!40101 SET NAMES $charset */;\n"
+            . "/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;\n"
+            . "/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;\n\n");
 
         $tables = $wpdb->get_col("SHOW FULL TABLES WHERE Table_type = 'BASE TABLE'");
         if ($wpdb->last_error !== '') throw new RuntimeException('Table list: ' . $wpdb->last_error);
@@ -229,7 +291,18 @@ class Tegatai_Backup {
                 $this->dump_rows_wpdb($tbl, $out);
             }
         }
-        $out->write("\nSET FOREIGN_KEY_CHECKS=1;\n");
+
+        $out->write("\n/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n"
+            . "/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;\n"
+            . "/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;\n"
+            . "/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;\n"
+            . "/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;\n"
+            . "-- Dump completed\n");
+
+        $notes = [];
+        if ($skipped) $notes[] = 'Not contained in the backup: ' . implode(', ', $skipped) . ' (only base tables are saved).';
+        if ($non_tx) $notes[] = 'Not in the consistent snapshot (tables without transactions): ' . implode(', ', $non_tx) . '.';
+        return $notes;
     }
 
     private function quote_name($name) {
@@ -243,16 +316,16 @@ class Tegatai_Backup {
      */
     private function dump_rows_mysqli(mysqli $dbh, $tbl, Tegatai_Backup_Stream $out) {
         $q   = $this->quote_name($tbl);
-        $res = mysqli_query($dbh, "SELECT * FROM $q", MYSQLI_USE_RESULT);
+        $res = mysqli_query($dbh, 'SELECT ' . $this->select_list($tbl) . " FROM $q", MYSQLI_USE_RESULT);
         if ($res === false) throw new RuntimeException("Reading $tbl failed: " . mysqli_error($dbh));
 
-        $numeric = [MYSQLI_TYPE_BIT, MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24, MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, MYSQLI_TYPE_NEWDECIMAL, MYSQLI_TYPE_YEAR];
+        $numeric = [MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24, MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, MYSQLI_TYPE_NEWDECIMAL, MYSQLI_TYPE_YEAR];
         $binary_types = [MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_STRING, MYSQLI_TYPE_VAR_STRING, MYSQLI_TYPE_GEOMETRY];
         $kinds = [];
         foreach (mysqli_fetch_fields($res) as $f) {
             // Binary data only for blob/string types with the binary charset (63); date and time
-            // columns also report charset 63 but are written as text. BIT values arrive as
-            // decimal strings from mysqlnd and are written as numbers.
+            // columns also report charset 63 but are written as text. BIT columns are selected
+            // as CAST(... AS UNSIGNED), so they arrive as decimal numbers with every driver.
             if ((int) $f->charsetnr === 63 && in_array($f->type, $binary_types, true)) {
                 $kinds[] = 'bin';
             } elseif (in_array($f->type, $numeric, true)) {
@@ -290,12 +363,32 @@ class Tegatai_Backup {
         if ($batch !== '') $out->write($batch . ";\n");
     }
 
+    /**
+     * Column list in table order. BIT columns are read as CAST(col AS UNSIGNED): mysqlnd returns
+     * BIT as a decimal string, libmysqlclient as raw bytes; the cast gives a plain number with
+     * both, which is written unquoted and imports into BIT(1) to BIT(64).
+     */
+    private function select_list($tbl) {
+        global $wpdb;
+        $cols = $wpdb->get_results($wpdb->prepare(
+            'SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+            $tbl
+        ), ARRAY_A);
+        if (empty($cols)) return '*';
+        $list = [];
+        foreach ($cols as $c) {
+            $n = $this->quote_name($c['COLUMN_NAME']);
+            $list[] = strtolower((string) $c['DATA_TYPE']) === 'bit' ? "CAST($n AS UNSIGNED) AS $n" : $n;
+        }
+        return implode(', ', $list);
+    }
+
     /** Fallback for database drivers other than mysqli: pages of 500 rows. */
     private function dump_rows_wpdb($tbl, Tegatai_Backup_Stream $out) {
         global $wpdb;
         $q = $this->quote_name($tbl);
         for ($offset = 0; ; $offset += 500) {
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT * FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N);
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT ' . $this->select_list($tbl) . ' FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- column list built from information_schema with quoted names
             if ($wpdb->last_error !== '') throw new RuntimeException("Reading $tbl failed: " . $wpdb->last_error);
             if (empty($rows)) break;
             $lines = [];
@@ -381,6 +474,8 @@ class Tegatai_Backup {
             $dl_name = substr($dl_name, 0, -4);
         }
 
+        // The size of the temporary file is cached from its creation (0 bytes)
+        clearstatcache(true, $send);
         while (ob_get_level() > 0) ob_end_clean();
         header('Content-Type: application/octet-stream');
         header('Content-Disposition: attachment; filename="' . $dl_name . '"');
@@ -390,50 +485,136 @@ class Tegatai_Backup {
         exit;
     }
 
-    /** @return true|false|WP_Error */
+    /**
+     * Creates a new file that only the PHP user can read (umask 0077, then checked for 0600):
+     * the decrypted dump contains the whole database.
+     *
+     * @return resource|WP_Error
+     */
+    private function open_private_file($path) {
+        $old = umask(0077);
+        $fh  = @fopen($path, 'xb');
+        umask($old);
+        if (!$fh) return new WP_Error('open', 'Temporary file could not be created.');
+        @chmod($path, 0600); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- decrypted dump must only be readable by the PHP user
+        clearstatcache(true, $path);
+        if (((int) @fileperms($path) & 0077) !== 0) {
+            fclose($fh);
+            @unlink($path);
+            return new WP_Error('chmod', 'Temporary file could not be protected with 0600.');
+        }
+        return $fh;
+    }
+
+    /**
+     * Decrypts a backup into $dst (created with 0600). Any damage, wrong key or library error
+     * ends as false or WP_Error, never as an uncaught exception.
+     *
+     * @return true|false|WP_Error
+     */
     private function decrypt_file($src, $dst) {
         $in = @fopen($src, 'rb');
         if (!$in) return new WP_Error('open', 'Backup file could not be opened.');
+        $out = null;
+        try {
+            $r = $this->decrypt_stream($in, $src, $dst, $out);
+        } catch (\Throwable $e) {
+            $r = false;
+        }
+        fclose($in);
+        if (is_resource($out) && !fclose($out)) $r = false;
+        return $r;
+    }
+
+    private function decrypt_stream($in, $src, $dst, &$out) {
         $magic = (string) fread($in, 4);
 
         if ($magic === self::ENC_MAGIC_V3 || $magic === self::ENC_MAGIC_V4) {
-            if (!self::sodium_available()) { fclose($in); return new WP_Error('sodium', 'The PHP sodium extension is missing.'); }
+            if (!self::sodium_available()) return new WP_Error('sodium', 'The PHP sodium extension is missing.');
             if ($magic === self::ENC_MAGIC_V3) {
                 $keys = self::own_keys();
-                if ($keys['secret'] === '') { fclose($in); return new WP_Error('nokey', __('This backup needs the private backup key, which is not on this server.', 'tegatai-secure')); }
+                if ($keys['secret'] === '') return new WP_Error('nokey', __('This backup needs the private backup key, which is not on this server.', 'tegatai-secure'));
                 $seal_len = SODIUM_CRYPTO_BOX_SEALBYTES + SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_KEYBYTES;
                 $sealed = (string) fread($in, $seal_len);
-                if (strlen($sealed) !== $seal_len) { fclose($in); return false; }
+                if (strlen($sealed) !== $seal_len) return false;
                 $kp = sodium_crypto_box_keypair_from_secretkey_and_publickey($keys['secret'], $keys['public']);
                 $file_key = sodium_crypto_box_seal_open($sealed, $kp);
                 sodium_memzero($kp);
-                if ($file_key === false) { fclose($in); return false; }
+                if ($file_key === false) return false;
                 $ad = $magic . $sealed;
             } else {
                 $file_key = $this->derive_key('stream');
                 $ad = $magic;
             }
-            $out = @fopen($dst, 'xb');
-            if (!$out) { fclose($in); return new WP_Error('open', 'Temporary file could not be created.'); }
+            $out = $this->open_private_file($dst);
+            if (is_wp_error($out)) { $e = $out; $out = null; return $e; }
             $ok = Tegatai_Backup_Stream::decrypt($in, $out, $file_key, $ad);
             sodium_memzero($file_key);
-            fclose($in);
-            return (fclose($out) && $ok) ? true : false;
+            return $ok;
         }
 
-        // Old formats are small enough to be handled in memory
-        fclose($in);
-        $data = file_get_contents($src);
-        if ($data === false) return false;
-        if (strncmp($data, self::ENC_MAGIC, 4) === 0) {
-            $plain = openssl_decrypt(substr($data, 32), 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, substr($data, 4, 12), substr($data, 16, 16), self::ENC_MAGIC);
-        } else {
-            // v1: AES-256-CBC, IV prepended, hex secret used as key (unauthenticated)
-            $iv_len = openssl_cipher_iv_length('aes-256-cbc');
-            $plain = openssl_decrypt(substr($data, $iv_len), 'aes-256-cbc', $this->get_encryption_key(), OPENSSL_RAW_DATA, substr($data, 0, $iv_len));
+        if ($magic === self::ENC_MAGIC) {
+            // TGB2 (Tegatai 1.5 to 2.1.0): "TGB2" | 12-byte nonce | 16-byte tag | AES-256-GCM.
+            // The key has always been the HMAC derivation derive_key('enc') of the backup secret.
+            // PHP has no streaming GCM, so the ciphertext and the plaintext are held in memory
+            // once each; checked against the memory limit first.
+            $nonce = (string) fread($in, 12);
+            $tag   = (string) fread($in, 16);
+            if (strlen($nonce) !== 12 || strlen($tag) !== 16) return false;
+            $mem = $this->check_memory((int) filesize($src) * 2);
+            if (is_wp_error($mem)) return $mem;
+            $cipher = stream_get_contents($in);
+            if ($cipher === false) return false;
+            $plain = openssl_decrypt($cipher, 'aes-256-gcm', $this->derive_key('enc'), OPENSSL_RAW_DATA, $nonce, $tag, self::ENC_MAGIC);
+            unset($cipher);
+            if ($plain === false) return false;
+            $out = $this->open_private_file($dst);
+            if (is_wp_error($out)) { $e = $out; $out = null; return $e; }
+            return fwrite($out, $plain) === strlen($plain);
         }
+
+        // v1 (before 1.5): IV | AES-256-CBC with the hex secret passed directly as key (OpenSSL
+        // uses its first 32 bytes). Decrypted in 1 MB blocks; unauthenticated, so the padding
+        // check at the end is the only integrity check.
+        $iv_len = openssl_cipher_iv_length('aes-256-cbc');
+        fseek($in, 0);
+        $iv = (string) fread($in, $iv_len);
+        if (strlen($iv) !== $iv_len) return false;
+        $key = $this->get_encryption_key();
+        $out = $this->open_private_file($dst);
+        if (is_wp_error($out)) { $e = $out; $out = null; return $e; }
+        $carry = '';
+        while (!feof($in)) {
+            $block = fread($in, 1048576);
+            if ($block === false) return false;
+            $carry .= $block;
+            // Always keep the last full block back: the final one holds the padding
+            $take = strlen($carry) - (strlen($carry) % 16) - 16;
+            if ($take <= 0) continue;
+            $chunk = substr($carry, 0, $take);
+            $carry = substr($carry, $take);
+            $plain = openssl_decrypt($chunk, 'aes-256-cbc', $key, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING, $iv);
+            if ($plain === false) return false;
+            $iv = substr($chunk, -16);
+            if (fwrite($out, $plain) !== strlen($plain)) return false;
+        }
+        if ($carry === '' || strlen($carry) % 16 !== 0) return false;
+        $plain = openssl_decrypt($carry, 'aes-256-cbc', $key, OPENSSL_RAW_DATA, $iv);
         if ($plain === false) return false;
-        return file_put_contents($dst, $plain) === strlen($plain);
+        return fwrite($out, $plain) === strlen($plain);
+    }
+
+    /** Raises the memory limit like other admin tasks and checks that $bytes still fit. */
+    private function check_memory($bytes) {
+        wp_raise_memory_limit('admin');
+        $limit = wp_convert_hr_to_bytes((string) ini_get('memory_limit'));
+        if ($limit > 0 && memory_get_usage(true) + $bytes > $limit) {
+            return new WP_Error('memory', sprintf(
+                'This old backup (AES-256-GCM, before 2.1.1) needs about %s of memory to decrypt, PHP allows %s. Raise memory_limit for the download (backups from 2.1.1 on are decrypted in chunks).',
+                size_format($bytes + memory_get_usage(true)), size_format($limit)
+            ));
+        }
+        return true;
     }
 
     public static function get_backups() {
@@ -543,13 +724,18 @@ class Tegatai_Backup_Stream {
      * chunk or data after it.
      */
     public static function decrypt($in, $out, $key, $ad) {
-        $header = (string) fread($in, SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
-        if (strlen($header) !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES) return false;
         try {
-            $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($header, $key);
+            return self::decrypt_chunks($in, $out, $key, $ad);
         } catch (\Throwable $e) {
+            // SodiumException or any other error: a damaged backup is a failed decryption
             return false;
         }
+    }
+
+    private static function decrypt_chunks($in, $out, $key, $ad) {
+        $header = (string) fread($in, SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES);
+        if (strlen($header) !== SODIUM_CRYPTO_SECRETSTREAM_XCHACHA20POLY1305_HEADERBYTES) return false;
+        $state = sodium_crypto_secretstream_xchacha20poly1305_init_pull($header, $key);
         $final = false;
         while (true) {
             $len = (string) fread($in, 4);

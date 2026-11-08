@@ -1,3 +1,29 @@
+## [2.1.3] - Backups: snapshot, BIT columns, safer decryption
+
+### Changed
+
+* **Consistent snapshot:** the dump runs in one read-only transaction (`START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY`, REPEATABLE READ), like `mysqldump --single-transaction`. All InnoDB tables show the same point in time, also while the site keeps writing. Tables without transactions (MyISAM, Aria, MEMORY) are named at the top of the dump and in the log. Tested: a row inserted 2 seconds into a 6-second backup is not in the dump.
+* **BIT columns** are read as `CAST(col AS UNSIGNED)`. mysqlnd returns BIT as a decimal string, libmysqlclient as raw bytes; the cast gives the same plain number with both. Tested with BIT(1), BIT(8), BIT(64) (incl. `18446744073709551615`) and NULL, imported under `NO_BACKSLASH_ESCAPES,ANSI_QUOTES,STRICT_ALL_TABLES`.
+* **Decrypted temporary files** (download) are created with umask `0077`, set to `0600` and checked before anything is written; also for the old formats.
+* **Decryption never ends in an uncaught error:** the whole decoder (sodium and OpenSSL) runs inside `try`/`catch`; damaged files, wrong keys or library exceptions come back as a normal "decryption failed".
+* **Old backups:** v1 (AES-256-CBC, before 1.5) is now decrypted in 1 MB blocks. TGB2 (AES-256-GCM, 1.5 to 2.1.0) cannot be streamed with PHP (no streaming GCM); the file is read once (no extra copy) and the memory needed is checked against the PHP memory limit first, with a clear message instead of a fatal error. Tested with real TGB2 backups made by Tegatai 1.5 and 2.1.0, downloaded with 2.1.3 and imported (tables identical). TGB2 has always used the key `derive_key('enc')` (HMAC-SHA256 of the backup secret); only v1 used the hex secret directly.
+
+### Fixed
+
+* Download of a decrypted backup could send 0 bytes: the size of the temporary file was read from PHP's stat cache (from its creation).
+
+## [2.1.2] - Backups: SQL modes
+
+### Fixed
+
+* **SQL mode on export:** the dump runs with a fixed session `sql_mode` and the old mode is restored afterwards. With `ANSI_QUOTES` in the server or session mode, `SHOW CREATE TABLE` returned `"double quoted"` names that do not import without that mode; with `NO_BACKSLASH_ESCAPES`, values were escaped differently than the dump expects.
+* **SQL mode on import:** the dump now saves the session settings of the importing connection (`@OLD_SQL_MODE`, `FOREIGN_KEY_CHECKS`, character set), sets `SQL_MODE='NO_AUTO_VALUE_ON_ZERO'` and restores everything at the end, like mysqldump. A stored `0` in an AUTO_INCREMENT column stays `0`, and backslash escapes are read correctly even when the importer uses `NO_BACKSLASH_ESCAPES`. The 2.1.1 dump set the mode without restoring it.
+* Tested: export from a session with `NO_BACKSLASH_ESCAPES,ANSI_QUOTES,STRICT_ALL_TABLES`, import with an empty mode, the MariaDB default, `NO_BACKSLASH_ESCAPES,ANSI_QUOTES,STRICT_ALL_TABLES,PIPES_AS_CONCAT` and `ANSI,NO_BACKSLASH_ESCAPES,TRADITIONAL`: every value identical, ids `0,1,2` kept, the session mode of the importer afterwards unchanged. Control: without the mode lines the `0` became `3`, and with `NO_BACKSLASH_ESCAPES` the import failed.
+
+### Changed
+
+* **The dump says what it contains:** "all base tables (structure and data)". Views, triggers, stored routines and events are not saved; when the database has any, their number is written at the top of the dump and logged with each backup.
+
 ## [2.1.1] - Backups: streaming and fail closed
 
 ### Changed
@@ -5,7 +31,7 @@
 * **Backups are streamed:** rows are read unbuffered (one row in memory), gzip-compressed with `deflate_add()` and encrypted in 1 MB chunks straight into the file. Memory use no longer grows with the database size.
 * **Fail closed:** a backup is never written unencrypted. Without a backup key the data is encrypted with XChaCha20-Poly1305 (`crypto_secretstream`, format `TGB4`) and a key derived from `TEGATAI_BACKUP_SECRET`; AES-256-GCM is no longer written. Without the sodium extension no backup is made.
 * **Write errors are detected:** the backup is written to a temporary file (`0600`) and renamed only after every write, the gzip end, `fflush()` and `fclose()` succeeded. On an error (e.g. disk full) the temporary file is deleted, `BACKUP-ERR` is logged, the manual backup shows the error, and the retention cleanup does not run. Leftover temporary files older than a day are removed.
-* **SQL export:** text values are escaped with `mysqli_real_escape_string()` (charset-aware) instead of `addslashes()`; binary columns (BLOB, BINARY, VARBINARY) are written as hex literals, numbers and BIT unquoted, `NULL` as `NULL`. Table names are quoted. Several rows per `INSERT`. The dump sets `NAMES`, turns foreign key checks off, keeps `0` in auto-increment columns and contains `DROP TABLE IF EXISTS` per table; views are skipped. The first line is now an SQL comment (`-- <?php exit; ?>`), so the file can be imported directly. Tested with a restore into an empty database (text with quotes, backslashes, NUL, `%`, Japanese and emoji; binary data; dates; decimals; BIT).
+* **SQL export:** text values are escaped with `mysqli_real_escape_string()` (charset-aware) instead of `addslashes()`; binary columns (BLOB, BINARY, VARBINARY) are written as hex literals, numbers and BIT unquoted, `NULL` as `NULL`. Table names are quoted. Several rows per `INSERT`. The dump sets `NAMES`, turns foreign key checks off, sets `NO_AUTO_VALUE_ON_ZERO` and contains `DROP TABLE IF EXISTS` per table; views are skipped. The first line is now an SQL comment (`-- <?php exit; ?>`), so the file can be imported directly. Tested with a restore into an empty database (text with quotes, backslashes, NUL, `%`, Japanese and emoji; binary data; dates; decimals; BIT).
 * **Download** decrypts into a temporary file in the protected backup folder first; a damaged or cut-off backup is rejected before anything is sent. Format `TGB3` and `TGB4` files are decrypted chunk by chunk.
 
 ### Fixed
