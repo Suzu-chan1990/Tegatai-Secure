@@ -27,10 +27,11 @@ class Tegatai_Server {
         require_once ABSPATH . 'wp-admin/includes/misc.php';
         $ops = tegatai_get_setting('tegatai_options', []);
         
-        // RewriteRule in ABSPATH/.htaccess sees the path relative to that directory, so the URL path of the
-        // WordPress directory (subdirectory installs, e.g. "/blog") has to be stripped.
+        // The rules go into WordPress' own .htaccess (get_home_path(), the directory that serves home_url()).
+        // RewriteRule sees the path relative to that directory, so the URL path of the home
+        // directory (subdirectory installs, e.g. "/blog") has to be stripped.
         $up_url = ltrim(self::url_path(wp_upload_dir()['baseurl']), '/');
-        $wp_url = ltrim(self::url_path(site_url()), '/');
+        $wp_url = ltrim(self::url_path(home_url()), '/');
         if ($wp_url !== '' && strpos($up_url, $wp_url . '/') === 0) {
             $up_url = substr($up_url, strlen($wp_url) + 1);
         }
@@ -72,7 +73,7 @@ class Tegatai_Server {
         $rules[] = 'Require all denied';
         $rules[] = '</FilesMatch>';
         
-        insert_with_markers(ABSPATH . '.htaccess', 'Tegatai-Secure', $rules);
+        insert_with_markers(self::htaccess_file(), 'Tegatai-Secure', $rules);
     }
 
     private static function tegatai_sanitize_valid_referer_entry($entry) {
@@ -86,19 +87,36 @@ class Tegatai_Server {
         return strtolower($entry);
     }
 
-    private static function get_rules_file_path() {
-        $root = ABSPATH . 'tegatai-nginx.conf';
-        $root_ok = (is_dir(ABSPATH) && wp_is_writable(ABSPATH)) || (file_exists($root) && wp_is_writable($root));
-        if ($root_ok) return $root;
-
-        $ud = wp_upload_dir();
-        $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
-        return $up;
+    /**
+     * nginx does not read any file on its own; the rules only become active through an
+     * "include" line in the server block, which can point anywhere. The file is therefore
+     * kept in a dedicated, protected folder below the uploads directory
+     * (uploads/tegatai-server/tegatai-nginx.conf), never in the WordPress root.
+     */
+    public static function get_rules_file_path() {
+        return trailingslashit(tegatai_server_dir()) . 'tegatai-nginx.conf';
     }
 
-    private static function get_rules_file_mode() {
-        $path = self::get_rules_file_path();
-        return (strpos($path, ABSPATH) === 0) ? 'root' : 'uploads';
+    // Locations used by older versions (WordPress root, uploads root). Only read, never written:
+    // the admin is told to point the nginx include to the new file.
+    public static function legacy_rules_files() {
+        $out = [];
+        $home = self::home_dir();
+        if ($home !== '' && file_exists($home . 'tegatai-nginx.conf')) $out[] = $home . 'tegatai-nginx.conf';
+        $ud = wp_upload_dir(null, false);
+        $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
+        if (file_exists($up)) $out[] = $up;
+        return $out;
+    }
+
+    // Directory that holds WordPress' own .htaccess (same function core uses for it).
+    private static function home_dir() {
+        if (!function_exists('get_home_path')) require_once ABSPATH . 'wp-admin/includes/file.php';
+        return trailingslashit(get_home_path());
+    }
+
+    private static function htaccess_file() {
+        return self::home_dir() . '.htaccess';
     }
 
     public static function detect_server() { 
@@ -123,10 +141,9 @@ class Tegatai_Server {
     }
 
     public static function has_rules() {
-        $ud = wp_upload_dir();
-        $ht = ABSPATH . '.htaccess';
-        return file_exists(ABSPATH . 'tegatai-nginx.conf')
-            || file_exists(trailingslashit($ud['basedir']) . 'tegatai-nginx.conf')
+        $ht = self::htaccess_file();
+        return file_exists(self::get_rules_file_path())
+            || (bool) self::legacy_rules_files()
             || (file_exists($ht) && strpos((string) @file_get_contents($ht), '# BEGIN Tegatai-Secure') !== false);
     }
 
@@ -137,16 +154,14 @@ class Tegatai_Server {
         if (self::has_rules()) update_option('tegatai_restore_rules', 1, false);
 
         $stub = "# Tegatai Secure is deactivated - no rules active.\n# The rules are written again when the plugin is activated.\n";
-        $root = ABSPATH . 'tegatai-nginx.conf';
-        if (file_exists($root)) { @file_put_contents($root, $stub); }
+        $file = self::get_rules_file_path();
+        if (file_exists($file)) { @file_put_contents($file, $stub); }
 
-        $ud = wp_upload_dir();
-        $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
-        if (file_exists($up)) { @file_put_contents($up, $stub); }
+        $ud = wp_upload_dir(null, false);
 
         // write_apache_rules() uses insert_with_markers(..., 'Tegatai-Secure'), i.e. "# BEGIN Tegatai-Secure".
         // "TEGATAI" / "TEGATAI UPLOADS" are markers written by older versions.
-        self::remove_marker_blocks(ABSPATH . '.htaccess', ['Tegatai-Secure', 'TEGATAI']);
+        self::remove_marker_blocks(self::htaccess_file(), ['Tegatai-Secure', 'TEGATAI']);
         self::remove_marker_blocks(trailingslashit($ud['basedir']) . '.htaccess', ['TEGATAI UPLOADS']);
     }
 
@@ -168,6 +183,8 @@ class Tegatai_Server {
 
     private static function write_nginx_rules() {
         $file_path = self::get_rules_file_path();
+        // Own folder below uploads, protected for Apache/IIS; nginx denies it via the rules themselves.
+        tegatai_protect_directory(tegatai_server_dir());
         $rules = self::generate_nginx_content();
         
         $end_marker = "# --- END TEGATAI RULES ---";
@@ -208,7 +225,7 @@ class Tegatai_Server {
         // custom WP_CONTENT_DIR/UPLOADS layouts), never from filesystem paths.
         $ud = wp_upload_dir();
         $up_dir = preg_quote(self::url_path($ud['baseurl']));
-        $pl_dir = preg_quote(self::url_path(plugins_url()));
+        $pl_dir = preg_quote(self::url_path(tegatai_plugins_url()));
         $th_dir = preg_quote(self::url_path(get_theme_root_uri()));
         $ct_dir = preg_quote(self::url_path(content_url()));
 
@@ -292,7 +309,8 @@ class Tegatai_Server {
         $lines[] = "location ~ ^" . $up_dir . "/tegatai-backups/ { deny all; access_log off; log_not_found off; return 403; }";
         $lines[] = "location ~ ^" . $up_dir . "/tegatai-logs/ { deny all; access_log off; log_not_found off; return 403; }";
         $lines[] = "location ~ ^" . $up_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
-        // Tegatai_Quarantine stores its blobs under WP_CONTENT_DIR
+        $lines[] = "location ~ ^" . $up_dir . "/tegatai-server/ { deny all; access_log off; log_not_found off; return 403; }";
+        // Quarantine folder of older versions (below the content directory)
         $lines[] = "location ~ ^" . $ct_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
 
         if (!empty($ops['server_disable_php_uploads'])) {

@@ -1,3 +1,59 @@
+## [2.2.1] - Hardening
+
+### Security
+
+* **Passwordless magic link login removed** (option "Magic links", the login form box and the `teg_magic_login` handler). Every login now needs the password.
+* **Temporary admin accounts removed:** Tegatai no longer creates user accounts or sends login links ("Temp Admin Accounts" card and `tegatai_create_temp_admin` are gone). Accounts that older versions created still expire and are deleted by the daily cleanup.
+* **2FA step bound to the password:** a 2FA challenge is only created after WordPress has verified the password (`password_ok` in the challenge), and only such challenges are accepted. A challenge can be completed once.
+* **WP Masking without WordPress salts:** automatic aliases and hidden file names use an own random key (`tegatai_mask_key`, created once) with HMAC-SHA256 instead of `wp_salt('auth')`. Rotating the WordPress salts no longer changes masked names, and no salt-derived value is stored. File names from the old scheme are discarded once and recorded again with the new key.
+* **AbuseIPDB opt-in is enforced on every run:** switching reporting off deletes the queued reports and the pending cron event at once (new action `tegatai_setting_updated`), and the background worker checks the opt-in before it sends anything.
+
+### Added
+
+* **GitHub updates (GitHub edition):** the Plugin Update Checker (5.6, `lib/plugin-update-checker`) is back and checks the GitHub releases of Suzu-chan1990/Tegatai-Secure; the ZIP attached to a release is used when there is one. The header `Update URI` keeps WordPress.org from offering its edition over this one. The check only runs in the admin, WP-Cron and WP-CLI, never on normal page views. The WordPress.org edition stays without it.
+* **2FA backup codes:** 10 one-time codes per user (alphabet without 0/o, 1/l/i, format `abcde-12345`), stored only as password hashes. They are shown once after generating, with download (.txt), copy and print. Usable in every 2FA mode; each code works once, and using one sends an email to the account owner with the number of codes left. Generating new codes invalidates the old set.
+
+### Changed
+
+* **nginx rules file** moved to `wp-content/uploads/tegatai-server/tegatai-nginx.conf` (own folder, protected for Apache/IIS and denied by the nginx rules themselves). The old files in the WordPress root or the uploads root are no longer written; the Server tab lists them with the new include line. **Update the `include` line in the nginx server block, reload nginx, then delete the old file.**
+* **Paths:** `.htaccess` is located with `get_home_path()` and the rules use the `home_url()` path; plugin paths come from `plugin_dir_path()` / `plugin_dir_url()` of Tegatai itself instead of `WP_PLUGIN_DIR` / `plugins_url()` (scanner, file integrity monitor, WP Masking, server rules).
+* **Quarantine** moved to `wp-content/uploads/tegatai-quarantine/`; existing entries are moved over once and stay restorable.
+* **Admin styles** (switches, buttons, terminal log) are scoped to `.teg-wrap`, so they no longer change other admin screens.
+* **Frontend content protection** (right click / copy protection) is added with `wp_add_inline_script()` / `wp_add_inline_style()` instead of printing `<script>` / `<style>` in the footer.
+
+### Fixed
+
+* **Activation:** the logs table version is only recorded when the table really exists, so a failed `dbDelta()` is retried on the next admin request. The legacy zero-date default of `time` is only dropped when it is actually present (no `ALTER` on every install). `SHOW TABLES LIKE` uses `esc_like()`.
+* **Backups made before 2.1** (TGB2, v1): a missing PHP OpenSSL extension gives a clear error instead of failing during decryption.
+
+## [2.2.0] - Google reCAPTCHA
+
+### Added
+
+* **Google reCAPTCHA** for login and comments (Spam tab), as an alternative to Cloudflare Turnstile. Type **v2** ("I'm not a robot" checkbox) or **v3** (invisible, score based, adjustable minimum score 0.1–0.9, default 0.5). v3 requests the token only when the form is submitted, so it cannot expire while the visitor types.
+* **Only one captcha at a time:** switching reCAPTCHA on switches Turnstile off and the other way round; the other switch is turned off in the settings page right away. If both are set anyway (old settings, config import), reCAPTCHA is used and Turnstile is shown as off.
+* reCAPTCHA follows the same rules as Turnstile: checked for every login attempt (right or wrong password), the log entry `AUTH-BOT` / `SPAM-BOT` names the reason and Google's error codes (`missing`, `rejected: invalid-input-secret`, `score 0.3 below 0.5`, `unreachable` ...), and an outage of the service does not count towards the login limit.
+* The reCAPTCHA secret key is not exported with the configuration (like the Turnstile secret key).
+* German and English translations for the new settings.
+
+## [2.1.4] - WordPress.org release
+
+### Changed
+
+* **GitHub updater removed:** the Plugin Update Checker call is gone; updates come from the WordPress.org plugin directory.
+* **Translations** are loaded by WordPress through the `Domain Path` header; the `load_plugin_textdomain()` call was removed.
+* **Plugin name** is "Tegatai Secure" in the plugin header and `readme.txt` (matches the slug and text domain `tegatai-secure`). License header: `GPLv2 or later`.
+* **`readme.txt`** uses the WordPress.org format (Description, Installation, FAQ, External services with terms and privacy links, Screenshots, Changelog); short description within 150 characters.
+* **Plugin Check:** `unlink()` replaced by `wp_delete_file()`, `is_writable()` by `wp_is_writable()`; documented exceptions (`phpcs:ignore` / `phpcs:disable` with reason) for the streamed backup files, the unbuffered mysqli dump, atomic `rename()`, and the files that must be written to the WordPress folder.
+
+### Fixed
+
+* **Turnstile (login and comments):** a failed captcha is now explained instead of looking like a wrong password or 2FA code. The log entry `AUTH-BOT` / `SPAM-BOT` names the reason and Cloudflare's error codes (`missing`: no token in the form, the widget did not load or was not solved; `rejected: invalid-input-secret`, `timeout-or-duplicate` ...; `unreachable`: no answer from Cloudflare). A form without a token is rejected without asking Cloudflare. The request to Cloudflare waits 10 instead of 5 seconds.
+* **Turnstile is checked for every login attempt, not only after a correct password.** Before, passwords could be tried without solving the captcha, and the captcha error revealed that a password was correct. A failed captcha now gives the same answer for right and wrong passwords. Attempts without a token are rejected without a request to Cloudflare and count towards the login limit.
+* **Turnstile outage no longer locks the IP:** when Cloudflare cannot be reached, the attempt does not count towards the login limit (5 failures = 60 minutes).
+* **Turnstile messages** are English source strings and translatable (they were hard-coded German); German and English translations added.
+* **Hide wp-admin** no longer answers 404 on the login page: it looked for `wp-admin` anywhere in the URL, including `?redirect_to=.../wp-admin/`, which WordPress adds whenever a logged-out visitor opens `/wp-admin/`. Only the path is checked now; `admin-post.php` and `admin-ajax.php` stay reachable, and posts with "wp-admin" in the slug are no longer hidden.
+
 ## [2.1.3] - Backups: snapshot, BIT columns, safer decryption
 
 ### Changed

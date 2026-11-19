@@ -40,8 +40,9 @@ class Tegatai_Admin {
         'enable_2fa' => 'bool', 'twofa_mode' => ['email', 'app', 'both'],
         'custom_login_slug' => 'slug', 'block_default_login' => 'bool', 'block_dash_access' => 'bool', 'enable_idle_logout' => 'bool', 'block_wp_admin_hide' => 'bool',
         'enable_login_limit' => 'bool', 'enable_trusted_devices' => 'bool', 'trusted_devices' => 'bool', 'disable_app_passwords' => 'bool', 'enable_single_session' => 'bool',
-        'enable_ip_guard' => 'bool', 'enable_browser_guard' => 'bool', 'session_max_lifetime' => 'int', 'enable_magic_links' => 'bool',
+        'enable_ip_guard' => 'bool', 'enable_browser_guard' => 'bool', 'session_max_lifetime' => 'int',
         'enable_turnstile' => 'bool', 'turnstile_site_key' => 'text', 'turnstile_secret_key' => 'text',
+        'enable_recaptcha' => 'bool', 'recaptcha_version' => ['v2', 'v3'], 'recaptcha_site_key' => 'text', 'recaptcha_secret_key' => 'text', 'recaptcha_threshold' => 'score',
         // Server rules
         'server_disable_indexing' => 'bool', 'server_protect_files' => 'bool', 'server_block_xmlrpc' => 'bool', 'server_hide_system_files' => 'bool',
         'server_block_dotfiles' => 'bool', 'block_dotfiles' => 'bool', 'block_system_files' => 'bool', 'server_disable_php_uploads' => 'bool',
@@ -67,7 +68,10 @@ class Tegatai_Admin {
     ];
 
     // Keys excluded from the JSON export (credentials / secret URLs).
-    private $secret_keys = ['turnstile_secret_key', 'alert_webhook_url'];
+    private $secret_keys = ['turnstile_secret_key', 'recaptcha_secret_key', 'alert_webhook_url'];
+
+    // Captcha switches that exclude each other: switching one on switches the other off
+    private $captcha_exclusive = ['enable_recaptcha' => 'enable_turnstile', 'enable_turnstile' => 'enable_recaptcha'];
 
     public function __construct() {
         add_action('wp_ajax_teg_restore_quarantine', [$this, 'ajax_restore_quarantine']);
@@ -364,11 +368,38 @@ class Tegatai_Admin {
         echo '</div></div>';
     }
 
+    // Notifications card (email alerts, webhook), shown in the Login tab.
+    private function render_notifications_card() {
+        echo '<div class="teg-card"><h3>' . esc_html__('Notifications', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_email_alerts', esc_html__('Enable Email Alerts', 'tegatai-secure'), esc_html__('Receive notifications for critical security events.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;">
+        <label class="teg-switch-label">' . esc_html__('Recipient Email', 'tegatai-secure') . '</label>
+        <input type="email" name="tegatai_options[alert_email]" value="'.esc_attr($this->get_opt('alert_email', get_option('admin_email'))).'" class="teg-form-input">
+        <label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Webhook URL', 'tegatai-secure') . '</label>
+        <input type="url" name="tegatai_options[alert_webhook_url]" value="'.esc_attr($this->get_opt('alert_webhook_url', '')).'" class="teg-form-input" placeholder="https://discord.com/api/webhooks/...">
+        <input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" >
+    </form></div>';
+    }
+
+    // 2FA card: on/off, method and the current user's authenticator + backup codes (Login tab).
+    private function render_2fa_card() {
+        echo '<div class="teg-card" id="tegatai-2fa-card"><h3>' . esc_html__('2FA', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_2fa', esc_html__('Enable 2FA', 'tegatai-secure'), esc_html__('Enforces Two-Factor Authentication for administrators.', 'tegatai-secure'));
+        echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;">';
+        echo '<label class="teg-switch-label">' . esc_html__('Preferred Method', 'tegatai-secure') . '</label>';
+        echo '<select name="tegatai_options[twofa_mode]" class="teg-form-input">';
+        echo '<option value="email" '.selected($this->get_opt('twofa_mode'), 'email', false).'>' . esc_html__('Email Code Only', 'tegatai-secure') . '</option>';
+        echo '<option value="app" '.selected($this->get_opt('twofa_mode'), 'app', false).'>' . esc_html__('App Only', 'tegatai-secure') . '</option>';
+        echo '<option value="both" '.selected($this->get_opt('twofa_mode', 'both'), 'both', false).'>' . esc_html__('Both', 'tegatai-secure') . '</option>';
+        echo '</select>';
+        echo '<input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" >';
+        echo '</form>';
+        if (class_exists('Tegatai_TwoFactor') && method_exists('Tegatai_TwoFactor', 'render_enrollment_box')) { Tegatai_TwoFactor::render_enrollment_box(get_current_user_id(), true); }
+        echo '</div>'; 
+    }
+
     // Shows where the nginx rules file is and whether the last write worked.
     private function render_rules_status() {
         $st = Tegatai_Server::rules_status();
         $ok = !empty($st['ok']);
-        $path = (string) ($st['path'] ?? (ABSPATH . 'tegatai-nginx.conf'));
+        $path = (string) ($st['path'] ?? Tegatai_Server::get_rules_file_path());
         $exists = $path !== '' && file_exists($path);
         $bg = $ok && $exists ? '#dcfce7;color:#15803d;border:1px solid #bbf7d0' : '#fee2e2;color:#b91c1c;border:1px solid #fecaca';
         echo '<div style="margin-top:16px; padding:10px 12px; border-radius:6px; font-size:12px; line-height:1.6; background:' . esc_attr($bg) . ';">';
@@ -386,6 +417,15 @@ class Tegatai_Admin {
             echo esc_html(sprintf(__('The rules file could not be written: %s', 'tegatai-secure'), (string) $st['error']));
         }
         echo '</div>';
+        // Files written by older versions to the WordPress root or the uploads root are no longer updated.
+        $legacy = array_diff(Tegatai_Server::legacy_rules_files(), [$path]);
+        if ($legacy) {
+            echo '<div style="margin-top:10px; padding:10px 12px; border-radius:6px; font-size:12px; line-height:1.6; background:#fef9c3;color:#854d0e;border:1px solid #fde68a;">';
+            echo esc_html__('The nginx rules file has moved. Older versions wrote it to the following location(s), which are no longer updated:', 'tegatai-secure');
+            foreach ($legacy as $old) echo '<br><code>' . esc_html($old) . '</code>';
+            echo '<br>' . esc_html__('Change the include line in your nginx server block to the new file, reload nginx and then delete the old file(s):', 'tegatai-secure') . ' <code>include ' . esc_html($path) . ';</code>';
+            echo '</div>';
+        }
     }
 
     public function handle_write_rules() {
@@ -416,10 +456,16 @@ class Tegatai_Admin {
             $ops['enable_trusted_devices'] = ($val === '1') ? 1 : 0;
             $ops['trusted_devices'] = ($val === '1') ? 1 : 0;
         }
+        // Only one captcha at a time: Google reCAPTCHA on = Cloudflare Turnstile off (and the other way round)
+        $switched_off = [];
+        if ($val === '1' && isset($this->captcha_exclusive[$key]) && !empty($ops[$this->captcha_exclusive[$key]])) {
+            $ops[$this->captcha_exclusive[$key]] = 0;
+            $switched_off[] = $this->captcha_exclusive[$key];
+        }
         tegatai_update_setting($this->options_slug, $ops);
         if (strpos($key, 'server_mask_') === 0 && class_exists('Tegatai_Mask')) Tegatai_Mask::check(); // checks the new paths and writes the rules
         elseif (strpos($key, 'server_') === 0) Tegatai_Server::force_update();
-        wp_send_json_success(['message' => __('Saved successfully', 'tegatai-secure')]);
+        wp_send_json_success(['message' => __('Saved successfully', 'tegatai-secure'), 'switched_off' => $switched_off]);
     }
 
     public function ajax_save_form() {
@@ -452,6 +498,7 @@ class Tegatai_Admin {
         switch ($type) {
             case 'bool': return ($value === '1' || $value === 'on' || $value === 'true') ? 1 : 0;
             case 'int': return max(0, intval($value));
+            case 'score': return is_numeric($value) ? round(max(0.1, min(0.9, (float) $value)), 1) : 0.5;
             case 'email': return sanitize_email($value);
             case 'url': return esc_url_raw(trim($value), ['https', 'http']);
             case 'slug': return sanitize_title($value);
@@ -624,24 +671,24 @@ class Tegatai_Admin {
             .teg-switch-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
             .teg-switch-label { font-size: 13px; font-weight: 600; color: var(--teg-text); display: flex; align-items: center; gap: 4px; }
             
-            form .teg-switch-desc, .teg-card > .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4.2; margin-bottom: 10px; display: block; }
+            .teg-wrap form .teg-switch-desc, .teg-wrap .teg-card > .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4.2; margin-bottom: 10px; display: block; }
             .teg-help-icon { color: var(--teg-primary); font-size: 14px; width: 14px; height: 14px; cursor: help; opacity: 0.7; transition: opacity 0.2s; }
             .teg-help-icon:hover { opacity: 1; }
 
-            .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin: 0; }
-            .switch input { opacity: 0; width: 0; height: 0; }
-            .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--teg-border); transition: .3s; border-radius: 34px; }
-            .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-            input:checked + .slider { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); }
-            input:checked + .slider:before { transform: translateX(16px); }
+            .teg-wrap .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin: 0; }
+            .teg-wrap .switch input { opacity: 0; width: 0; height: 0; }
+            .teg-wrap .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--teg-border); transition: .3s; border-radius: 34px; }
+            .teg-wrap .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+            .teg-wrap input:checked + .slider { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); }
+            .teg-wrap input:checked + .slider:before { transform: translateX(16px); }
             
             .teg-form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--teg-border); border-radius: 6px; font-size: 13px; margin-bottom: 8px; background: var(--teg-bg); color: var(--teg-text); transition: all 0.2s; box-sizing: border-box; }
             .teg-form-input:focus { border-color: var(--teg-primary); outline: none; background: var(--teg-surface); box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15); }
-            textarea.teg-form-input { min-height: 60px; font-family: monospace; font-size: 12px; line-height: 1.4; resize: vertical; }
-            textarea.teg-form-input:focus { min-height: 120px; }
+            .teg-wrap textarea.teg-form-input { min-height: 60px; font-family: monospace; font-size: 12px; line-height: 1.4; resize: vertical; }
+            .teg-wrap textarea.teg-form-input:focus { min-height: 120px; }
 
-            .button-primary { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)) !important; border: none !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color:#fff !important; text-shadow: none !important; }
-            .button-secondary { background: var(--teg-surface) !important; border: 1px solid var(--teg-border) !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color: var(--teg-text) !important; text-shadow: none !important; }
+            .teg-wrap .button-primary { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)) !important; border: none !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color:#fff !important; text-shadow: none !important; }
+            .teg-wrap .button-secondary { background: var(--teg-surface) !important; border: 1px solid var(--teg-border) !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color: var(--teg-text) !important; text-shadow: none !important; }
             
             .teg-table { width:100%; border-collapse:collapse; font-size:12px; border-radius: 6px; overflow: hidden; border: 1px solid var(--teg-border); }
             .teg-table th { text-align:left; padding:10px 12px; background: var(--teg-bg); color: var(--teg-muted); font-weight:700; border-bottom:1px solid var(--teg-border); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
@@ -764,7 +811,7 @@ class Tegatai_Admin {
             function tegToggle(key, elem) {
                 var val = elem.checked ? '1' : '0';
                 var data = new FormData(); data.append('action', 'teg_toggle_option'); data.append('nonce', '<?php echo esc_js( wp_create_nonce("teg_ajax_nonce") ); ?>'); data.append('key', key); data.append('val', val);
-                fetch(ajaxurl, { method: 'POST', body: data }).then(res => res.json()).then(res => { if(res.success) showToast("<?php echo esc_js(__('Saved successfully', 'tegatai-secure')); ?>"); else { alert("<?php echo esc_js(__('Error', 'tegatai-secure')); ?>"); elem.checked = !elem.checked; } });
+                fetch(ajaxurl, { method: 'POST', body: data }).then(res => res.json()).then(res => { if(res.success) { showToast("<?php echo esc_js(__('Saved successfully', 'tegatai-secure')); ?>"); (res.data && res.data.switched_off || []).forEach(function(k){ document.querySelectorAll('input.teg-toggle-checkbox[data-teg-key="' + k + '"]').forEach(function(c){ c.checked = false; }); }); } else { alert("<?php echo esc_js(__('Error', 'tegatai-secure')); ?>"); elem.checked = !elem.checked; } });
             }
             function tegSaveForm(form, event) {
                 event.preventDefault(); var btn = form.querySelector('input[type="submit"]'); var old=btn.value; btn.value="..."; btn.disabled=true;
@@ -1057,12 +1104,32 @@ class Tegatai_Admin {
         echo '</div>';
     }
 
+    // Google reCAPTCHA card (Spam tab). Switching it on switches Cloudflare Turnstile off.
+    private function render_recaptcha_card() {
+        $ver = $this->get_opt('recaptcha_version') === 'v3' ? 'v3' : 'v2';
+        $thr = is_numeric($this->get_opt('recaptcha_threshold')) ? (float) $this->get_opt('recaptcha_threshold') : 0.5;
+        echo '<div class="teg-card"><h3>' . esc_html__('Google reCAPTCHA', 'tegatai-secure') . '</h3>';
+        $this->render_toggle('enable_recaptcha', esc_html__('Enable reCAPTCHA', 'tegatai-secure'), esc_html__('Google CAPTCHA for login and comments. Switching it on switches Cloudflare Turnstile off.', 'tegatai-secure'));
+        echo '<p class="teg-switch-desc">' . esc_html__('Only one captcha can be active: reCAPTCHA or Turnstile.', 'tegatai-secure') . '</p>';
+        echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;">';
+        echo '<label class="teg-switch-label">' . esc_html__('Type', 'tegatai-secure') . '</label><select name="tegatai_options[recaptcha_version]" class="teg-form-input">';
+        echo '<option value="v2"' . selected($ver, 'v2', false) . '>' . esc_html__('v2 – "I\'m not a robot" checkbox', 'tegatai-secure') . '</option>';
+        echo '<option value="v3"' . selected($ver, 'v3', false) . '>' . esc_html__('v3 – invisible, score based', 'tegatai-secure') . '</option></select>';
+        echo '<label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Site Key', 'tegatai-secure') . '</label><input type="text" name="tegatai_options[recaptcha_site_key]" value="' . esc_attr($this->get_opt('recaptcha_site_key')) . '" class="teg-form-input" placeholder="6Lc...">';
+        echo '<label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Secret Key', 'tegatai-secure') . '</label><input type="password" name="tegatai_options[recaptcha_secret_key]" value="' . esc_attr($this->get_opt('recaptcha_secret_key')) . '" class="teg-form-input" placeholder="6Lc...">';
+        echo '<label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Minimum score (v3 only)', 'tegatai-secure') . '</label><input type="number" name="tegatai_options[recaptcha_threshold]" value="' . esc_attr(number_format($thr, 1, '.', '')) . '" min="0.1" max="0.9" step="0.1" class="teg-form-input">';
+        echo '<p class="teg-switch-desc">' . esc_html__('0.1 lets almost everyone through, 0.9 is very strict. Google recommends 0.5. The key type (v2 or v3) must match the type selected above.', 'tegatai-secure') . '</p>';
+        echo '<input type="submit" class="button button-primary" style="margin-top:10px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div>';
+    }
+
     private function render_toggle($key, $label, $desc = '') {
         $val = $this->get_opt($key);
+        // reCAPTCHA wins when both flags are set (old settings): show Turnstile as off
+        if ($key === 'enable_turnstile' && $this->get_opt('enable_recaptcha')) $val = 0;
         $checked = $val ? 'checked' : '';
         echo "<div class='teg-switch-row'><div><span class='teg-switch-label'>" . wp_kses_post($label);
         if ($desc) echo " <span class='dashicons dashicons-info-outline teg-help-icon' title='" . esc_attr(wp_strip_all_tags($desc)) . "'></span>";
-        echo "</span></div><label class='switch'><input type='checkbox' class='teg-toggle-checkbox' onchange=\"tegToggle('" . esc_attr(esc_js($key)) . "', this)\"" . ($checked ? ' checked' : '') . "><span class='slider'></span></label></div>";
+        echo "</span></div><label class='switch'><input type='checkbox' class='teg-toggle-checkbox' data-teg-key='" . esc_attr($key) . "' onchange=\"tegToggle('" . esc_attr(esc_js($key)) . "', this)\"" . ($checked ? ' checked' : '') . "><span class='slider'></span></label></div>";
     }
 
     private function render_full_tabs($tab) {
@@ -1075,8 +1142,8 @@ class Tegatai_Admin {
 <textarea name="tegatai_options[server_custom_files_list]" class="teg-form-input" placeholder="/geheim.zip&#10;/custom/info.php">'.esc_textarea($this->get_opt('server_custom_files_list', '')).'</textarea>
 <label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Hotlink Whitelist', 'tegatai-secure') . '</label><textarea name="tegatai_options[server_hotlink_whitelist]" class="teg-form-input">'.esc_textarea($this->get_opt('server_hotlink_whitelist', '')).'</textarea><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" style="margin-top:8px;" ></form></div></div>'; }
         elseif ($tab == 'login') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('Login Protection', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_login_limit', esc_html__('Login Limit', 'tegatai-secure'), esc_html__('Locks out IPs after multiple failed login attempts.', 'tegatai-secure')); $this->render_toggle('disable_app_passwords', esc_html__('Disable App Passwords', 'tegatai-secure'), esc_html__('Turns off the WordPress application passwords feature.', 'tegatai-secure'));
-        $this->render_toggle('enable_trusted_devices', esc_html__('Trusted Devices', 'tegatai-secure'), esc_html__('Warns via email upon logins from unknown devices.', 'tegatai-secure')); $this->render_toggle('block_default_login', esc_html__('Block wp-login.php', 'tegatai-secure'), esc_html__('Disables the default login route (requires Custom Slug).', 'tegatai-secure')); $this->render_toggle('block_wp_admin_hide', esc_html__('Hide /wp-admin/', 'tegatai-secure'), esc_html__('Redirects unauthenticated users away from the admin area.', 'tegatai-secure')); $this->render_toggle('block_dash_access', esc_html__('Restrict Dashboard', 'tegatai-secure'), esc_html__('Only administrators and editors may access the WordPress dashboard.', 'tegatai-secure')); $this->render_toggle('enable_idle_logout', esc_html__('Idle Logout (60m)', 'tegatai-secure'), esc_html__('Automatically logs out inactive administrators after 60 minutes.', 'tegatai-secure')); $this->render_toggle('enable_magic_links', esc_html__('Enable Magic Links', 'tegatai-secure'), esc_html__('Allows passwordless login via a secure email link.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('Custom Login Slug', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><input type="text" name="tegatai_options[custom_login_slug]" value="'.esc_attr($this->get_opt('custom_login_slug', '')).'" class="teg-form-input" placeholder="mein-login"><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div></div>'; }
-        elseif ($tab == 'spam') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('Spam & Bots', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_honeypot', esc_html__('Enable Honeypot', 'tegatai-secure'), esc_html__('Adds an invisible field to catch automated spam bots.', 'tegatai-secure')); $this->render_toggle('enable_bot_timer', esc_html__('Minimum Fill Time', 'tegatai-secure'), esc_html__('Blocks forms submitted too quickly.', 'tegatai-secure')); $this->render_toggle('spam_check_referrer', esc_html__('Referrer Check', 'tegatai-secure'), esc_html__('Ensures form submissions come from your own site.', 'tegatai-secure')); $this->render_toggle('spam_block_trashmail', esc_html__('Block Trash Mails', 'tegatai-secure'), esc_html__('Rejects disposable email addresses during registration.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;"><label class="teg-switch-label">' . esc_html__('Max. Links', 'tegatai-secure') . '</label><input type="number" name="tegatai_options[spam_max_links]" value="'.esc_attr($this->get_opt('spam_max_links')).'" class="teg-form-input"><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('Cloudflare Turnstile', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_turnstile', esc_html__('Enable Turnstile', 'tegatai-secure'), esc_html__('Privacy-friendly Cloudflare CAPTCHA for login and comments.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;"><label class="teg-switch-label">' . esc_html__('Site Key', 'tegatai-secure') . '</label><input type="text" name="tegatai_options[turnstile_site_key]" value="'.esc_attr($this->get_opt('turnstile_site_key')).'" class="teg-form-input" placeholder="0x4A..."><label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Secret Key', 'tegatai-secure') . '</label><input type="password" name="tegatai_options[turnstile_secret_key]" value="'.esc_attr($this->get_opt('turnstile_secret_key')).'" class="teg-form-input" placeholder="0x4A..."><input type="submit" class="button button-primary" style="margin-top:10px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div></div>'; }
+        $this->render_toggle('enable_trusted_devices', esc_html__('Trusted Devices', 'tegatai-secure'), esc_html__('Warns via email upon logins from unknown devices.', 'tegatai-secure')); $this->render_toggle('block_default_login', esc_html__('Block wp-login.php', 'tegatai-secure'), esc_html__('Disables the default login route (requires Custom Slug).', 'tegatai-secure')); $this->render_toggle('block_wp_admin_hide', esc_html__('Hide /wp-admin/', 'tegatai-secure'), esc_html__('Redirects unauthenticated users away from the admin area.', 'tegatai-secure')); $this->render_toggle('block_dash_access', esc_html__('Restrict Dashboard', 'tegatai-secure'), esc_html__('Only administrators and editors may access the WordPress dashboard.', 'tegatai-secure')); $this->render_toggle('enable_idle_logout', esc_html__('Idle Logout (60m)', 'tegatai-secure'), esc_html__('Automatically logs out inactive administrators after 60 minutes.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('Custom Login Slug', 'tegatai-secure') . '</h3><form onsubmit="tegSaveForm(this, event)"><input type="text" name="tegatai_options[custom_login_slug]" value="'.esc_attr($this->get_opt('custom_login_slug', '')).'" class="teg-form-input" placeholder="mein-login"><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div>'; $this->render_notifications_card(); $this->render_2fa_card(); echo '</div>'; }
+        elseif ($tab == 'spam') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('Spam & Bots', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_honeypot', esc_html__('Enable Honeypot', 'tegatai-secure'), esc_html__('Adds an invisible field to catch automated spam bots.', 'tegatai-secure')); $this->render_toggle('enable_bot_timer', esc_html__('Minimum Fill Time', 'tegatai-secure'), esc_html__('Blocks forms submitted too quickly.', 'tegatai-secure')); $this->render_toggle('spam_check_referrer', esc_html__('Referrer Check', 'tegatai-secure'), esc_html__('Ensures form submissions come from your own site.', 'tegatai-secure')); $this->render_toggle('spam_block_trashmail', esc_html__('Block Trash Mails', 'tegatai-secure'), esc_html__('Rejects disposable email addresses during registration.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;"><label class="teg-switch-label">' . esc_html__('Max. Links', 'tegatai-secure') . '</label><input type="number" name="tegatai_options[spam_max_links]" value="'.esc_attr($this->get_opt('spam_max_links')).'" class="teg-form-input"><input type="submit" class="button button-primary" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div><div class="teg-card"><h3>' . esc_html__('Cloudflare Turnstile', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_turnstile', esc_html__('Enable Turnstile', 'tegatai-secure'), esc_html__('Privacy-friendly Cloudflare CAPTCHA for login and comments.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;"><label class="teg-switch-label">' . esc_html__('Site Key', 'tegatai-secure') . '</label><input type="text" name="tegatai_options[turnstile_site_key]" value="'.esc_attr($this->get_opt('turnstile_site_key')).'" class="teg-form-input" placeholder="0x4A..."><label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Secret Key', 'tegatai-secure') . '</label><input type="password" name="tegatai_options[turnstile_secret_key]" value="'.esc_attr($this->get_opt('turnstile_secret_key')).'" class="teg-form-input" placeholder="0x4A..."><input type="submit" class="button button-primary" style="margin-top:10px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" ></form></div>'; $this->render_recaptcha_card(); echo '</div>'; }
         elseif ($tab == 'geoip') {
             echo '<div class="teg-grid"><div class="teg-card">';
             echo '<h3><span class="dashicons dashicons-admin-site-alt3" style="vertical-align:middle;"></span> ' . esc_html__('GeoIP Configuration', 'tegatai-secure') . '</h3>';
@@ -1110,24 +1177,7 @@ class Tegatai_Admin {
         elseif ($tab == 'hardening') { echo '<div class="teg-grid"><div class="teg-card"><h3>' . esc_html__('System', 'tegatai-secure') . '</h3>'; $this->render_toggle('hide_wp_version', esc_html__('Hide WP Version', 'tegatai-secure'), esc_html__('Removes the WordPress version number from your source code.', 'tegatai-secure')); $this->render_toggle('disable_xmlrpc', esc_html__('Disable XML-RPC', 'tegatai-secure'), esc_html__('Turns off the XML-RPC API internally.', 'tegatai-secure')); $this->render_toggle('disable_file_editor', esc_html__('Disable File Editor', 'tegatai-secure'), esc_html__('Prevents editing plugins and themes via the WP dashboard.', 'tegatai-secure')); $this->render_toggle('block_user_enum', esc_html__('Block Enumeration', 'tegatai-secure'), esc_html__('Stops attackers from discovering your usernames.', 'tegatai-secure')); $this->render_toggle('hide_login_errors', esc_html__('Hide Login Errors', 'tegatai-secure'), esc_html__('Shows a generic message instead of revealing whether the username or password was wrong.', 'tegatai-secure'));
         echo '<hr style="margin:16px 0; border:0; border-top:1px solid #f1f5f9;">';
         $this->render_toggle('enable_admin_honeypot', esc_html__('Admin Honeypot', 'tegatai-secure'), esc_html__('Permanently bans anyone trying to log in as admin.', 'tegatai-secure'));
-        $this->render_toggle('enable_role_guard', esc_html__('Privilege Guard', 'tegatai-secure'), esc_html__('Prevents unauthorized users from upgrading to Administrator.', 'tegatai-secure')); echo '</div><div class="teg-card"><h3>' . esc_html__('Notifications', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_email_alerts', esc_html__('Enable Email Alerts', 'tegatai-secure'), esc_html__('Receive notifications for critical security events.', 'tegatai-secure')); echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;">
-        <label class="teg-switch-label">' . esc_html__('Recipient Email', 'tegatai-secure') . '</label>
-        <input type="email" name="tegatai_options[alert_email]" value="'.esc_attr($this->get_opt('alert_email', get_option('admin_email'))).'" class="teg-form-input">
-        <label class="teg-switch-label" style="margin-top:10px;">' . esc_html__('Webhook URL', 'tegatai-secure') . '</label>
-        <input type="url" name="tegatai_options[alert_webhook_url]" value="'.esc_attr($this->get_opt('alert_webhook_url', '')).'" class="teg-form-input" placeholder="https://discord.com/api/webhooks/...">
-        <input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" >
-    </form></div><div class="teg-card"><h3>' . esc_html__('2FA', 'tegatai-secure') . '</h3>'; $this->render_toggle('enable_2fa', esc_html__('Enable 2FA', 'tegatai-secure'), esc_html__('Enforces Two-Factor Authentication for administrators.', 'tegatai-secure'));
-        echo '<form onsubmit="tegSaveForm(this, event)" style="margin-top:10px;">';
-        echo '<label class="teg-switch-label">' . esc_html__('Preferred Method', 'tegatai-secure') . '</label>';
-        echo '<select name="tegatai_options[twofa_mode]" class="teg-form-input">';
-        echo '<option value="email" '.selected($this->get_opt('twofa_mode'), 'email', false).'>' . esc_html__('Email Code Only', 'tegatai-secure') . '</option>';
-        echo '<option value="app" '.selected($this->get_opt('twofa_mode'), 'app', false).'>' . esc_html__('App Only', 'tegatai-secure') . '</option>';
-        echo '<option value="both" '.selected($this->get_opt('twofa_mode', 'both'), 'both', false).'>' . esc_html__('Both', 'tegatai-secure') . '</option>';
-        echo '</select>';
-        echo '<input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Save', 'tegatai-secure') . '" >';
-        echo '</form>';
-        if (class_exists('Tegatai_TwoFactor') && method_exists('Tegatai_TwoFactor', 'render_enrollment_box')) { Tegatai_TwoFactor::render_enrollment_box(get_current_user_id(), true); }
-        echo '</div>'; 
+        $this->render_toggle('enable_role_guard', esc_html__('Privilege Guard', 'tegatai-secure'), esc_html__('Prevents unauthorized users from upgrading to Administrator.', 'tegatai-secure')); echo '</div>';
         
         // --- CARD 4: Deep Clean (fixed quotes) ---
         echo '<div class="teg-card" style="grid-column: 1 / -1;">';
@@ -1272,28 +1322,6 @@ onclick="return confirm(\'' . esc_js(__('Save current state as a safe baseline?'
         $this->render_toggle('enable_rightclick_disable', esc_html__('Disable Right-Click', 'tegatai-secure'), esc_html__('Prevents basic right-clicking.', 'tegatai-secure')); 
         $this->render_toggle('enable_copy_protection', esc_html__('Enable Copy Protection', 'tegatai-secure'), esc_html__('Stops users from copying text.', 'tegatai-secure')); 
         echo '</div>';
-        
-        echo '<div class="teg-card">';
-        echo '<h3>' . esc_html__('Temp Admin Accounts', 'tegatai-secure') . '</h3>';
-        echo '<p class="teg-switch-desc" style="display:block; margin-bottom:12px;">' . esc_html__('Creates a temporary admin account with a secure link.', 'tegatai-secure') . '</p>';
-        
-        if (isset($_GET['msg']) && $_GET['msg'] == 'temp_created') {
-            echo '<div style="padding:10px; background:#dcfce7; color:#15803d; border-radius:4px; margin-bottom:12px; border:1px solid #bbf7d0; font-size:12px;">' . esc_html__('Access generated and email sent!', 'tegatai-secure') . '</div>';
-        }
-        
-        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
-        wp_nonce_field('teg_temp_admin_nonce', '_wpnonce', true, true);
-        echo '<input type="hidden" name="action" value="tegatai_create_temp_admin">';
-        
-        echo '<label class="teg-switch-label">' . esc_html__('Recipient Email', 'tegatai-secure') . '</label>';
-        echo '<input type="email" name="temp_email" class="teg-form-input" placeholder="support@beispiel.de" required>';
-        
-        echo '<label class="teg-switch-label" style="margin-top:8px;">' . esc_html__('Validity (hours)', 'tegatai-secure') . '</label>';
-        echo '<input type="number" name="temp_hours" class="teg-form-input" value="24" min="1" max="168" required>';
-        
-        echo '<input type="submit" class="button button-primary" style="margin-top:8px;" value="' . esc_attr__('Generate Access', 'tegatai-secure') . '" >';
-        echo '</form>';
-        echo '</div>'; 
         
         echo '<div class="teg-card" style="grid-column: 1 / -1;">';
         echo '<h3 style="border-bottom:1px solid #e5e7eb; padding-bottom:10px;"><span class="dashicons dashicons-download"></span> ' . esc_html__('Configuration Export & Import', 'tegatai-secure') . '</h3>';
@@ -1884,6 +1912,8 @@ onclick="return confirm(\'' . esc_js(__('Save current state as a safe baseline?'
             if (is_bool($value) || is_int($value)) $value = (string)(int)$value;
             $ops[$key] = $this->sanitize_setting($key, $value);
         }
+        // Only one captcha at a time (reCAPTCHA wins, same rule as at runtime)
+        if (!empty($ops['enable_recaptcha'])) $ops['enable_turnstile'] = 0;
         tegatai_update_setting($this->options_slug, $ops);
         if (class_exists('Tegatai_Server')) Tegatai_Server::force_update();
         wp_send_json_success();

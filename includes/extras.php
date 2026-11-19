@@ -17,11 +17,11 @@ class Tegatai_Extras {
 
         // 2. Content Protection (Frontend JS/CSS)
         if (!empty($ops['enable_copy_protection']) || !empty($ops['enable_rightclick_disable'])) {
-            add_action('wp_footer', [$this, 'inject_protection_scripts'], 100);
+            add_action('wp_enqueue_scripts', [$this, 'inject_protection_scripts'], 100);
         }
 
-        // --- TEGATAI: Temporäre Support-Zugänge ---
-        add_action('admin_post_tegatai_create_temp_admin', [$this, 'create_temp_admin']);
+        // Temporary support accounts are no longer created by Tegatai (no user creation, no login links).
+        // Accounts that older versions created keep expiring and are removed by the daily cleanup.
         add_action('tegatai_daily_maintenance', [$this, 'cleanup_temp_admins']);
         add_filter('authenticate', [$this, 'reject_expired_temp_admin'], 99);
         add_filter('determine_current_user', [$this, 'reject_expired_temp_admin_session'], 99);
@@ -41,106 +41,45 @@ class Tegatai_Extras {
         return $result;
     }
 
+    // Enqueued through the WordPress script/style API (inline, no extra request), frontend only.
     public function inject_protection_scripts() {
         if (current_user_can('manage_options')) return;
         $ops = tegatai_get_setting('tegatai_options');
-        
-        echo "<script type='text/javascript'>\ndocument.addEventListener('DOMContentLoaded', function() {\n";
-        
-        if (!empty($ops['enable_rightclick_disable'])) {
-            echo "  document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);\n";
-        }
 
-        if (!empty($ops['enable_copy_protection'])) {
-            echo "  document.addEventListener('copy', function(e) { e.preventDefault(); }, false);\n";
-            echo "  document.addEventListener('cut', function(e) { e.preventDefault(); }, false);\n";
-            echo "  document.addEventListener('dragstart', function(e) { e.preventDefault(); }, false);\n";
-            echo "  document.addEventListener('selectstart', function(e) { e.preventDefault(); }, false);\n";
-            echo "  document.addEventListener('keydown', function(e) {\n";
-            echo "      if (e.ctrlKey || e.metaKey) {\n";
-            echo "          var k = (e.key || '').toLowerCase();\n";
-            echo "          if(k === 'c' || k === 'x' || k === 'u' || k === 's' || k === 'p') { e.preventDefault(); }\n";
-            echo "      }\n";
-            echo "  });\n";
+        $js = "document.addEventListener('DOMContentLoaded', function() {\n";
+        if (!empty($ops['enable_rightclick_disable'])) {
+            $js .= "  document.addEventListener('contextmenu', function(e) { e.preventDefault(); }, false);\n";
         }
-        echo "});\n</script>\n";
+        if (!empty($ops['enable_copy_protection'])) {
+            $js .= "  document.addEventListener('copy', function(e) { e.preventDefault(); }, false);\n";
+            $js .= "  document.addEventListener('cut', function(e) { e.preventDefault(); }, false);\n";
+            $js .= "  document.addEventListener('dragstart', function(e) { e.preventDefault(); }, false);\n";
+            $js .= "  document.addEventListener('selectstart', function(e) { e.preventDefault(); }, false);\n";
+            $js .= "  document.addEventListener('keydown', function(e) {\n";
+            $js .= "      if (e.ctrlKey || e.metaKey) {\n";
+            $js .= "          var k = (e.key || '').toLowerCase();\n";
+            $js .= "          if(k === 'c' || k === 'x' || k === 'u' || k === 's' || k === 'p') { e.preventDefault(); }\n";
+            $js .= "      }\n";
+            $js .= "  });\n";
+        }
+        $js .= "});\n";
+
+        wp_register_script('tegatai-content-protection', false, [], TEGATAI_VERSION, ['in_footer' => true]);
+        wp_enqueue_script('tegatai-content-protection');
+        wp_add_inline_script('tegatai-content-protection', $js);
 
         if (!empty($ops['enable_copy_protection'])) {
             // Form fields stay selectable and images stay clickable (links, galleries, lightboxes).
-            echo "<style>body, html, div, p, span, a, li, td, h1, h2, h3, h4, h5, h6 { -webkit-user-select: none !important; user-select: none !important; } input, textarea, [contenteditable] { -webkit-user-select: text !important; user-select: text !important; } img { -webkit-user-drag: none !important; }</style>\n";
+            wp_register_style('tegatai-content-protection', false, [], TEGATAI_VERSION);
+            wp_enqueue_style('tegatai-content-protection');
+            wp_add_inline_style('tegatai-content-protection', 'body, html, div, p, span, a, li, td, h1, h2, h3, h4, h5, h6 { -webkit-user-select: none !important; user-select: none !important; } input, textarea, [contenteditable] { -webkit-user-select: text !important; user-select: text !important; } img { -webkit-user-drag: none !important; }');
         }
-    }
-
-    public function create_temp_admin() {
-        if (!current_user_can('manage_options')) {
-            wp_die('Access Denied');
-        }
-        
-        check_admin_referer('teg_temp_admin_nonce');
-
-        $email = sanitize_email(wp_unslash($_POST['temp_email'] ?? ''));
-        $hours = intval($_POST['temp_hours'] ?? 0);
-
-        if (!is_email($email) || $hours < 1) {
-            wp_die(esc_html__('Invalid inputs.', 'tegatai-secure'));
-        }
-
-        $username = 'support_' . wp_generate_password(6, false);
-        $password = wp_generate_password(24, true, true);
-
-        $user_id = wp_create_user($username, $password, $email);
-
-        if (is_wp_error($user_id)) {
-            wp_die(esc_html($user_id->get_error_message()));
-        }
-
-        $user = new WP_User($user_id);
-        $user->set_role('administrator');
-
-        // Ablaufzeitpunkt in der Datenbank abspeichern
-        $expiry_timestamp = time() + ($hours * 3600);
-        update_user_meta($user_id, 'teg_temp_admin_expiry', $expiry_timestamp);
-        update_user_meta($user_id, 'teg_temp_admin_creator', get_current_user_id());
-
-        // Sicheren Magic-Link generieren (für passwortlosen Login)
-        $token = bin2hex(random_bytes(32));
-        $hash = hash('sha256', $token);
-        
-        // Transient speichern
-        set_transient('teg_magic_' . $hash, $user_id, $hours * 3600); 
-        $link = add_query_arg(['teg_magic_login' => 1, 'token' => $token], site_url());
-
-        // E-Mail Formatierung & Versand
-        $blog_name = get_bloginfo('name');
-        $subject = sprintf(/* translators: %s: site name */ esc_html__('Temporary Admin Access: %s', 'tegatai-secure'), $blog_name);
-        $message = sprintf(/* translators: 1: number of hours, 2: login link */ esc_html__("Hello,\n\nA temporary admin access has been created for you.\nThis access is valid for %1\$d hour(s).\n\nClick here to log in securely:\n%2\$s\n\nAfter the time expires, this account will be automatically and completely deleted.", 'tegatai-secure'), $hours, $link);
-        
-        $domain = wp_parse_url(home_url(), PHP_URL_HOST);
-        if (!$domain) {
-            $domain = 'localhost';
-        }
-        if (substr($domain, 0, 4) == 'www.') {
-            $domain = substr($domain, 4);
-        }
-        
-        $from_email = 'wordpress@' . $domain; 
-        $headers = ["From: \"$blog_name Security\" <$from_email>", "Content-Type: text/plain; charset=UTF-8"];
-        
-        wp_mail($email, $subject, $message, $headers);
-
-        if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('AUDIT', "Temporärer Admin erstellt: $email ($hours Stunden)");
-        }
-
-        // BEST PRACTICE: Open Redirect Schutz
-        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=extras&msg=temp_created'));
-        exit;
     }
 
     public function cleanup_temp_admins() {
         // Suche alle User, die ein festgelegtes Ablaufdatum besitzen
         $args = [
-            'meta_key' => 'teg_temp_admin_expiry',
+            'meta_key' => 'teg_temp_admin_expiry', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- daily cron job, only finds the few temporary admins
             'meta_compare' => 'EXISTS'
         ];
         
@@ -184,7 +123,7 @@ class Tegatai_Extras {
         return $user;
     }
 
-    // Existing sessions (cookies, magic-link logins) of an expired temp admin are no longer accepted.
+    // Existing sessions of an expired temp admin are no longer accepted.
     public function reject_expired_temp_admin_session($user_id) {
         if ($user_id && $this->is_expired_temp_admin($user_id)) return false;
         return $user_id;

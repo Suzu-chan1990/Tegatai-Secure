@@ -64,7 +64,7 @@ class Tegatai_Mask {
 
     public static function home_path()     { return self::path(home_url('/')); }
     public static function host()          { return (string) wp_parse_url(home_url('/'), PHP_URL_HOST); }
-    public static function plugins_path()  { return self::path(plugins_url()); }
+    public static function plugins_path()  { return self::path(tegatai_plugins_url()); }
     public static function themes_path()   { return self::path(get_theme_root_uri()); }
     public static function includes_path() { return self::path(includes_url()); }
     public static function ajax_path()     { return (string) wp_parse_url(admin_url('admin-ajax.php'), PHP_URL_PATH); }
@@ -86,9 +86,35 @@ class Tegatai_Mask {
         return array_values(array_unique(array_filter([get_stylesheet(), get_template()])));
     }
 
+    /**
+     * Own random key for the automatic aliases and the hidden file names.
+     *
+     * Earlier versions derived these identifiers from wp_salt('auth'). WordPress' authentication
+     * keys and salts are no longer used here at all: Tegatai creates its own random key once,
+     * so rotating the WordPress salts never affects masking and no salt-derived value is stored.
+     * File names that were created with the old salt-based scheme are discarded once.
+     */
+    const KEY_OPTION = 'tegatai_mask_key';
+
+    public static function secret() {
+        static $key = null;
+        if ($key !== null) return $key;
+        $stored = get_option(self::KEY_OPTION, '');
+        if (is_string($stored) && preg_match('/^[0-9a-f]{64}$/', $stored)) {
+            return $key = $stored;
+        }
+        $key = bin2hex(random_bytes(32));
+        update_option(self::KEY_OPTION, $key, true);
+        // Drop file names from the old salt-based scheme; they are recorded again with the new key.
+        delete_option(self::FILES_OPTION);
+        self::$files = null;
+        self::$files_dirty = false;
+        return $key;
+    }
+
     // Stable short alias used until an own name is saved, e.g. "x3f9a"
     public static function auto_alias($key) {
-        return 'x' . substr(md5(wp_salt('auth') . '|' . $key), 0, 4);
+        return 'x' . substr(hash_hmac('sha256', 'alias|' . $key, self::secret()), 0, 4);
     }
 
     /**
@@ -404,14 +430,14 @@ class Tegatai_Mask {
 
     private static function real_dir($key) {
         list($type, $name) = array_pad(explode(':', $key, 2), 2, '');
-        return $type === 'theme' ? trailingslashit(get_theme_root()) . $name : trailingslashit(WP_PLUGIN_DIR) . $name;
+        return $type === 'theme' ? trailingslashit(get_theme_root()) . $name : trailingslashit(tegatai_plugins_dir()) . $name;
     }
 
     private static function fetch($path) {
         $parts = wp_parse_url(home_url());
         $url = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '') . $path;
         // Logged-out request (no cookies): exactly what visitors get
-        $r = wp_remote_get($url, ['timeout' => 10, 'redirection' => 0, 'sslverify' => apply_filters('https_local_ssl_verify', false), 'headers' => ['Cache-Control' => 'no-cache']]);
+        $r = wp_remote_get($url, ['timeout' => 10, 'redirection' => 0, 'sslverify' => apply_filters('https_local_ssl_verify', false), 'headers' => ['Cache-Control' => 'no-cache']]); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- WordPress core filter for requests to the own site
         if (is_wp_error($r)) return ['code' => 0, 'body' => '', 'error' => $r->get_error_message()];
         return ['code' => (int) wp_remote_retrieve_response_code($r), 'body' => (string) wp_remote_retrieve_body($r), 'error' => ''];
     }
@@ -538,7 +564,7 @@ class Tegatai_Mask {
 
     // Stable name per file and version: a changed file gets a new name (works as cache busting)
     public static function token($key, $rel, $mtime) {
-        return 't' . substr(hash_hmac('sha256', $key . '|' . $rel . '|' . $mtime, wp_salt('auth')), 0, 11);
+        return 't' . substr(hash_hmac('sha256', 'file|' . $key . '|' . $rel . '|' . $mtime, self::secret()), 0, 11);
     }
 
     // New path prefix => key, for the verified entries

@@ -11,9 +11,7 @@ class Tegatai_FIM {
         // Auto-detect WP directories (works with renamed wp-content)
         $paths = [];
 
-        if (defined('WP_PLUGIN_DIR')) {
-            $paths['plugins'] = WP_PLUGIN_DIR;
-        }
+        $paths['plugins'] = tegatai_plugins_dir();
         if (defined('WPMU_PLUGIN_DIR')) {
             $paths['mu_plugins'] = WPMU_PLUGIN_DIR;
         }
@@ -21,8 +19,6 @@ class Tegatai_FIM {
         $tr = function_exists('get_theme_root') ? get_theme_root() : '';
         if (!empty($tr) && is_dir($tr)) {
             $paths['themes'] = $tr;
-        } elseif (defined('WP_CONTENT_DIR') && is_dir(WP_CONTENT_DIR . '/themes')) {
-            $paths['themes'] = WP_CONTENT_DIR . '/themes';
         }
 
         // Normalize + ensure existing

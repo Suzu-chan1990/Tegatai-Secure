@@ -8,8 +8,11 @@ class Tegatai_Quarantine {
 
     const OPT_DIR = 'teg_quarantine_dir_v1';
 
+    const OPT_MIGRATED = 'teg_quarantine_migrated_v2';
+
     public static function dir(): string {
-        $base = WP_CONTENT_DIR . '/tegatai-quarantine';
+        // Quarantine lives in a protected folder below the uploads directory.
+        $base = trailingslashit(wp_upload_dir(null, false)['basedir']) . 'tegatai-quarantine';
         $custom = get_option(self::OPT_DIR, '');
         if (is_string($custom) && $custom !== '') {
             $rp = realpath($custom);
@@ -29,7 +32,26 @@ class Tegatai_Quarantine {
             if (!file_exists($base . '/.htaccess')) @file_put_contents($base . '/.htaccess', "Require all denied\n");
         }
 
+        self::migrate_legacy($base);
         return $base;
+    }
+
+    /**
+     * Older versions kept the quarantine in <content dir>/tegatai-quarantine. Its entries are moved
+     * once into the uploads folder, so they stay restorable. The old location is only read here.
+     */
+    private static function migrate_legacy(string $base): void {
+        if (get_option(self::OPT_MIGRATED)) return;
+        $legacy = defined('WP_CONTENT_DIR') ? WP_CONTENT_DIR . '/tegatai-quarantine' : '';
+        $done = true;
+        if ($legacy !== '' && is_dir($legacy) && realpath($legacy) !== realpath($base)) {
+            foreach (array_merge((array) glob($legacy . '/*.json'), (array) glob($legacy . '/*.bin')) as $f) {
+                if (!is_string($f) || !preg_match('/^[a-f0-9]+\.(json|bin)$/', basename($f))) continue;
+                // rename() on purpose: the blob must be moved, not copied (no second readable copy)
+                if (!@rename($f, $base . '/' . basename($f))) $done = false; // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
+            }
+        }
+        if ($done) update_option(self::OPT_MIGRATED, 1, false);
     }
 
     public static function quarantine_file(string $abs_path): array {

@@ -126,15 +126,15 @@ class Tegatai_Terminal {
             .teg-term-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
             .teg-term-footer { background: #1e293b; padding: 10px 20px; color: #64748b; font-size: 12px; font-family: 'Inter', system-ui, sans-serif; border-top: 1px solid #334155; }
             
-            .log-row { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 4px; }
-            .log-row .time { color: #64748b; margin-right: 8px; }
-            .log-row .ip { color: #818cf8; margin-right: 8px; }
-            .log-row .type { font-weight: 700; margin-right: 8px; }
+            .teg-wrap .log-row { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 4px; }
+            .teg-wrap .log-row .time { color: #64748b; margin-right: 8px; }
+            .teg-wrap .log-row .ip { color: #818cf8; margin-right: 8px; }
+            .teg-wrap .log-row .type { font-weight: 700; margin-right: 8px; }
             
-            .log-row.danger .type, .log-row.danger .msg { color: #f87171; }
-            .log-row.warn .type, .log-row.warn .msg { color: #fbbf24; }
-            .log-row.success .type, .log-row.success .msg { color: #34d399; }
-            .log-row.info .type, .log-row.info .msg { color: #94a3b8; }
+            .teg-wrap .log-row.danger .type, .teg-wrap .log-row.danger .msg { color: #f87171; }
+            .teg-wrap .log-row.warn .type, .teg-wrap .log-row.warn .msg { color: #fbbf24; }
+            .teg-wrap .log-row.success .type, .teg-wrap .log-row.success .msg { color: #34d399; }
+            .teg-wrap .log-row.info .type, .teg-wrap .log-row.info .msg { color: #94a3b8; }
             
             .teg-key { display: inline-block; background: #334155; color: #cbd5e1; padding: 2px 6px; border-radius: 4px; border: 1px solid #475569; margin: 0 4px; font-family: monospace; font-size: 11px; }
             .teg-btn-term { background: transparent; border: 1px solid #475569; color: #cbd5e1; border-radius: 4px; cursor: pointer; padding: 4px 10px; font-size: 11px; font-family: monospace; transition: all 0.2s; }

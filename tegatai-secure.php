@@ -1,16 +1,17 @@
 <?php
 /*
- * Plugin Name: Tegatai Security
+ * Plugin Name: Tegatai Secure
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
- * Description: Tegatai Security Suite - Custom Edition. Update: Traffic Inspector & Database Logging.
- * Version: 2.1.3
- * Author: すずちゃん
- * License: GPL2
+ * Description: Firewall, login protection with 2FA, anti-spam, scanners, server rules, encrypted database backups and IP ban sharing between your own sites.
+ * Version: 2.2.1
+ * Author: Saguya
+ * License: GPLv2 or later
  * Text Domain: tegatai-secure
  * Domain Path: /languages
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Requires at least: 7.1
  * Requires PHP: 8.4
+ * Update URI: https://github.com/Suzu-chan1990/Tegatai-Secure
 */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -111,7 +112,9 @@ function tegatai_update_setting( $key, $value ) {
     $table_name = $wpdb->prefix . 'tegatai_settings';
     
     if ( ! tegatai_settings_table_ready() ) {
-        return update_option( $key, $value );
+        $ok = update_option( $key, $value );
+        do_action( 'tegatai_setting_updated', $key, $value );
+        return $ok;
     }
     
     $wpdb->replace( 
@@ -124,6 +127,7 @@ function tegatai_update_setting( $key, $value ) {
     if ( is_array( $GLOBALS['tegatai_settings_cache'] ) ) {
         $GLOBALS['tegatai_settings_cache'][ $key ] = $value;
     }
+    do_action( 'tegatai_setting_updated', $key, $value );
     return true;
 }
 
@@ -143,7 +147,7 @@ function tegatai_install_db() {
     require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
     dbDelta( $sql );
 
-    if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name ) {
+    if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $wpdb->esc_like( $table_name ) ) ) === $table_name ) {
         update_option( 'tegatai_settings_db_version', TEGATAI_SETTINGS_DB_VERSION, true );
         delete_transient( 'tegatai_settings_db_failed' );
     }
@@ -151,9 +155,65 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.1.3' );
+define( 'TEGATAI_VERSION', '2.2.1' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
+define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
+
+// =================================================================
+// GITHUB UPDATES (GitHub edition; the WordPress.org edition gets its updates from WordPress.org)
+// =================================================================
+add_action( 'init', 'tegatai_github_updater' );
+
+/**
+ * Checks GitHub releases of Suzu-chan1990/Tegatai-Secure for new versions (Plugin Update Checker 5.6).
+ * Only in the admin, WP-Cron and WP-CLI, so normal page views never contact GitHub.
+ */
+function tegatai_github_updater() {
+    // Build the checker only once: a second instance with the same slug is a fatal error in PUC.
+    static $built = false;
+    if ( $built ) {
+        return;
+    }
+    if ( ! is_admin() && ! wp_doing_cron() && ! ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+        return;
+    }
+    $puc = TEGATAI_PATH . 'lib/plugin-update-checker/plugin-update-checker.php';
+    if ( ! file_exists( $puc ) ) {
+        return; // Library missing: the plugin keeps working, just without update notices.
+    }
+    require_once $puc;
+    $built = true;
+
+    $checker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
+        'https://github.com/Suzu-chan1990/Tegatai-Secure/',
+        TEGATAI_FILE,
+        'tegatai-secure'
+    );
+    // Use the ZIP attached to a GitHub release (falls back to the tag's source ZIP).
+    $checker->getVcsApi()->enableReleaseAssets();
+}
+
+/**
+ * Plugins directory and URL, derived from this plugin's own location (plugin_dir_path() /
+ * plugin_dir_url() of the main file) instead of WordPress' internal constants.
+ */
+function tegatai_plugins_dir() {
+    return untrailingslashit( dirname( TEGATAI_PATH ) );
+}
+
+function tegatai_plugins_url() {
+    return untrailingslashit( dirname( TEGATAI_URL ) );
+}
+
+/**
+ * Folder for files Tegatai generates for the web server (nginx include file).
+ * Lives in its own protected subfolder of the uploads directory.
+ */
+function tegatai_server_dir() {
+    $ud = wp_upload_dir( null, false );
+    return trailingslashit( $ud['basedir'] ) . 'tegatai-server';
+}
 
 /**
  * Secrets file outside the web root.
@@ -203,7 +263,7 @@ function tegatai_secure_key_dir( $dir ) {
             return new WP_Error( 'chmod', 'Folder permissions could not be changed to 0700: ' . $dir );
         }
     }
-    if ( ! is_writable( $dir ) ) {
+    if ( ! wp_is_writable( $dir ) ) {
         return new WP_Error( 'dir', 'Folder is not writable: ' . $dir );
     }
     return true;
@@ -224,17 +284,17 @@ function tegatai_write_key_file( $file, $content ) {
     $ok  = file_put_contents( $tmp, $content, LOCK_EX );
     umask( $old );
     if ( $ok !== strlen( $content ) ) {
-        @unlink( $tmp );
+        wp_delete_file( $tmp );
         return new WP_Error( 'write', 'The key file could not be written.' );
     }
     @chmod( $tmp, 0600 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- only the PHP user may read the key
     clearstatcache( true, $tmp );
     if ( ( (int) @fileperms( $tmp ) & 0077 ) !== 0 ) {
-        @unlink( $tmp );
+        wp_delete_file( $tmp );
         return new WP_Error( 'chmod', 'The key file could not be set to 0600; nothing was written.' );
     }
-    if ( ! @rename( $tmp, $file ) ) {
-        @unlink( $tmp );
+    if ( ! @rename( $tmp, $file ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic replace of the key file; WP_Filesystem::move() is not atomic
+        wp_delete_file( $tmp );
         return new WP_Error( 'write', 'The key file could not be written.' );
     }
     if ( function_exists( 'opcache_invalidate' ) ) {
@@ -300,12 +360,6 @@ function tegatai_secrets_status() {
     }
     return $out;
 }
-
-add_action('init', function () {
-    // Not hosted on WordPress.org: translations ship in /languages, so they must be loaded explicitly
-    load_plugin_textdomain('tegatai-secure', false, // phpcs:ignore PluginCheck.CodeAnalysis.DiscouragedFunctions.load_plugin_textdomainFound
-        dirname(plugin_basename(TEGATAI_FILE)) . '/languages');
-}, 0);
 
 /**
  * Locks a plugin data directory (logs, backups) against web access on Apache/LiteSpeed/IIS.
@@ -381,7 +435,6 @@ require_once TEGATAI_PATH . 'includes/cron.php';
 require_once TEGATAI_PATH . 'includes/malware_scanner.php';
 require_once TEGATAI_PATH . 'includes/fim.php';
 require_once TEGATAI_PATH . 'includes/dbscan.php';
-define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
 
 // Module laden
 require_once TEGATAI_PATH . 'includes/logger.php';
@@ -392,6 +445,7 @@ require_once TEGATAI_PATH . 'includes/geoip.php';
 require_once TEGATAI_PATH . 'includes/firewall.php';
 require_once TEGATAI_PATH . 'includes/hardening.php';
 require_once TEGATAI_PATH . 'includes/headers.php';
+require_once TEGATAI_PATH . 'includes/captcha.php';
 require_once TEGATAI_PATH . 'includes/login.php';
 require_once TEGATAI_PATH . 'includes/server.php';
 require_once TEGATAI_PATH . 'includes/spam.php';
@@ -469,13 +523,14 @@ class Tegatai_Security_Core {
         flush_rewrite_rules();
     }
 
-    const ENV_VERSION = '3';
+    const ENV_VERSION = '4';
 
     public static function ensure_environment() {
         if (get_option('tegatai_env_version') !== self::ENV_VERSION) {
             $upload = wp_upload_dir();
             tegatai_protect_directory($upload['basedir'] . '/tegatai-logs');
             tegatai_protect_directory($upload['basedir'] . '/tegatai-backups');
+            tegatai_protect_directory(tegatai_server_dir());
             // Leftover credentials of the never-implemented FTP feature.
             delete_option('tegatai_ftp_settings');
             // Bans now live in Tegatai_Bans. Old per-IP "permanent" transients from the admin
@@ -490,7 +545,7 @@ class Tegatai_Security_Core {
                 }
             }
             delete_option('tegatai_hive_bans');
-            // Regenerate existing server rules once with the fixed generators (URL paths, .well-known).
+            // Regenerate existing server rules once (2.2.1: nginx file moved to uploads/tegatai-server/).
             if (class_exists('Tegatai_Server') && Tegatai_Server::has_rules()) {
                 Tegatai_Server::force_update();
             }
@@ -538,10 +593,26 @@ class Tegatai_Security_Core {
         require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
         dbDelta($sql);
 
-        // dbDelta never removes column defaults; drop the legacy zero-date default explicitly.
-        $wpdb->query($wpdb->prepare("ALTER TABLE %i ALTER COLUMN `time` DROP DEFAULT", $table_name));
+        // Only record the schema version when the table really exists. If dbDelta() failed
+        // (missing privileges, storage engine issue), the version stays unset so the next
+        // admin request retries the installation instead of logging into a missing table.
+        if ($wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $wpdb->esc_like($table_name))) !== $table_name) {
+            return false;
+        }
+
+        // dbDelta never removes column defaults; drop the legacy zero-date default explicitly,
+        // but only when such a default is actually present (avoids a needless ALTER on every install).
+        $default = $wpdb->get_var($wpdb->prepare(
+            'SELECT COLUMN_DEFAULT FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s AND COLUMN_NAME = %s',
+            $table_name,
+            'time'
+        ));
+        if ($default !== null && strtoupper((string) $default) !== 'NULL') {
+            $wpdb->query($wpdb->prepare("ALTER TABLE %i ALTER COLUMN `time` DROP DEFAULT", $table_name));
+        }
 
         update_option('tegatai_db_version', self::DB_VERSION);
+        return true;
     }
 
     public static function deactivate() {
@@ -577,34 +648,3 @@ add_action('plugins_loaded', ['Tegatai_Timeline', 'init']);
 add_action('plugins_loaded', ['Tegatai_Honeypot', 'init']);
 add_action('plugins_loaded', ['Tegatai_Cron_Monitor', 'init']);
 add_action('plugins_loaded', ['Tegatai_Uploads_Monitor', 'init']);
-
-// --- GitHub Updater (Plugin Update Checker) ---
-add_action('init', function () {
-    // Nur im Admin wirklich nötig, aber init ist ok
-    if ( ! is_admin() ) {
-        return;
-    }
-
-    $puc_path = TEGATAI_PATH . 'lib/plugin-update-checker/plugin-update-checker.php';
-    if ( ! file_exists($puc_path) ) {
-        return; // Library fehlt
-    }
-
-    require_once $puc_path;
-
-    // Build checker
-    $updateChecker = \YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
-        'https://github.com/Suzu-chan1990/Tegatai-Secure/',
-        __FILE__,
-        'tegatai-secure' // Plugin-Slug (sollte stabil sein)
-    );
-
-    // Wenn du Releases/Tags nutzt:
-    $updateChecker->getVcsApi()->enableReleaseAssets();
-
-    // Falls du (statt Releases) direkt den main-Branch “auslieferst”:
-    // $updateChecker->setBranch('main');
-
-    // Optional: falls dein Hauptplugin nicht im Repo-Root läge (bei dir liegt es im Root -> passt)
-    // $updateChecker->setPluginFileName('tegatai-secure.php');
-});

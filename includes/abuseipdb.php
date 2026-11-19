@@ -32,6 +32,27 @@ class Tegatai_AbuseIPDB {
         add_action('tegatai_ip_banned', [$this, 'on_local_ban'], 20, 3);
         add_action('tegatai_hive_ban_applied', [$this, 'on_hive_ban'], 20, 4);
         add_action(self::CRON_HOOK, [__CLASS__, 'process_queue']);
+        // Reporting is opt-in: as soon as it is switched off, nothing that is still queued may leave the site.
+        add_action('tegatai_setting_updated', [__CLASS__, 'on_setting_updated'], 10, 2);
+    }
+
+    // Opt-in setting only (independent of the API key).
+    public static function opted_in() {
+        $ops = tegatai_get_setting('tegatai_options', []);
+        return is_array($ops) && !empty($ops['abuseipdb_enabled']);
+    }
+
+    // Drops all queued reports and the pending cron event.
+    public static function purge_queue() {
+        delete_option(self::QUEUE_OPTION);
+        wp_clear_scheduled_hook(self::CRON_HOOK);
+    }
+
+    public static function on_setting_updated($key, $value) {
+        if ($key !== 'tegatai_options') return;
+        if (!is_array($value) || empty($value['abuseipdb_enabled'])) {
+            self::purge_queue();
+        }
     }
 
     public static function key() {
@@ -39,8 +60,7 @@ class Tegatai_AbuseIPDB {
     }
 
     public static function enabled() {
-        $ops = tegatai_get_setting('tegatai_options', []);
-        return is_array($ops) && !empty($ops['abuseipdb_enabled']) && self::key() !== '';
+        return self::opted_in() && self::key() !== '';
     }
 
     /**
@@ -133,6 +153,12 @@ class Tegatai_AbuseIPDB {
 
     // WP-Cron worker: sends up to BATCH reports, keeps the rest for the next run.
     public static function process_queue() {
+        // The opt-in is checked on every run, not only when a report is queued: reports that
+        // were queued before the administrator disabled reporting are discarded, never sent.
+        if (!self::opted_in()) {
+            self::purge_queue();
+            return;
+        }
         $key = self::key();
         $queue = get_option(self::QUEUE_OPTION, []);
         if (!is_array($queue) || !$queue) return;

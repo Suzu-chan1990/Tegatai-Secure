@@ -1,7 +1,7 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
-// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or Turnstile instead of nonces
+// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or a captcha (Turnstile / reCAPTCHA) instead of nonces
 
 /* TEGATAI_SPAM_JS_TIMER_V1 applied */
 class Tegatai_Spam {
@@ -36,12 +36,19 @@ class Tegatai_Spam {
             add_filter('preprocess_comment', [$this, 'check_referrer']);
         }
         
-        // TURNSTILE
-        if (!empty($ops['enable_turnstile'])) {
+        // CAPTCHA: Cloudflare Turnstile or Google reCAPTCHA, never both (reCAPTCHA wins, see Tegatai_Captcha)
+        $captcha = class_exists('Tegatai_Captcha') ? Tegatai_Captcha::provider($ops) : (!empty($ops['enable_turnstile']) ? 'turnstile' : '');
+        if ($captcha === 'turnstile') {
             add_action('wp_enqueue_scripts', [$this, 'turnstile_script']);
             add_action('comment_form_after_fields', [$this, 'turnstile_field']);
             add_action('comment_form_logged_in_after', [$this, 'turnstile_field']);
-            add_filter('preprocess_comment', [$this, 'turnstile_verify_comment']);
+        } elseif ($captcha === 'recaptcha') {
+            add_action('wp_enqueue_scripts', ['Tegatai_Captcha', 'recaptcha_enqueue_script']);
+            add_action('comment_form_after_fields', [$this, 'recaptcha_field']);
+            add_action('comment_form_logged_in_after', [$this, 'recaptcha_field']);
+        }
+        if ($captcha !== '') {
+            add_filter('preprocess_comment', [$this, 'captcha_verify_comment']);
         }
     }
 
@@ -63,25 +70,27 @@ class Tegatai_Spam {
         return in_array($d['comment_type'] ?? '', ['pingback', 'trackback'], true);
     }
 
-    public function turnstile_verify_comment($commentdata) {
+    public function recaptcha_field() {
+        Tegatai_Captcha::recaptcha_field('comment', 'margin-bottom:15px;');
+    }
+
+    public function captcha_verify_comment($commentdata) {
         if (current_user_can('moderate_comments') || $this->is_ping($commentdata)) return $commentdata;
         $ops = tegatai_get_setting('tegatai_options');
-        if (empty($ops['turnstile_secret_key'])) return $commentdata;
-        
-        $response = $_POST['cf-turnstile-response'] ?? '';
-        // Server-side token check against the Turnstile API (not a loaded resource)
-        $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent
-            ['body' => ['secret' => $ops['turnstile_secret_key'], 'response' => $response]]);
-        
-        if (!is_wp_error($verify)) {
-            $body = json_decode(wp_remote_retrieve_body($verify), true);
-            if (!empty($body['success'])) return $commentdata;
-        }
-        
+        $provider = Tegatai_Captcha::provider($ops);
+        $secret = $provider === 'recaptcha' ? ($ops['recaptcha_secret_key'] ?? '') : ($ops['turnstile_secret_key'] ?? '');
+        if ($provider === '' || empty($secret)) return $commentdata;
+
+        $result = Tegatai_Captcha::check($provider, $ops, 'comment');
+        if ($result['ok']) return $commentdata;
+
         if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('SPAM-BOT', 'Turnstile failed (Comment)');
+            Tegatai_Logger::log('SPAM-BOT', Tegatai_Captcha::label($provider) . ' failed (Comment, ' . $result['reason'] . ': ' . $result['detail'] . ')');
         }
-        wp_die('Captcha Überprüfung fehlgeschlagen. Bitte lade die Seite neu.', 'Spam', ['response'=>403]);
+        if ($result['reason'] === 'unreachable') {
+            wp_die(esc_html__('The captcha service could not be reached. Please go back and try again in a moment.', 'tegatai-secure'), 'Spam', ['response' => 503, 'back_link' => true]);
+        }
+        wp_die(esc_html__('Captcha verification failed. Please go back, reload the page and try again.', 'tegatai-secure'), 'Spam', ['response' => 403, 'back_link' => true]);
     }
 
     public function check_email_domain($d) { 

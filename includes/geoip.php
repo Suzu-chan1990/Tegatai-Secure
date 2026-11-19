@@ -170,6 +170,7 @@ class Tegatai_GeoIP {
 
         $new = $dir . '/' . self::FILE . '.new';
         $in  = gzopen($gz, 'rb');
+        // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- the database is unpacked as a stream; WP_Filesystem would hold the whole file in memory
         $out = $in ? fopen($new, 'wb') : false;
         if (!$in || !$out) {
             if ($in) gzclose($in);
@@ -183,6 +184,7 @@ class Tegatai_GeoIP {
         }
         gzclose($in);
         fclose($out);
+        // phpcs:enable WordPress.WP.AlternativeFunctions.file_system_operations_fopen, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_fclose
         wp_delete_file($gz);
 
         try {
@@ -195,7 +197,7 @@ class Tegatai_GeoIP {
             return self::result(new WP_Error('invalid', 'The downloaded file is not a valid country database (' . $e->getMessage() . ').'));
         }
 
-        if (!rename($new, self::path())) {
+        if (!rename($new, self::path())) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic replace of the verified database
             wp_delete_file($new);
             return self::result(new WP_Error('rename', 'The database could not be replaced.'));
         }

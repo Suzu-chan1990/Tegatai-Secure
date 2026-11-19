@@ -6,7 +6,7 @@
 /* TEGATAI_LOGIN_REFINEMENT_V1 applied */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // phpcs:disable WordPress.Security.ValidatedSanitizedInput -- Request headers (IP, user agent, URI) are read raw for fingerprints and comparisons; output is escaped and SQL is prepared
-// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or Turnstile instead of nonces
+// phpcs:disable WordPress.Security.NonceVerification -- Public forms (login, 2FA, comments, anti-spam) have no logged-in user; they are protected by signed tokens, cookies or a captcha (Turnstile / reCAPTCHA) instead of nonces
 
 class Tegatai_LoginGuard {
     public function __construct() {
@@ -30,7 +30,7 @@ class Tegatai_LoginGuard {
         add_filter('authenticate', [$this, 'check_admin_attempts'], 10, 3);
         if (!empty($ops['enable_login_limit'])) {
             add_filter('authenticate', [$this, 'check_login_attempts'], 20, 3);
-            add_action('wp_login_failed', [$this, 'log_failed_attempt']);
+            add_action('wp_login_failed', [$this, 'log_failed_attempt'], 10, 2);
         }
         if (!empty($ops['disable_app_passwords'])) add_filter('wp_is_application_passwords_available', '__return_false');
         if (!empty($ops['block_wp_admin_hide'])) add_action('init', [$this, 'hide_wp_admin_access']);
@@ -48,20 +48,19 @@ class Tegatai_LoginGuard {
         add_filter('authenticate', [$this, 'geoip_verify_login'], 25, 3);
         add_action('wp_authenticate_application_password_errors', [$this, 'geoip_verify_app_password'], 10, 2);
 
-        // MAGIC LINKS
-        if (!empty($ops['enable_magic_links'])) {
-            add_action('login_footer', [$this, 'render_magic_link_form']);
-            add_action('login_form_teg_magic_send', [$this, 'process_magic_link_request']);
-        }
-        // Always hooked: temporary admin links (extras.php) work without enable_magic_links
-        add_action('init', [$this, 'process_magic_link_login']);
-
-        // TURNSTILE
-        if (!empty($ops['enable_turnstile'])) {
+        // CAPTCHA: Cloudflare Turnstile or Google reCAPTCHA, never both (reCAPTCHA wins, see Tegatai_Captcha)
+        $captcha = class_exists('Tegatai_Captcha') ? Tegatai_Captcha::provider($ops) : (!empty($ops['enable_turnstile']) ? 'turnstile' : '');
+        if ($captcha === 'turnstile') {
             add_action('login_enqueue_scripts', [$this, 'turnstile_script']);
             add_action('login_form', [$this, 'turnstile_field']);
-            // After core's password check (20), otherwise a valid password overwrites the error
-            add_filter('authenticate', [$this, 'turnstile_verify_login'], 25, 3);
+        } elseif ($captcha === 'recaptcha') {
+            add_action('login_enqueue_scripts', ['Tegatai_Captcha', 'recaptcha_login_script']);
+            add_action('login_form', [$this, 'recaptcha_field']);
+        }
+        if ($captcha !== '') {
+            // After core's password check (20), otherwise a valid password overwrites the error.
+            // The captcha is checked for right and wrong passwords alike (see captcha_verify_login).
+            add_filter('authenticate', [$this, 'captcha_verify_login'], 25, 3);
         }
     }
 
@@ -105,24 +104,90 @@ class Tegatai_LoginGuard {
     // Cloudflare Turnstile can only be loaded from Cloudflare (no self-hosting possible); wp-login.php has no enqueue for async defer
     public function turnstile_script() { echo '<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>'; } // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, WordPress.WP.EnqueuedResources.NonEnqueuedScript
     public function turnstile_field() { $ops = tegatai_get_setting('tegatai_options'); if(!empty($ops['turnstile_site_key'])) echo '<div class="cf-turnstile" data-sitekey="'.esc_attr($ops['turnstile_site_key']).'" style="margin-bottom:15px; display:flex; justify-content:center;"></div>'; }
-    public function turnstile_verify_login($user, $username, $password) {
+    /**
+     * Checks a Turnstile token with Cloudflare (also used for comments).
+     *
+     * reason: '' (ok) | 'missing' (no token in the form: the widget did not load or was not solved)
+     *         | 'rejected' (Cloudflare refused the token or the secret key)
+     *         | 'unreachable' (no usable answer from Cloudflare).
+     * detail is written to the log, e.g. Cloudflare's error codes (invalid-input-secret, timeout-or-duplicate ...).
+     *
+     * @return array{ok: bool, reason: string, detail: string}
+     */
+    public static function turnstile_check($secret, $token) {
+        $token = is_string($token) ? trim($token) : '';
+        if ($token === '') {
+            // Nothing to ask Cloudflare about; without this check an empty token costs a round trip
+            // and comes back as an unspecific failure.
+            return ['ok' => false, 'reason' => 'missing', 'detail' => 'no token in the form (widget not loaded or not solved)'];
+        }
+
+        // Server-side token check against the Turnstile API (not a loaded resource)
+        $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent
+            ['timeout' => 10, 'body' => ['secret' => (string) $secret, 'response' => $token]]);
+        if (is_wp_error($verify)) {
+            return ['ok' => false, 'reason' => 'unreachable', 'detail' => $verify->get_error_message()];
+        }
+
+        $body = json_decode(wp_remote_retrieve_body($verify), true);
+        if (!is_array($body)) {
+            return ['ok' => false, 'reason' => 'unreachable', 'detail' => 'HTTP ' . (int) wp_remote_retrieve_response_code($verify) . ', no JSON answer'];
+        }
+        if (!empty($body['success'])) {
+            return ['ok' => true, 'reason' => '', 'detail' => ''];
+        }
+
+        $codes = isset($body['error-codes']) && is_array($body['error-codes']) ? array_map('sanitize_key', $body['error-codes']) : [];
+        // internal-error is Cloudflare's own failure, not a wrong token
+        $reason = in_array('internal-error', $codes, true) ? 'unreachable' : 'rejected';
+        return ['ok' => false, 'reason' => $reason, 'detail' => $codes ? implode(', ', $codes) : 'no error code'];
+    }
+
+    /**
+     * The captcha decides before the password result is revealed.
+     *
+     * The check runs for every login attempt on the login form, whether the password was right
+     * or wrong, and a failed captcha always gives the same answer. If it only ran after a correct
+     * password, passwords could be tried without solving a captcha, and the captcha error itself
+     * would tell an attacker that a password is correct.
+     *
+     * It stays on priority 25 (after core's password check on 20): an error returned earlier
+     * would be replaced by core when the password is valid.
+     */
+    public function captcha_verify_login($user, $username, $password) {
         if (empty($username) || empty($password)) return $user;
-        // Failed credentials need no captcha round trip
-        if (!($user instanceof WP_User)) return $user;
         // The widget is only rendered on wp-login.php; other login endpoints cannot send a token
         if (!did_action('login_init')) return $user;
         $ops = tegatai_get_setting('tegatai_options');
-        if (empty($ops['turnstile_secret_key'])) return $user;
-        $response = $_POST['cf-turnstile-response'] ?? '';
-        // Server-side token check against the Turnstile API (not a loaded resource)
-        $verify = wp_remote_post('https://challenges.cloudflare.com/turnstile/v0/siteverify', // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent
-            ['body' => ['secret' => $ops['turnstile_secret_key'], 'response' => $response]]);
-        if (!is_wp_error($verify)) {
-            $body = json_decode(wp_remote_retrieve_body($verify), true);
-            if (!empty($body['success'])) return $user;
+        $provider = class_exists('Tegatai_Captcha') ? Tegatai_Captcha::provider($ops) : 'turnstile';
+        $secret = $provider === 'recaptcha' ? ($ops['recaptcha_secret_key'] ?? '') : ($ops['turnstile_secret_key'] ?? '');
+        if ($provider === '' || empty($secret)) return $user;
+
+        // A token is valid once: remember the result if the filter runs again in this request
+        static $result = null;
+        if ($result === null) {
+            $result = class_exists('Tegatai_Captcha')
+                ? Tegatai_Captcha::check($provider, $ops, 'login')
+                : self::turnstile_check($secret, isset($_POST['cf-turnstile-response']) && is_string($_POST['cf-turnstile-response']) ? wp_unslash($_POST['cf-turnstile-response']) : '');
         }
-        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BOT', 'Turnstile failed');
-        return new WP_Error('teg_turnstile', '<strong>FEHLER</strong>: Captcha Überprüfung fehlgeschlagen.');
+        if ($result['ok']) return $user;
+
+        // The reason is logged, so a login that fails at the captcha is not mistaken for a wrong password or 2FA code
+        $label = $provider === 'recaptcha' ? 'reCAPTCHA' : 'Turnstile';
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BOT', $label . ' failed (' . $result['reason'] . ': ' . $result['detail'] . ')');
+
+        if ($result['reason'] === 'unreachable') {
+            return new WP_Error('teg_captcha_unreachable', __('The captcha service could not be reached. Please try again in a moment.', 'tegatai-secure'));
+        }
+        if ($result['reason'] === 'missing') {
+            return new WP_Error('teg_captcha', __('The captcha was not completed. Please reload the page and solve the captcha before logging in.', 'tegatai-secure'));
+        }
+        return new WP_Error('teg_captcha', __('Captcha verification failed. Please reload the page and try again.', 'tegatai-secure'));
+    }
+
+    /** Google reCAPTCHA on wp-login.php (v2 is scaled to fit the 272px login form). */
+    public function recaptcha_field() {
+        Tegatai_Captcha::recaptcha_field('login', 'transform:scale(0.89); transform-origin:0 0; margin-bottom:6px;');
     }
 
     // --- GEOIP LOGIC (MIT TOGGLE SUPPORT) ---
@@ -141,7 +206,7 @@ class Tegatai_LoginGuard {
         $ops = tegatai_get_setting('tegatai_options');
         $only_protect_login = !empty($ops['geoip_login_only']); 
         
-        if (!$is_login && !isset($_GET['teg_magic_login'])) {
+        if (!$is_login) {
             if ($only_protect_login) {
                 return;
             }
@@ -269,15 +334,27 @@ class Tegatai_LoginGuard {
     
     public function check_login_attempts($u, $n, $p) { if(get_transient('teg_login_lock_'.md5($this->get_client_ip()))){ if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LOCK',"Locked IP"); return new WP_Error('teg_locked','IP Locked (60min)'); } return $u; }
     
-    public function log_failed_attempt($u) { $ip=$this->get_client_ip(); $k='teg_login_count_'.md5($ip); $c=get_transient($k); if($c===false) set_transient($k,1,900); else { $c++; set_transient($k,$c,900); if($c>=5) { set_transient('teg_login_lock_'.md5($ip),1,3600); if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BAN',"IP Banned 60m"); $ops=tegatai_get_setting('tegatai_options'); if(!empty($ops['enable_email_alerts'])) $this->send_alert("IP Blockiert: $ip", "5 Fehlversuche."); } } }
+    public function log_failed_attempt($u, $error = null) {
+        // An outage of the captcha service is not a failed guess and must not lock the IP
+        if ($error instanceof WP_Error && $error->get_error_code() === 'teg_captcha_unreachable') return;
+        $ip=$this->get_client_ip(); $k='teg_login_count_'.md5($ip); $c=get_transient($k); if($c===false) set_transient($k,1,900); else { $c++; set_transient($k,$c,900); if($c>=5) { set_transient('teg_login_lock_'.md5($ip),1,3600); if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-BAN',"IP Banned 60m"); $ops=tegatai_get_setting('tegatai_options'); if(!empty($ops['enable_email_alerts'])) $this->send_alert("IP Blockiert: $ip", "5 Fehlversuche."); } } }
     
-    public function hide_wp_admin_access() { if(is_user_logged_in()||(defined('DOING_AJAX')&&DOING_AJAX)) return; if(strpos($_SERVER['REQUEST_URI'], 'admin-post.php') !== false) return; if(strpos($_SERVER['REQUEST_URI'],'wp-admin')!==false) { if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-ADMIN',"Blocked wp-admin"); global $wp_query; $wp_query->set_404(); status_header(404); nocache_headers(); if(defined('TEGATAI_PATH')&&file_exists(TEGATAI_PATH.'templates/404.php')) include(TEGATAI_PATH.'templates/404.php'); else echo "<h1>404</h1>"; exit; } }
+    public function hide_wp_admin_access() { if(is_user_logged_in()||(defined('DOING_AJAX')&&DOING_AJAX)) return;
+        // Only the path counts. The query string can mention wp-admin legitimately: the login page
+        // gets ?redirect_to=.../wp-admin/ whenever a logged-out visitor opens /wp-admin/.
+        $path = (string) wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $admin_path = (string) wp_parse_url(admin_url('/'), PHP_URL_PATH);
+        $admin_base = rtrim($admin_path, '/');
+        if ($admin_base === '' || ($path !== $admin_base && strpos($path, $admin_base . '/') !== 0)) return;
+        // Public endpoints below wp-admin: form handlers (2FA) and admin-ajax
+        if (in_array(basename($path), ['admin-post.php', 'admin-ajax.php'], true)) return;
+        { if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-ADMIN',"Blocked wp-admin"); global $wp_query; $wp_query->set_404(); status_header(404); nocache_headers(); if(defined('TEGATAI_PATH')&&file_exists(TEGATAI_PATH.'templates/404.php')) include(TEGATAI_PATH.'templates/404.php'); else echo "<h1>404</h1>"; exit; } }
     
     public function rewrite_login_link($u,$p) { $s=((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($s&&strpos($u,'wp-login.php')!==false)?str_replace('wp-login.php',$s,$u):$u; }
     
     public function filter_redirects($l,$s) { $sl=((tegatai_get_setting('tegatai_options') ?: [])['custom_login_slug'] ?? ''); return ($sl&&strpos($l,'wp-login.php')!==false)?str_replace('wp-login.php',$sl,$l):$l; }
     
-    public function block_wp_login_direct() { global $pagenow; if($pagenow!=='wp-login.php'||defined('TEGATAI_LOGIN_PAGE')) return; if(in_array($_GET['action']??'',['postpass','logout','lostpassword','rp','resetpass','teg_magic_send','tegatai_2fa','tegatai_2fa_verify'])) return; if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-LOGIN',"Blocked wp-login.php"); wp_die('404 Not Found','Not Found',['response'=>404]); }
+    public function block_wp_login_direct() { global $pagenow; if($pagenow!=='wp-login.php'||defined('TEGATAI_LOGIN_PAGE')) return; if(in_array($_GET['action']??'',['postpass','logout','lostpassword','rp','resetpass','tegatai_2fa','tegatai_2fa_verify'])) return; if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('HIDE-LOGIN',"Blocked wp-login.php"); wp_die('404 Not Found','Not Found',['response'=>404]); }
     
     public function restrict_admin() {
         if ((defined('DOING_AJAX') && DOING_AJAX) || strpos($_SERVER['REQUEST_URI'] ?? '', 'admin-post.php') !== false) return;
@@ -295,97 +372,6 @@ class Tegatai_LoginGuard {
 
     public function reset_idle_timer($logged_in_cookie, $expire, $expiration, $user_id) { update_user_meta((int)$user_id,'teg_last_activity',time()); }
     
-    public function render_magic_link_form() {
-        ?>
-        <style>.teg-magic-wrap{width:320px;margin:20px auto;padding:20px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.13);border-radius:4px;border:1px solid #c3c4c7}.teg-magic-wrap h4{margin:0 0 15px 0;text-align:center;color:#555;font-size:14px;text-transform:uppercase;letter-spacing:0.5px}.teg-or-divider{text-align:center;margin:15px 0;color:#72777c;font-size:12px;font-weight:600}</style>
-        <script>document.addEventListener("DOMContentLoaded",function(){var l=document.getElementById('login');var m=document.getElementById('teg-magic-box');if(l&&m)l.appendChild(m);});</script>
-        <div id="teg-magic-box" class="teg-magic-wrap"><div class="teg-or-divider">&mdash; ODER &mdash;</div><h4>Passwortlos anmelden</h4><form method="post" action="<?php echo esc_url(site_url('wp-login.php?action=teg_magic_send')); ?>"><label for="magic_user_email" style="font-size:14px;margin-bottom:5px;display:block;">Benutzername oder E-Mail</label><input type="text" name="magic_user_email" id="magic_user_email" class="input" style="width:100%;margin-bottom:15px;font-size:16px;" required><input type="submit" class="button button-secondary button-large" style="width:100%;" value="Sende Link"></form></div>
-        <?php
-    }
-    
-    // Fixed-window counter, returns true once $limit hits within $window seconds are exceeded
-    private function rate_limited($key, $limit, $window) {
-        $k = 'teg_rl_' . md5($key);
-        $c = (int) get_transient($k);
-        if ($c >= $limit) return true;
-        set_transient($k, $c + 1, $window);
-        return false;
-    }
-
-    public function process_magic_link_request() {
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') return;
-        $input = isset($_POST['magic_user_email']) && is_string($_POST['magic_user_email']) ? sanitize_text_field(wp_unslash($_POST['magic_user_email'])) : '';
-        $ip = $this->get_client_ip();
-        $user = false;
-        if ($input !== '' && !$this->rate_limited('magic_ip_' . $ip, 5, 900)) {
-            $user = is_email($input) ? get_user_by('email', $input) : get_user_by('login', $input);
-            // Per user limit against mail bombing from many IPs; same response either way (no enumeration)
-            if ($user && $this->rate_limited('magic_user_' . $user->ID, 3, 900)) {
-                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-LIMIT', "Magic link rate limit for User ID {$user->ID} ($ip)");
-                $user = false;
-            }
-        }
-        if ($user) {
-            $token = bin2hex(random_bytes(32));
-            $hash = hash('sha256', $token);
-            set_transient('teg_magic_' . $hash, $user->ID, 900); 
-            $link = add_query_arg([ 'teg_magic_login' => 1, 'token' => $token ], site_url());
-            $blog_name = get_bloginfo('name');
-            $subject = "Login Link: $blog_name";
-            $message  = "Hallo " . $user->display_name . ",\r\n\r\nLogin Link:\r\n" . $link . "\r\n\r\n(15 Minuten gültig)";
-            $domain = wp_parse_url(home_url(), PHP_URL_HOST);
-            if (!$domain) $domain = 'localhost';
-            if (substr($domain, 0, 4) == 'www.') $domain = substr($domain, 4);
-            $from_email = 'wordpress@' . $domain; 
-            $headers = [ "From: \"$blog_name Login\" <$from_email>", "Content-Type: text/plain; charset=UTF-8" ];
-            $sent = wp_mail($user->user_email, $subject, $message, $headers);
-            
-            if (class_exists('Tegatai_Logger')) {
-                if($sent) Tegatai_Logger::log('MAIL-OK', "Link sent to " . $user->user_email);
-                else Tegatai_Logger::log('MAIL-ERR', "WP_Mail failed for " . $user->user_email);
-            }
-        }
-        wp_safe_redirect(site_url('wp-login.php?checkemail=confirm'));
-        exit;
-    }
-    
-    public function process_magic_link_login() {
-        if (!isset($_GET['teg_magic_login'], $_GET['token'])) return;
-        $invalid = function () { wp_die(esc_html__('Invalid link.', 'tegatai-secure'), esc_html__('Error', 'tegatai-secure'), ['response' => 403]); };
-
-        $ip = $this->get_client_ip();
-        if ($this->rate_limited('magic_login_ip_' . $ip, 10, 900)) {
-            wp_die(esc_html__('Too many attempts. Please try again later.', 'tegatai-secure'), esc_html__('Error', 'tegatai-secure'), ['response' => 429]);
-        }
-
-        // Runs on init, before the 'wp' GeoIP check would fire
-        if ($this->is_ip_geo_blocked($ip)) $invalid();
-
-        $token = is_string($_GET['token']) ? $_GET['token'] : '';
-        if (!preg_match('/^[a-f0-9]{64}$/', $token)) $invalid();
-
-        $key = 'teg_magic_' . hash('sha256', $token);
-        $user_id = (int) get_transient($key);
-        // One-time use: only the request that actually deletes the token may log in
-        if (!$user_id || !delete_transient($key)) $invalid();
-
-        $user = get_userdata($user_id);
-        if (!$user) $invalid();
-
-        // Users with 2FA must complete the second factor; the link only replaces the password
-        if (class_exists('Tegatai_TwoFactor') && Tegatai_TwoFactor::is_enabled()) {
-            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id magic link accepted, 2FA pending ($ip)");
-            Tegatai_TwoFactor::start_challenge($user, false, admin_url());
-        }
-
-        wp_set_current_user($user_id);
-        wp_set_auth_cookie($user_id);
-        do_action('wp_login', $user->user_login, $user); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- core hook, fired after the magic link login
-        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('AUTH-MAGIC', "User ID $user_id logged in");
-        wp_safe_redirect(admin_url());
-        exit;
-    }
-
     /**
      * TEGATAI ENTERPRISE: Admin Honeypot
      * Blockiert Bots sofort permanent, die versuchen sich als 'admin' einzuloggen.

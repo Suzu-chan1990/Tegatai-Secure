@@ -47,7 +47,7 @@ class Tegatai_SessionManager {
     }
 
     public static function get_all_sessions() {
-        $us = get_users(['number'=>50,'meta_key'=>'session_tokens']); 
+        $us = get_users(['number'=>50,'meta_key'=>'session_tokens']); // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- admin page only, limited to 50 users
         $as = [];
         
         foreach($us as $u) {

@@ -10,7 +10,7 @@ Security plugin for WordPress: firewall, login protection, anti-spam, scanners, 
 
 Many protections are written as server rules (`tegatai-nginx.conf` or `.htaccess`), so the web server blocks those requests before PHP and WordPress start. Everything else runs inside WordPress.
 
-Current version: `2.1.3` – see [CHANGELOG.md](CHANGELOG.md).
+Current version: `2.2.1` – see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -30,7 +30,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 ![IP Prison](./screenshots/11-ip-prison.webp)
 
-**Login protection** – login limit, custom login slug, trusted devices, idle logout, magic links
+**Login protection** – login limit, custom login slug, trusted devices, idle logout, 2FA with backup codes
 
 ![Login protection](./screenshots/03-login.webp)
 
@@ -75,20 +75,22 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 ## Installation
 
-1. Copy the plugin folder to `wp-content/plugins/tegatai-Secure`.
+1. Copy the plugin folder to `wp-content/plugins/tegatai-secure`.
 2. Activate it under **Plugins**.
 3. Open **Tegatai Secure** in the admin menu and switch on the modules you want.
 
 ### Server rules
 
-**nginx:** Tegatai writes `tegatai-nginx.conf` into the WordPress folder. Include it once in the `server` block and reload nginx:
+**nginx:** Tegatai writes `tegatai-nginx.conf` into its own folder in the uploads directory (`wp-content/uploads/tegatai-server/`). The exact path is shown under **Server**. Include it once in the `server` block and reload nginx:
 
 ```nginx
 server {
     # ...
-    include /path/to/wordpress/tegatai-nginx.conf;
+    include /path/to/wordpress/wp-content/uploads/tegatai-server/tegatai-nginx.conf;
 }
 ```
+
+Updating from 2.2.0 or older: earlier versions wrote the file into the WordPress folder. Change the include line to the new path, reload nginx and delete the old file. The Server tab shows a notice while an old file exists.
 
 After changing server rules or WP Masking in Tegatai, reload nginx again.
 
@@ -103,8 +105,8 @@ The admin page is split into five areas plus three separate pages.
 ### Protection
 
 * **Firewall:** WAF patterns, bad bots, AI and SEO bots, rate limit, 404 trap, upload guard, URL whitelist, custom regex rules, IP whitelist and blacklist
-* **Login:** login attempt limit, custom login slug, hide `/wp-admin/`, disable application passwords, trusted devices, restricted dashboard, idle logout, magic links, two-factor authentication (email, authenticator app or both)
-* **Anti-spam:** Cloudflare Turnstile, honeypot field, time check, disposable email list, link and referrer checks
+* **Login:** login attempt limit, custom login slug, hide `/wp-admin/`, disable application passwords, trusted devices, restricted dashboard, idle logout, two-factor authentication (email, authenticator app or both, with one-time backup codes)
+* **Anti-spam:** Cloudflare Turnstile or Google reCAPTCHA (v2/v3), honeypot field, time check, disposable email list, link and referrer checks
 * **GeoIP:** block or allow countries, looked up in a local database (see below)
 
 ### Server & System
@@ -356,10 +358,12 @@ GeoIP lookups are local. Tegatai only contacts these services when the matching 
 | `download.db-ip.com` | GeoIP database download (monthly) | none (plain download) |
 | AbuseIPDB | ban reports | IP, category, ban type |
 | Cloudflare Turnstile | anti-spam / login | Turnstile token |
+| Google reCAPTCHA | anti-spam / login (instead of Turnstile) | reCAPTCHA token |
 | `api.wordpress.org`, `core.svn.wordpress.org` | core file check, restoring a core file | WordPress version and locale, file path |
 | `wpvulnerability.net` | daily vulnerability check of installed plugins | plugin slug |
 | your webhook URL | Discord / Slack notifications | event text, IP, user agent |
 | your own sites | The Hive | encrypted ban messages |
+| `api.github.com` | update check of the GitHub edition (admin, WP-Cron, WP-CLI) | request for the release information |
 
 ---
 

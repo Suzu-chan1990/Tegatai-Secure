@@ -1,6 +1,9 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 // phpcs:disable WordPress.DB.DirectDatabaseQuery -- a database backup reads every table directly; caching would serve stale data
+// phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen, WordPress.WP.AlternativeFunctions.file_system_operations_fclose, WordPress.WP.AlternativeFunctions.file_system_operations_fread, WordPress.WP.AlternativeFunctions.file_system_operations_fwrite, WordPress.WP.AlternativeFunctions.file_system_operations_readfile -- backups are encrypted and decrypted as a stream in 1 MB chunks inside the protected uploads folder; WP_Filesystem can only read or write whole files in memory
+// phpcs:disable WordPress.DB.RestrictedFunctions -- rows are read unbuffered (MYSQLI_USE_RESULT) on the connection of $wpdb so one row is in memory at a time; $wpdb only offers buffered results
+// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped -- exception messages are caught in this file, returned as WP_Error and escaped where they are displayed
 
 /**
  * Encrypted database backups.
@@ -169,7 +172,7 @@ class Tegatai_Backup {
         if (!tegatai_protect_directory($this->backup_dir) || !wp_is_writable($this->backup_dir)) {
             return new WP_Error('dir', 'Backup folder not writable: ' . $this->backup_dir);
         }
-        if (function_exists('set_time_limit')) @set_time_limit(0);
+        if (function_exists('set_time_limit')) @set_time_limit(0); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- a large database takes longer than the default time limit
 
         $keys = self::own_keys();
         $hash = bin2hex(random_bytes(4));
@@ -191,15 +194,15 @@ class Tegatai_Backup {
             if (!fflush($fh)) throw new RuntimeException('Writing the backup file failed.');
         } catch (\Throwable $e) {
             fclose($fh);
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return new WP_Error('write', $e->getMessage());
         }
         if (!fclose($fh)) {
-            @unlink($tmp);
+            wp_delete_file($tmp);
             return new WP_Error('write', 'Closing the backup file failed.');
         }
-        if (!@rename($tmp, $this->backup_dir . $filename)) {
-            @unlink($tmp);
+        if (!@rename($tmp, $this->backup_dir . $filename)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic: the backup only gets its final name when it is complete
+            wp_delete_file($tmp);
             return new WP_Error('rename', 'The backup file could not be renamed.');
         }
         return $filename;
@@ -256,7 +259,7 @@ class Tegatai_Backup {
             'routines' => "SELECT COUNT(*) FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = DATABASE()",
             'events'   => "SELECT COUNT(*) FROM information_schema.EVENTS WHERE EVENT_SCHEMA = DATABASE()",
         ] as $what => $sql) {
-            $n = (int) $wpdb->get_var($sql);
+            $n = (int) $wpdb->get_var($sql); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- fixed statements from the list above, no input
             if ($n > 0) $skipped[] = "$what: $n";
         }
 
@@ -388,7 +391,7 @@ class Tegatai_Backup {
         global $wpdb;
         $q = $this->quote_name($tbl);
         for ($offset = 0; ; $offset += 500) {
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT ' . $this->select_list($tbl) . ' FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- column list built from information_schema with quoted names
+            $rows = $wpdb->get_results($wpdb->prepare('SELECT ' . $this->select_list($tbl) . ' FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- column list built from information_schema with quoted names
             if ($wpdb->last_error !== '') throw new RuntimeException("Reading $tbl failed: " . $wpdb->last_error);
             if (empty($rows)) break;
             $lines = [];
@@ -430,7 +433,7 @@ class Tegatai_Backup {
     private function backup_path_from_request() {
         // sanitize_file_name() would rename multi-extension names (".sql.php.gz.enc" gets "_"
         // inserted), so the name is checked against the pattern of backup files instead
-        $file = basename((string) wp_unslash($_POST['file'] ?? ''));
+        $file = basename(sanitize_text_field(wp_unslash($_POST['file'] ?? ''))); // phpcs:ignore WordPress.Security.NonceVerification.Missing -- nonce and capability are checked by the callers (delete_backup, download_backup)
         if (!preg_match('/^db_backup_[A-Za-z0-9_-]+(\.[A-Za-z0-9]+)+$/', $file)) return '';
         $path = $this->backup_dir . $file;
         return dirname($path) === rtrim($this->backup_dir, '/') ? $path : '';
@@ -467,7 +470,7 @@ class Tegatai_Backup {
             $tmp = $this->backup_dir . self::TMP_PREFIX . bin2hex(random_bytes(8)) . '.dl';
             $r = $this->decrypt_file($path, $tmp);
             if ($r !== true) {
-                @unlink($tmp);
+                wp_delete_file($tmp);
                 wp_die(esc_html(is_wp_error($r) ? $r->get_error_message() : __('Decryption failed: wrong key (backup key file or TEGATAI_BACKUP_SECRET) or the file was modified.', 'tegatai-secure')));
             }
             $send = $tmp;
@@ -481,7 +484,7 @@ class Tegatai_Backup {
         header('Content-Disposition: attachment; filename="' . $dl_name . '"');
         header('Content-Length: ' . filesize($send));
         readfile($send);
-        if ($tmp !== '') @unlink($tmp);
+        if ($tmp !== '') wp_delete_file($tmp);
         exit;
     }
 
@@ -500,7 +503,7 @@ class Tegatai_Backup {
         clearstatcache(true, $path);
         if (((int) @fileperms($path) & 0077) !== 0) {
             fclose($fh);
-            @unlink($path);
+            wp_delete_file($path);
             return new WP_Error('chmod', 'Temporary file could not be protected with 0600.');
         }
         return $fh;
@@ -552,6 +555,9 @@ class Tegatai_Backup {
             sodium_memzero($file_key);
             return $ok;
         }
+
+        // Backups of older versions (TGB2, v1) need the OpenSSL extension.
+        if (!function_exists('openssl_decrypt')) return new WP_Error('openssl', 'The PHP openssl extension is missing (needed for backups made before Tegatai 2.1).');
 
         if ($magic === self::ENC_MAGIC) {
             // TGB2 (Tegatai 1.5 to 2.1.0): "TGB2" | 12-byte nonce | 16-byte tag | AES-256-GCM.

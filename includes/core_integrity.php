@@ -120,7 +120,7 @@ class Tegatai_Core_Integrity {
         }
         
         // Überschreiben
-        $put = @file_put_contents($abs_file, $body);
+        $put = @file_put_contents($abs_file, $body); // phpcs:ignore PluginCheck.CodeAnalysis.WriteFile.ABSPATHDetected -- restores a WordPress core file at its original path (admin action)
         if ($put === false) {
             return ['ok' => false, 'error' => __('Missing write permissions. The file could not be overwritten.', 'tegatai-secure')];
         }
