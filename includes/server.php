@@ -23,57 +23,199 @@ class Tegatai_Server {
     /**
      * TEGATAI FIX: Dual-Engine Support für Apache & LiteSpeed
      */
+    // Path of a WordPress URL relative to the directory of WordPress' .htaccess, as a RewriteRule
+    // in that file sees it (no leading slash, home path of subdirectory installs stripped).
+    // null: the URL lies outside that directory and cannot be matched from this .htaccess.
+    private static function htaccess_rel_path($url) {
+        $path = trim(self::url_path($url), '/');
+        $home = trim(self::url_path(home_url()), '/');
+        if ($home === '') return $path;
+        if ($path === $home) return '';
+        if (strpos($path, $home . '/') === 0) return substr($path, strlen($home) + 1);
+        return null;
+    }
+
+    /**
+     * Rules for Apache / LiteSpeed, same set as the nginx file. Only mod_rewrite is used
+     * (needs the same AllowOverride as WordPress' own permalink rules), so a server that
+     * forbids "Options" or "Require" in .htaccess does not answer with a 500 error.
+     * The block is appended after WordPress' own block: requests for files and folders that
+     * exist reach these rules directly, everything else ends in WordPress (404).
+     */
+    public static function generate_apache_rules() {
+        $ops = tegatai_get_setting('tegatai_options', []);
+        if (!is_array($ops)) $ops = [];
+        $on = function ($key, $legacy = '') use ($ops) {
+            return !empty($ops[$key]) || ($legacy !== '' && !empty($ops[$legacy]));
+        };
+        $q = function ($p) { return preg_quote($p, '#'); };
+
+        $ud = wp_upload_dir(null, false);
+        $up = self::htaccess_rel_path($ud['baseurl']);
+        $pl = self::htaccess_rel_path(tegatai_plugins_url());
+        $th = self::htaccess_rel_path(get_theme_root_uri());
+        $ct = self::htaccess_rel_path(content_url());
+        $phpre = '(php[1-8]?|pht|phtml?|phps|phar)';
+
+        $r = [];
+        $r[] = '<IfModule mod_rewrite.c>';
+        $r[] = 'RewriteEngine On';
+
+        // Always: Tegatai's data folder (logs, backups, server rules, GeoIP database) and the
+        // folders of older versions. The folders also carry their own .htaccess.
+        if ($up !== null) {
+            $r[] = '# Tegatai: data folder';
+            $r[] = 'RewriteRule ^' . ($up !== '' ? $q($up) . '/' : '') . '(tegatai-secure|tegatai-backups|tegatai-logs|tegatai-quarantine|tegatai-server|tegatai-geoip)(/|$) - [F,L]';
+        }
+        if ($ct !== null) {
+            $r[] = 'RewriteRule ^' . ($ct !== '' ? $q($ct) . '/' : '') . 'tegatai-quarantine(/|$) - [F,L]';
+        }
+
+        // Always (same as nginx): no PHP execution in uploads, plugins and themes.
+        // Plugin PHP files that WordPress loads itself are not affected; only direct requests are.
+        $r[] = '# Tegatai: no direct PHP requests in uploads, plugins and themes';
+        if ($up !== null && $up !== '') $r[] = 'RewriteRule ^' . $q($up) . '/.*\.' . $phpre . '$ - [F,L,NC]';
+        if ($pl !== null && $pl !== '') $r[] = 'RewriteRule ^' . $q($pl) . '/(?!anzen/serve\.php).*\.' . $phpre . '$ - [F,L,NC]';
+        if ($th !== null && $th !== '') $r[] = 'RewriteRule ^' . $q($th) . '/.*\.' . $phpre . '$ - [F,L,NC]';
+
+        if ($on('server_disable_indexing')) {
+            $r[] = '# Tegatai: no directory listings (folders without an index file)';
+            $r[] = 'RewriteCond %{REQUEST_FILENAME} -d';
+            $r[] = 'RewriteCond %{REQUEST_FILENAME}/index.php !-f';
+            $r[] = 'RewriteCond %{REQUEST_FILENAME}/index.html !-f';
+            $r[] = 'RewriteCond %{REQUEST_FILENAME}/index.htm !-f';
+            $r[] = 'RewriteRule ^ - [F,L]';
+        }
+
+        if ($on('server_protect_files')) {
+            $r[] = '# Tegatai: sensitive files';
+            $r[] = 'RewriteRule \.(log|ini|sql|env|sh|bak|old|git)$ - [F,L,NC]';
+        }
+
+        if ($on('server_hide_system_files', 'block_system_files')) {
+            $r[] = '# Tegatai: system files';
+            $r[] = 'RewriteRule (^|/)(readme\.html|license\.txt|wp-config\.php|install\.php)$ - [F,L,NC]';
+        }
+
+        // Dotfiles were always blocked on Apache by earlier versions; that stays.
+        // /.well-known/ stays reachable (ACME HTTP-01, security.txt, app links).
+        $r[] = '# Tegatai: dotfiles';
+        $r[] = 'RewriteRule (^|/)\.(?!well-known(/|$)) - [F,L]';
+
+        if ($on('server_block_xmlrpc')) {
+            $r[] = '# Tegatai: XML-RPC';
+            $r[] = 'RewriteRule ^xmlrpc\.php$ - [F,L,NC]';
+        }
+
+        if ($on('server_filter_bad_bots', 'block_bad_bots')) {
+            $r[] = '# Tegatai: bad bots';
+            $r[] = 'RewriteCond %{REMOTE_ADDR} !^127\.0\.0\.1$';
+            $r[] = 'RewriteCond %{REMOTE_ADDR} !^::1$';
+            $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['scanners'] . ') [NC,OR]';
+            $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['ai_bots'] . ') [NC,OR]';
+            $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['seo_spam'] . ') [NC]';
+            $r[] = 'RewriteRule ^ - [F,L]';
+        }
+
+        if ($on('server_protected_dirs') && is_string($ops['server_protected_dirs'])) {
+            $clean = [];
+            foreach (explode("\n", str_replace([',', ';'], "\n", $ops['server_protected_dirs'])) as $e) {
+                $e = preg_replace('/[^a-zA-Z0-9_\-]/', '', trim($e));
+                if ($e !== '') $clean[] = $e;
+            }
+            if ($clean) {
+                $r[] = '# Tegatai: protected directories';
+                $r[] = 'RewriteRule ^(' . implode('|', $clean) . ')(/|$) - [F,L,NC]';
+            }
+        }
+
+        if ($on('server_custom_files_list') && is_string($ops['server_custom_files_list'])) {
+            $files = [];
+            foreach (explode("\n", str_replace([',', ';'], "\n", $ops['server_custom_files_list'])) as $cf) {
+                $cf = trim(preg_replace('/[^A-Za-z0-9_\-\.\/]/', '', trim($cf)), '/');
+                if ($cf === '' || strpos($cf, '..') !== false) continue;
+                $files[] = $q($cf);
+            }
+            if ($files) {
+                $r[] = '# Tegatai: blocked files';
+                $r[] = 'RewriteRule ^(' . implode('|', $files) . ')$ - [F,L]';
+            }
+        }
+
+        if ($on('server_hotlink_protection')) {
+            // Same as nginx "valid_referers none blocked server_names <whitelist>":
+            // requests without a referrer or with a referrer that is not a URL stay allowed.
+            $r[] = '# Tegatai: hotlink protection';
+            $r[] = 'RewriteCond %{HTTP_REFERER} ^https?:// [NC]';
+            $r[] = 'RewriteCond %{HTTP_HOST}@@%{HTTP_REFERER} !^([^@:]*)(:[0-9]+)?@@https?://\1(:[0-9]+)?(/|$) [NC]';
+            $hosts = [];
+            $home_host = (string) wp_parse_url(home_url(), PHP_URL_HOST);
+            if ($home_host !== '') $hosts[] = strtolower($home_host);
+            if (!empty($ops['server_hotlink_whitelist']) && is_string($ops['server_hotlink_whitelist'])) {
+                foreach (explode("\n", str_replace([',', ';'], "\n", $ops['server_hotlink_whitelist'])) as $entry) {
+                    $clean = self::tegatai_sanitize_valid_referer_entry($entry);
+                    if ($clean !== '') $hosts[] = $clean;
+                }
+            }
+            foreach (array_unique($hosts) as $h) {
+                if (strpos($h, '*.') === 0) {
+                    $re = '([^/@]+\.)?' . $q(substr($h, 2));
+                } else {
+                    $re = $q($h);
+                }
+                $r[] = 'RewriteCond %{HTTP_REFERER} !^https?://' . $re . '(:[0-9]+)?(/|$) [NC]';
+            }
+            $r[] = 'RewriteRule \.(jpe?g|png|gif|webp|svg|mp4|mp3)$ - [F,L,NC]';
+        }
+
+        $r[] = '</IfModule>';
+        return $r;
+    }
+
+    // insert_with_markers() appends a new block at the end of the file. WordPress' own block ends
+    // every request for a page with [L] (rewrite to index.php), so rules after it only ever see
+    // static files. The Tegatai block is therefore moved directly in front of "# BEGIN WordPress";
+    // other blocks keep their order, and later writes (by WordPress or Tegatai) replace the blocks
+    // in place.
+    private static function place_before_wordpress_block($file) {
+        $c = @file_get_contents($file);
+        if (!is_string($c)) return;
+        $begin = '# BEGIN Tegatai-Secure';
+        $end = '# END Tegatai-Secure';
+        $a = strpos($c, $begin);
+        $wp = strpos($c, '# BEGIN WordPress');
+        if ($a === false || $wp === false || $wp > $a) return;
+        $b = strpos($c, $end, $a);
+        if ($b === false) return;
+        $b += strlen($end);
+        $block = substr($c, $a, $b - $a);
+        $rest = substr($c, 0, $a) . substr($c, $b);
+        $rest = rtrim($rest, "\r\n") . "\n";
+        $wp = strpos($rest, '# BEGIN WordPress');
+        $out = substr($rest, 0, $wp) . $block . "\n\n" . substr($rest, $wp);
+        @file_put_contents($file, $out, LOCK_EX);
+    }
+
+    // Writes the Apache / LiteSpeed rules into WordPress' .htaccess and stores the result
+    // (['ok' => bool, 'path' => string, 'error' => string, 'time' => int]).
     public static function write_apache_rules() {
         require_once ABSPATH . 'wp-admin/includes/misc.php';
-        $ops = tegatai_get_setting('tegatai_options', []);
-        
-        // The rules go into WordPress' own .htaccess (get_home_path(), the directory that serves home_url()).
-        // RewriteRule sees the path relative to that directory, so the URL path of the home
-        // directory (subdirectory installs, e.g. "/blog") has to be stripped.
-        $up_url = ltrim(self::url_path(wp_upload_dir()['baseurl']), '/');
-        $wp_url = ltrim(self::url_path(home_url()), '/');
-        if ($wp_url !== '' && strpos($up_url, $wp_url . '/') === 0) {
-            $up_url = substr($up_url, strlen($wp_url) + 1);
+        $file = self::htaccess_file();
+        $rules = self::generate_apache_rules();
+        $error = '';
+        if (file_exists($file) ? !wp_is_writable($file) : !wp_is_writable(dirname($file))) {
+            $error = file_exists($file) ? 'file is not writable' : 'directory is not writable';
+        } elseif (!insert_with_markers($file, 'Tegatai-Secure', $rules)) {
+            $error = 'write failed';
+        } else {
+            self::place_before_wordpress_block($file);
         }
-        $up_dir = $up_url !== '' ? preg_quote($up_url) : 'wp-content/uploads';
-
-        $rules = [];
-        $rules[] = '<IfModule mod_rewrite.c>';
-        $rules[] = 'RewriteEngine On';
-
-        $rules[] = '# Tegatai: Block PHP execution in Uploads';
-        $rules[] = 'RewriteRule ^' . $up_dir . '/.*\.(php[1-8]?|pht|phtml?|phps|phar)$ - [F,L]';
-
-        if (!empty($ops['block_dotfiles'])) {
-            $rules[] = '# Tegatai: Block Dotfiles (except /.well-known/ for ACME, security.txt etc.)';
-            $rules[] = 'RewriteRule (^|/)\.(?!well-known(/|$)) - [F,L]';
+        $status = ['ok' => $error === '', 'path' => $file, 'error' => $error === '' ? '' : $file . ': ' . $error, 'time' => time()];
+        update_option('tegatai_htaccess_status', $status, false);
+        if ($error !== '' && self::detect_server() === 'apache' && class_exists('Tegatai_Logger')) {
+            Tegatai_Logger::log('INFO', '.htaccess rules could not be written: ' . $status['error']);
         }
-
-        if (!empty($ops['block_system_files'])) {
-            $rules[] = '# Tegatai: Block System Files';
-            $rules[] = 'RewriteRule ^(readme\.html|license\.txt|wp-config\.php) - [F,L]';
-            $rules[] = 'RewriteRule \.(sql|bak|log)$ - [F,L]';
-        }
-
-        if (!empty($ops['block_bad_bots']) || !empty($ops['server_filter_bad_bots'])) {
-            $rules[] = '# Tegatai: Enterprise Bad Bot & AI Scraper Protection';
-            // Universal Immunity für Apache (IPv4 & IPv6 Loopback Bypass)
-            $rules[] = 'RewriteCond %{REMOTE_ADDR} !^127\.0\.0\.1$';
-            $rules[] = 'RewriteCond %{REMOTE_ADDR} !^::1$';
-            // Kategorisierte Bot-Filter
-            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['scanners'] . ') [NC,OR]';
-            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['ai_bots'] . ') [NC,OR]';
-            $rules[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['seo_spam'] . ') [NC]';
-            $rules[] = 'RewriteRule ^ - [F,L]';
-        }
-
-        $rules[] = '</IfModule>';
-
-        $rules[] = '<FilesMatch "^\.">';
-        $rules[] = 'Require all denied';
-        $rules[] = '</FilesMatch>';
-        
-        insert_with_markers(self::htaccess_file(), 'Tegatai-Secure', $rules);
+        return $status;
     }
 
     private static function tegatai_sanitize_valid_referer_entry($entry) {
@@ -131,15 +273,16 @@ class Tegatai_Server {
 
     // Writes all server rules and returns the result of the nginx file write
     // (['ok' => bool, 'path' => string, 'error' => string, 'bytes' => int, 'time' => int]).
+    // On Apache / LiteSpeed the result of the .htaccess write is returned instead.
     public static function force_update() {
         $status = self::write_nginx_rules();
-        self::write_apache_rules(); // BUGFIX: War vorher write_htaccess()
-        return $status;
+        $ht = self::write_apache_rules();
+        return self::detect_server() === 'apache' ? $ht : $status;
     }
 
-    // Result of the last write, used by the "Server" tab.
+    // Result of the last write, used by the "Server" tab (the .htaccess result on Apache / LiteSpeed).
     public static function rules_status() {
-        $st = get_option('tegatai_rules_status', []);
+        $st = get_option(self::detect_server() === 'apache' ? 'tegatai_htaccess_status' : 'tegatai_rules_status', []);
         return is_array($st) ? $st : [];
     }
 

@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Secure
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Firewall, login protection with 2FA, anti-spam, scanners, server rules, encrypted database backups and IP ban sharing between your own sites.
- * Version: 2.2.2
+ * Version: 2.2.3
  * Author: Saguya
  * License: GPLv2 or later
  * Text Domain: tegatai-secure
@@ -186,7 +186,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.2.2' );
+define( 'TEGATAI_VERSION', '2.2.3' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
@@ -656,7 +656,7 @@ class Tegatai_Security_Core {
         flush_rewrite_rules();
     }
 
-    const ENV_VERSION = '6';
+    const ENV_VERSION = '7';
 
     public static function ensure_environment() {
         if (get_option('tegatai_env_version') !== self::ENV_VERSION) {
@@ -679,7 +679,8 @@ class Tegatai_Security_Core {
                 }
             }
             delete_option('tegatai_hive_bans');
-            // Regenerate existing server rules once (2.2.2: nginx file moved to uploads/tegatai-secure/server/).
+            // Regenerate existing server rules once (2.2.2: nginx file moved to uploads/tegatai-secure/server/;
+            // 2.2.3: full .htaccess rule set for Apache / LiteSpeed, placed in front of the WordPress block).
             // On nginx the rules file is always written: it carries the block for the data folder.
             if (class_exists('Tegatai_Server') && (Tegatai_Server::has_rules() || Tegatai_Server::detect_server() === 'nginx')) {
                 Tegatai_Server::force_update();

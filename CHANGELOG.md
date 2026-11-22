@@ -1,3 +1,13 @@
+## [2.2.3] - Apache / LiteSpeed server rules
+
+### Fixed
+
+* **Apache / LiteSpeed:** the `.htaccess` block now has the same rules as the nginx file: directory listings, sensitive and system files, XML-RPC, protected folders, blocked files, hotlink protection (with whitelist), the data folder and no direct PHP requests in plugins and themes. Before, `write_apache_rules()` read most switches under option names that the settings page never saves (`block_dotfiles`, `block_system_files`), so on Apache only PHP-in-uploads, dotfiles and the bot filter were active. The block is moved in front of `# BEGIN WordPress`: behind it, WordPress' `[L]` rewrite to `index.php` meant the bot filter only ever saw static files. Only mod_rewrite is used; the former `<FilesMatch> Require all denied` caused a 500 error on servers that do not allow `Require` in `.htaccess`. `force_update()` returns the `.htaccess` result on Apache / LiteSpeed and the Server tab shows it (instead of the nginx include line).
+
+### Upgrade notes
+
+* Apache / LiteSpeed: the `Tegatai-Secure` block in `.htaccess` is written again on the first request after the update (only where it already exists). Direct requests for PHP files in `plugins/` and `themes/` now get a 403, as on nginx; `anzen/serve.php` stays reachable.
+
 ## [2.2.2] - WordPress.org review: secrets, no code files, enqueued assets
 
 ### Security
@@ -24,6 +34,7 @@
 * **Prefix `tegatai_`** for all stored names, AJAX actions, nonces and form fields (before partly `teg_`). Options and user meta are renamed once on the first request after the update (values kept, no duplicates); transients of the old names are dropped.
 * **Settings** are registered with a schema-based `sanitize_callback` (`sanitize_options()`), unknown keys are dropped. The JSON import is size-limited and every value goes through the settings schema.
 * **WP-CLI** key commands write the key file to STDOUT with `WP_CLI::line()` and hints to STDERR with `WP_CLI::warning()`.
+* **readme.txt:** the description now lists all features without promotional text; setup steps (secrets file, keys, Hive peers, WP Masking, API Guard HMAC) moved to "Installation", technical details (backup contents, GeoIP, AbuseIPDB, masking, Hive protocol) to the FAQ. The WordPress.org entry under "External services" no longer mentions `core.svn.wordpress.org` (core files are only checked).
 
 ### Removed
 
