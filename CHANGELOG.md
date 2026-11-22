@@ -1,8 +1,22 @@
-## [2.2.3] - Apache / LiteSpeed server rules
+## [2.2.4] - Exceptions for direct PHP requests in plugins and themes
+
+### Added
+
+* **PHP exceptions:** new field "PHP Exceptions (Plugins & Themes)" under Server → Custom Protection (`server_php_exceptions`). One path per line relative to `wp-content/plugins/` or `wp-content/themes/`; files match exactly, a trailing `/` allows a folder. Entries with other characters or `..` are ignored. Preset (used while the field was never saved): `anzen/serve.php`, `litespeed-cache/guest.vary.php`, `matomo/app/index.php`, `matomo/app/matomo.php`, `matomo/app/piwik.php`, `burst-statistics/endpoint.php`, `burst-pro/endpoint.php`. An empty field allows nothing. The list becomes a negative lookahead in the deny location (nginx) and in the RewriteRule (`.htaccess`); before, only `anzen/serve.php` was hard-coded and only for plugins.
+* **Switch "Allow direct PHP in Plugins & Themes"** (`server_allow_plugin_php`, off by default): drops the plugin and theme block entirely; the block for uploads stays.
+
+### Upgrade notes
+
+* Existing server rules are written again once after the update (`ENV_VERSION` 8), so the preset exceptions are active without saving.
+
+## [2.2.3] - Apache / LiteSpeed: server rules and WP Masking
 
 ### Fixed
 
 * **Apache / LiteSpeed:** the `.htaccess` block now has the same rules as the nginx file: directory listings, sensitive and system files, XML-RPC, protected folders, blocked files, hotlink protection (with whitelist), the data folder and no direct PHP requests in plugins and themes. Before, `write_apache_rules()` read most switches under option names that the settings page never saves (`block_dotfiles`, `block_system_files`), so on Apache only PHP-in-uploads, dotfiles and the bot filter were active. The block is moved in front of `# BEGIN WordPress`: behind it, WordPress' `[L]` rewrite to `index.php` meant the bot filter only ever saw static files. Only mod_rewrite is used; the former `<FilesMatch> Require all denied` caused a 500 error on servers that do not allow `Require` in `.htaccess`. `force_update()` returns the `.htaccess` result on Apache / LiteSpeed and the Server tab shows it (instead of the nginx include line).
+
+* **WP Masking on Apache / LiteSpeed:** new `Tegatai_Mask::apache_lines()` writes the same mapping as the nginx rules into the Tegatai block of `.htaccess`: new plugin / theme / wp-includes paths (static file types only), the ajax alias, hidden file names (unknown names answer 404) and the 404 for original paths. The block checks `%{THE_REQUEST}`, because an internal rewrite in `.htaccess` starts a new round with the real path; logged-in users and requests with a referrer of the own site keep access, as on nginx. Before, the path check found no working paths on Apache and masking stayed inactive apart from removing versions and identifiers.
+* Admin texts of WP Masking no longer say nginx only.
 
 ### Upgrade notes
 

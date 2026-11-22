@@ -13,7 +13,8 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * - File names can be replaced by a neutral name per file (the folders stay, so relative URLs in
  *   CSS and JS keep working).
  *
- * nginx maps the new paths back to the real files (rules in tegatai-nginx.conf). The HTML is only
+ * The web server maps the new paths back to the real files (rules in tegatai-nginx.conf or in the
+ * Tegatai block of .htaccess). The HTML is only
  * rewritten for entries whose new path was verified with a loopback request, so a missing nginx
  * reload never breaks the site. Blocking only covers verified entries for the same reason.
  */
@@ -146,7 +147,7 @@ class Tegatai_Mask {
         return ($type === 'theme' ? self::themes_path() : self::plugins_path()) . '/' . $name;
     }
 
-    // Verified entries: only these are rewritten in the HTML and blocked by nginx.
+    // Verified entries: only these are rewritten in the HTML and blocked by the web server rules.
     public static function snapshot() {
         $s = get_option(self::SNAPSHOT_OPTION, []);
         $s = is_array($s) ? $s : [];
@@ -175,7 +176,7 @@ class Tegatai_Mask {
                 $_SERVER['REQUEST_URI'] = $home . '/wp-json' . substr($uri, strlen($rest));
             }
 
-            // nginx sends /<ajax> to admin-ajax.php; the URI is mapped so checks see the real endpoint
+            // The web server sends /<ajax> to admin-ajax.php; the URI is mapped so checks see the real endpoint
             $snap = self::snapshot();
             if ($snap['ajax'] !== '' && wp_doing_ajax()) {
                 $ajax = $home . '/' . $snap['ajax'];
@@ -430,6 +431,81 @@ class Tegatai_Mask {
             }
         }
         $lines[] = '';
+        return $lines;
+    }
+
+    // Same mapping for Apache / LiteSpeed (part of WordPress' .htaccess, block "Tegatai-Secure").
+    // Patterns are relative to the directory of the .htaccess (no home path); targets are absolute
+    // URL paths. An internal rewrite starts a new round with the real path, so the block of the
+    // original paths checks THE_REQUEST (the request line as sent, like $request_uri on nginx).
+    public static function apache_lines() {
+        $paths = self::on('paths');
+        $core  = self::on('core');
+        $block = self::on('block');
+        if (!$paths && !$core) return [];
+
+        $home = self::home_path();
+        $ext  = self::EXT;
+        $snap = self::snapshot();
+        $q = static function ($p) { return preg_quote($p, '#'); };
+        // Substitutions must not contain whitespace or characters with a meaning in mod_rewrite
+        $safe = static function ($p) { return $p !== '' && !preg_match('/[\s%$\\\\{}]/', $p); };
+        $lines = [];
+        $lines[] = '# WP Masking: new paths are mapped to the real files (static files only, never PHP)';
+
+        if ($paths) {
+            $pairs = [];
+            foreach (self::aliases() as $key => $alias) $pairs[] = [$key, self::base() . '/' . $alias];
+            foreach ($snap['paths'] as $key => $new) $pairs[] = [$key, $new];
+            foreach ($snap['old'] as $key => $list) foreach ((array) $list as $new) $pairs[] = [$key, (string) $new];
+            $done = [];
+            foreach ($pairs as $pair) {
+                list($key, $new) = $pair;
+                $new = trim((string) $new, '/');
+                $target = self::real_path($key);
+                if ($new === '' || isset($done[$new]) || !$safe($target)) continue;
+                $done[$new] = 1;
+                $lines[] = 'RewriteRule ^' . $q($new) . '/(.+\.(?:' . $ext . '))$ ' . $target . '/$1 [L]';
+            }
+        }
+        if ($core) {
+            foreach (array_unique(array_filter([self::inc_alias(), $snap['includes']])) as $inc) {
+                $lines[] = 'RewriteRule ^' . $q($inc) . '/(.+\.(?:' . $ext . '))$ ' . self::includes_path() . '/$1 [L]';
+            }
+            foreach (array_unique(array_filter([self::ajax_alias(), $snap['ajax']])) as $ajax) {
+                $lines[] = 'RewriteRule ^' . $q($ajax) . '$ ' . self::ajax_path() . ' [L]';
+            }
+        }
+
+        if ($block) {
+            $orig = [];
+            if ($paths) {
+                foreach (array_keys($snap['paths']) as $key) $orig[] = $q(ltrim(self::real_path($key), '/')) . '/';
+            }
+            if ($core && $snap['includes'] !== '') $orig[] = $q(ltrim(self::includes_path(), '/')) . '/';
+            if ($core) $orig[] = $q(ltrim($home . '/wp-json/', '/')) . '(?!tegatai/)';
+            if ($orig) {
+                $lines[] = '# WP Masking: direct requests for original paths answer 404 (logged-in users and own pages keep access)';
+                $lines[] = 'RewriteCond %{THE_REQUEST} ^\S+\s/(?:' . implode('|', $orig) . ') [NC]';
+                $lines[] = 'RewriteCond %{HTTP_COOKIE} !wordpress_logged_in_ [NC]';
+                $lines[] = 'RewriteCond %{HTTP_REFERER} !^https?://' . $q(self::host()) . '(:[0-9]+)?/ [NC]';
+                $lines[] = 'RewriteRule ^ - [R=404,L]';
+            }
+        }
+
+        if (self::on('files')) {
+            $files = self::files();
+            if ($files) {
+                $lines[] = '# WP Masking: file names (new name -> real file)';
+                foreach ($files as $token => $f) {
+                    $target = self::file_base((string) ($f['k'] ?? ''));
+                    $rel = (string) ($f['r'] ?? '');
+                    if ($target === '' || !preg_match('/^' . self::TOKEN_RE . '$/', (string) $token) || !$safe($target . '/' . $rel)) continue;
+                    $lines[] = 'RewriteRule (^|/)' . $token . '$ ' . $target . '/' . $rel . ' [L]';
+                }
+                $lines[] = 'RewriteRule (^|/)' . self::TOKEN_RE . '$ - [R=404,L]';
+            }
+        }
         return $lines;
     }
 

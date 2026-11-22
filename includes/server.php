@@ -23,6 +23,43 @@ class Tegatai_Server {
     /**
      * TEGATAI FIX: Dual-Engine Support für Apache & LiteSpeed
      */
+    // Files and folders in plugins / themes that may still be requested directly as PHP.
+    // Plugins that ship their own web endpoint (tracking, guest mode, reporting UI) need them.
+    const DEFAULT_PHP_EXCEPTIONS = "anzen/serve.php\nlitespeed-cache/guest.vary.php\nmatomo/app/index.php\nmatomo/app/matomo.php\nmatomo/app/piwik.php\nburst-statistics/endpoint.php\nburst-pro/endpoint.php";
+
+    // Cleaned exception list: paths relative to the plugins or themes folder; a trailing "/"
+    // allows a whole folder. Unset option = defaults, an empty field = no exceptions.
+    public static function php_exceptions($ops = null) {
+        if ($ops === null) $ops = tegatai_get_setting('tegatai_options', []);
+        $raw = (is_array($ops) && isset($ops['server_php_exceptions']) && is_string($ops['server_php_exceptions']))
+            ? $ops['server_php_exceptions'] : self::DEFAULT_PHP_EXCEPTIONS;
+        $out = [];
+        foreach (preg_split('/[\r\n,;]+/', $raw) as $e) {
+            $e = ltrim(trim($e), '/');
+            $e = preg_replace('#^wp-content/(plugins|themes)/#', '', $e);
+            if ($e === '' || strpos($e, '..') !== false || !preg_match('#^[A-Za-z0-9_\-./]+$#', $e)) continue;
+            $out[$e] = true;
+        }
+        return array_keys($out);
+    }
+
+    // "(?!(?:a/b\.php$|c/d/))" for the rules, or "" without exceptions.
+    // Files must match exactly, folders (ending in "/") as a prefix.
+    private static function php_exception_lookahead($list) {
+        if (!$list) return '';
+        $alt = [];
+        foreach ($list as $e) {
+            $alt[] = substr($e, -1) === '/' ? preg_quote($e, '#') : preg_quote($e, '#') . '$';
+        }
+        return '(?!(?:' . implode('|', $alt) . '))';
+    }
+
+    // Direct PHP requests in plugins and themes are blocked unless the administrator allowed them.
+    public static function block_plugin_php($ops = null) {
+        if ($ops === null) $ops = tegatai_get_setting('tegatai_options', []);
+        return !(is_array($ops) && !empty($ops['server_allow_plugin_php']));
+    }
+
     // Path of a WordPress URL relative to the directory of WordPress' .htaccess, as a RewriteRule
     // in that file sees it (no leading slash, home path of subdirectory installs stripped).
     // null: the URL lies outside that directory and cannot be matched from this .htaccess.
@@ -71,12 +108,16 @@ class Tegatai_Server {
             $r[] = 'RewriteRule ^' . ($ct !== '' ? $q($ct) . '/' : '') . 'tegatai-quarantine(/|$) - [F,L]';
         }
 
-        // Always (same as nginx): no PHP execution in uploads, plugins and themes.
-        // Plugin PHP files that WordPress loads itself are not affected; only direct requests are.
+        // Always (same as nginx): no PHP execution in uploads. Plugins and themes unless allowed,
+        // with the exception list. PHP files that WordPress loads itself are not affected; only
+        // direct requests are.
         $r[] = '# Tegatai: no direct PHP requests in uploads, plugins and themes';
         if ($up !== null && $up !== '') $r[] = 'RewriteRule ^' . $q($up) . '/.*\.' . $phpre . '$ - [F,L,NC]';
-        if ($pl !== null && $pl !== '') $r[] = 'RewriteRule ^' . $q($pl) . '/(?!anzen/serve\.php).*\.' . $phpre . '$ - [F,L,NC]';
-        if ($th !== null && $th !== '') $r[] = 'RewriteRule ^' . $q($th) . '/.*\.' . $phpre . '$ - [F,L,NC]';
+        if (self::block_plugin_php($ops)) {
+            $la = self::php_exception_lookahead(self::php_exceptions($ops));
+            if ($pl !== null && $pl !== '') $r[] = 'RewriteRule ^' . $q($pl) . '/' . $la . '.*\.' . $phpre . '$ - [F,L,NC]';
+            if ($th !== null && $th !== '') $r[] = 'RewriteRule ^' . $q($th) . '/' . $la . '.*\.' . $phpre . '$ - [F,L,NC]';
+        }
 
         if ($on('server_disable_indexing')) {
             $r[] = '# Tegatai: no directory listings (folders without an index file)';
@@ -166,6 +207,11 @@ class Tegatai_Server {
                 $r[] = 'RewriteCond %{HTTP_REFERER} !^https?://' . $re . '(:[0-9]+)?(/|$) [NC]';
             }
             $r[] = 'RewriteRule \.(jpe?g|png|gif|webp|svg|mp4|mp3)$ - [F,L,NC]';
+        }
+
+        // WP Masking comes last (after the blocks above), as in the nginx file.
+        if (class_exists('Tegatai_Mask')) {
+            $r = array_merge($r, Tegatai_Mask::apache_lines());
         }
 
         $r[] = '</IfModule>';
@@ -515,12 +561,16 @@ class Tegatai_Server {
         if (!empty($up_dir)) {
             $lines[] = "location ~ ^" . $up_dir . "/.*\." . $phpre . "$ { deny all; }";
         }
-        if (!empty($pl_dir)) {
-            // FIX: Erlaubt Anzen die Ausfuehrung der serve.php, blockt alle anderen PHP-Dateien im Plugin-Ordner
-            $lines[] = "location ~ ^" . $pl_dir . "/(?!anzen/serve\.php).*\." . $phpre . "$ { deny all; }";
-        }
-        if (!empty($th_dir)) {
-            $lines[] = "location ~ ^" . $th_dir . "/.*\." . $phpre . "$ { deny all; }";
+        // Plugins and themes: blocked unless allowed; files on the exception list stay reachable
+        // (they never match the deny location and fall through to the normal PHP location).
+        if (self::block_plugin_php($ops)) {
+            $la = self::php_exception_lookahead(self::php_exceptions($ops));
+            if (!empty($pl_dir)) {
+                $lines[] = "location ~ ^" . $pl_dir . "/" . $la . ".*\." . $phpre . "$ { deny all; }";
+            }
+            if (!empty($th_dir)) {
+                $lines[] = "location ~ ^" . $th_dir . "/" . $la . ".*\." . $phpre . "$ { deny all; }";
+            }
         }
 
         $lines[] = "";

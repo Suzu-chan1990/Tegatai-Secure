@@ -10,7 +10,7 @@ Security plugin for WordPress. It combines a firewall, login protection, anti-sp
 
 Rules that the web server can enforce are written to `tegatai-nginx.conf` (nginx) or `.htaccess` (Apache, LiteSpeed), so those requests are blocked before PHP starts. Everything else runs inside WordPress. Every module can be switched on and off on its own.
 
-Current version: `2.2.3` – see [CHANGELOG.md](CHANGELOG.md).
+Current version: `2.2.4` – see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -38,7 +38,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 ![Server rules](./screenshots/04-server-rules.webp)
 
-**WP Masking** – neutral paths for plugins, themes and WordPress core (nginx)
+**WP Masking** – neutral paths for plugins, themes and WordPress core
 
 ![WP Masking](./screenshots/05-wp-masking.webp)
 
@@ -68,7 +68,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 * WordPress 7.1 or newer
 * PHP 8.4 or newer with OpenSSL and sodium; zlib for the GeoIP database
-* nginx, Apache or LiteSpeed (WP Masking needs nginx)
+* nginx, Apache or LiteSpeed (Apache and LiteSpeed with mod_rewrite)
 * WP-CLI to create the Hive and backup keys
 
 ---
@@ -125,6 +125,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 * Blocks sensitive files (`.env`, `.sql`, `.bak`, `.log`, `.git`), WordPress files such as `readme.html`, `license.txt` and `wp-config.php`, and dotfiles
 * Blocks `xmlrpc.php`
 * No PHP execution in the uploads folder
+* No direct PHP requests in plugins and themes, with an exception list (preset for LiteSpeed Cache guest mode, Matomo and Burst Statistics) and a switch to allow them
 * Bad bot filter on server level
 * Hotlink protection for images, with a whitelist of allowed domains
 * Own lists of protected folders and blocked files
@@ -133,7 +134,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, HSTS (optionally with subdomains), Referrer-Policy, Permissions-Policy and a basic Content-Security-Policy.
 
-### WP Masking (nginx)
+### WP Masking
 
 * Plugin and theme folders appear as `/assets/<name>/`; the names can be set per plugin and theme
 * `/wp-includes/`, `/wp-json/` and `admin-ajax.php` get their own paths
@@ -346,10 +347,10 @@ Sites can be switched one by one. To remove a site from the network, delete its 
 Activation:
 
 1. Switch the options on and save the names.
-2. Reload nginx.
+2. nginx: reload nginx. Apache and LiteSpeed read the `.htaccess` at once.
 3. Click **Check new paths**.
 
-Tegatai requests every new path once and only uses paths that returned the real file, so a missing nginx reload does not break the site. New file names are found when pages are visited and checked every hour. With Apache or LiteSpeed the check finds no working paths and nothing changes; removing versions and identifiers works on every server.
+Tegatai requests every new path once and only uses paths that returned the real file, so a missing nginx reload does not break the site. New file names are found when pages are visited and checked every hour. On Apache and LiteSpeed the mapping is part of the Tegatai block in `.htaccess`.
 
 ### API Guard (HMAC)
 
@@ -439,7 +440,7 @@ Banned IPs can be reported to [AbuseIPDB](https://www.abuseipdb.com) (Firewall �
 * **Hide file names:** masked files get a neutral name per file, e.g. `/assets/bar/css/kanri-bar.css` → `/assets/bar/css/t3f9a0c1d2e4`. Folders stay, so relative URLs in CSS and JS keep working. A changed file gets a new name.
 * **Block original paths:** direct requests for the original paths of masked entries get a 404. Logged-in users and files loaded by the site's own pages keep access.
 
-nginx maps the new paths back to the real files (static files only, never PHP). The rules are part of `tegatai-nginx.conf`.
+The web server maps the new paths back to the real files (static files only, never PHP). The rules are part of `tegatai-nginx.conf` (nginx) or of the Tegatai block in `.htaccess` (Apache, LiteSpeed).
 
 ### How are Hive messages protected?
 
