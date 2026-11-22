@@ -33,9 +33,9 @@ class Tegatai_Scanner {
         set_transient($key, $val, $ttl);
     }
 
-    // Protected log directory (tegatai-logs has .htaccess/index.php)
+    // Protected log directory (uploads/tegatai-secure/logs, .htaccess/index.php + nginx rule)
     private function logs_dir() {
-        $dir = wp_upload_dir()['basedir'] . '/tegatai-logs/';
+        $dir = tegatai_data_dir('logs') . '/';
         if (function_exists('tegatai_protect_directory')) {
             tegatai_protect_directory($dir);
         } elseif (!is_dir($dir)) {
@@ -45,18 +45,18 @@ class Tegatai_Scanner {
     }
 
     public function create_snapshot() {
-        check_admin_referer('teg_scan_nonce');
+        check_admin_referer('tegatai_scan_nonce');
         if (!current_user_can('manage_options')) wp_die('Access Denied');
 
         $files = $this->get_content_files();
         $snapshot = [];
         foreach ($files as $file) {
-            $snapshot[str_replace(ABSPATH, '', $file)] = md5_file($file);
+            $snapshot[$this->rel_key($file)] = md5_file($file);
         }
 
-        $dir = $this->logs_dir();
-
-        file_put_contents($dir . 'snapshot.json', wp_json_encode($snapshot));
+        $this->logs_dir();
+        // Format 2: keys are "<root>/<path relative to that root>", so moving the site does not change them.
+        file_put_contents(tegatai_private_file('snapshot.json'), wp_json_encode(['v' => 2, 'files' => $snapshot]));
         // Cache direkt aktualisieren
         $this->set_cache('tegatai_scan_snapshot', $snapshot, 3600);
 
@@ -69,14 +69,14 @@ class Tegatai_Scanner {
      * cron request (which timed out on larger sites); the alarm mail is sent when the last chunk is done.
      */
     public function auto_night_scan() {
-        $state = get_option('teg_scan_status');
+        $state = get_option('tegatai_scan_status');
         // Do not interfere with a scan that is still running (stale states older than 6h are replaced).
         if (is_array($state) && !empty($state['running']) && (time() - (int)($state['start_time'] ?? 0)) < 6 * HOUR_IN_SECONDS) {
             return;
         }
 
         // No scan_token: the admin page must not drive this scan via admin-post in parallel to cron.
-        update_option('teg_scan_status', [
+        update_option('tegatai_scan_status', [
             'running' => true,
             'phase' => 'core',
             'offset' => 0,
@@ -102,11 +102,11 @@ class Tegatai_Scanner {
     }
 
     public function start_scan() {
-        check_admin_referer('teg_scan_nonce');
+        check_admin_referer('tegatai_scan_nonce');
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         $scan_token = wp_generate_password(32, false, false);
 
-        update_option('teg_scan_status', [
+        update_option('tegatai_scan_status', [
             'running' => true,
             'phase' => 'core',
             'offset' => 0,
@@ -123,7 +123,7 @@ class Tegatai_Scanner {
     public function process_scan() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
 
-        $state = get_option('teg_scan_status');
+        $state = get_option('tegatai_scan_status');
 
         $expected = is_array($state) && isset($state['scan_token']) ? (string)$state['scan_token'] : '';
         $provided = isset($_REQUEST['scan_token']) ? (string)$_REQUEST['scan_token'] : '';
@@ -136,7 +136,7 @@ class Tegatai_Scanner {
         }
 
         $done = $this->run_chunk($state);
-        update_option('teg_scan_status', $state, false);
+        update_option('tegatai_scan_status', $state, false);
 
         if ($done) {
             wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=scanner&msg=done'));
@@ -218,7 +218,7 @@ class Tegatai_Scanner {
     }
 
     private function scan_files_path() {
-        return wp_upload_dir()['basedir'] . '/tegatai-logs/scan_files.json';
+        return tegatai_private_file('scan_files.json');
     }
 
     // Cached, sorted file list for the running scan (stable offsets between chunks).
@@ -235,18 +235,46 @@ class Tegatai_Scanner {
         return $files;
     }
 
+    /**
+     * Folders that are scanned, by label. Plugins, must-use plugins, themes and uploads can be
+     * configured outside the content folder, so each one is listed with its real location.
+     */
+    private function scan_roots() {
+        static $cache = null;
+        if ($cache !== null) return $cache;
+        $roots = [
+            'content'    => WP_CONTENT_DIR,
+            'plugins'    => WP_PLUGIN_DIR,
+            'mu-plugins' => WPMU_PLUGIN_DIR,
+            'themes'     => get_theme_root(),
+            'uploads'    => wp_upload_dir(null, false)['basedir'],
+        ];
+        $out = [];
+        foreach ($roots as $label => $dir) {
+            $real = is_string($dir) && $dir !== '' ? realpath($dir) : false;
+            if ($real && is_dir($real) && is_readable($real)) $out[$label] = wp_normalize_path($real);
+        }
+        // Longest path first, so a file is assigned to its most specific root
+        uasort($out, static function ($a, $b) { return strlen($b) <=> strlen($a); });
+        return $cache = $out;
+    }
+
+    // Snapshot key of a file: "<root label>/<path relative to that root>".
+    private function rel_key($path) {
+        $p = wp_normalize_path((string) $path);
+        foreach ($this->scan_roots() as $label => $root) {
+            if (strpos($p, $root . '/') === 0) return $label . '/' . substr($p, strlen($root) + 1);
+        }
+        return $p;
+    }
+
     private function get_content_files() {
         $files = [];
-        if (!is_dir(WP_CONTENT_DIR) || !is_readable(WP_CONTENT_DIR)) return $files;
+        $roots = $this->scan_roots();
+        if (!$roots) return $files;
 
         // Own storage (backups, logs, quarantine) is never scanned.
-        $upload_base = wp_upload_dir()['basedir'];
-        $excludes = [
-            $upload_base . '/tegatai-backups',
-            $upload_base . '/tegatai-logs',
-            $upload_base . '/tegatai-quarantine',
-            WP_CONTENT_DIR . '/tegatai-quarantine',
-        ];
+        $excludes = [wp_normalize_path(tegatai_data_dir())];
 
         // Exclusions holen
         $ops = tegatai_get_setting('tegatai_options');
@@ -255,42 +283,33 @@ class Tegatai_Scanner {
             foreach($lines as $l) if(trim($l)) $excludes[] = trim($l);
         }
 
-        try {
-            // CATCH_GET_CHILD: unreadable directories are skipped instead of throwing an UnexpectedValueException
-            $dir_iterator = new RecursiveDirectoryIterator(WP_CONTENT_DIR, FilesystemIterator::SKIP_DOTS);
-            $iterator = new RecursiveIteratorIterator($dir_iterator, RecursiveIteratorIterator::LEAVES_ONLY, RecursiveIteratorIterator::CATCH_GET_CHILD);
+        $seen = [];
+        foreach ($roots as $root) {
+            try {
+                // CATCH_GET_CHILD: unreadable directories are skipped instead of throwing an UnexpectedValueException
+                $dir_iterator = new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS);
+                $iterator = new RecursiveIteratorIterator($dir_iterator, RecursiveIteratorIterator::LEAVES_ONLY, RecursiveIteratorIterator::CATCH_GET_CHILD);
 
-            foreach ($iterator as $file) {
-                if (!$file->isDir() && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'php') {
+                foreach ($iterator as $file) {
+                    if ($file->isDir() || strtolower(pathinfo($file, PATHINFO_EXTENSION)) !== 'php') continue;
                     $path = $file->getPathname();
+                    $norm = wp_normalize_path($path);
+                    if (isset($seen[$norm])) continue; // nested roots (plugins inside content)
+                    $seen[$norm] = true;
 
-                    // Check Exclusions
                     $skip = false;
-                    foreach($excludes as $ex) {
-                        if (strpos($path, $ex) !== false) { $skip = true; break; }
+                    foreach ($excludes as $ex) {
+                        if (strpos($norm, wp_normalize_path($ex)) !== false) { $skip = true; break; }
                     }
                     if ($skip) continue;
 
                     $files[] = $path;
                 }
+            } catch (UnexpectedValueException $e) {
+                if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SCAN-ERROR', 'Directory walk failed: ' . $e->getMessage());
             }
-        } catch (UnexpectedValueException $e) {
-            if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SCAN-ERROR', 'Directory walk failed: ' . $e->getMessage());
         }
         return $files;
-    }
-
-    // DRY: Quarantäne Verzeichnis absichern
-    private function ensure_quarantine_dir() {
-        $quarantine_dir = wp_upload_dir()['basedir'] . '/tegatai-quarantine/';
-        if (function_exists('tegatai_protect_directory')) {
-            tegatai_protect_directory($quarantine_dir);
-        } elseif (!is_dir($quarantine_dir)) {
-            wp_mkdir_p($quarantine_dir);
-            file_put_contents($quarantine_dir . '.htaccess', "Require all denied\n");
-            file_put_contents($quarantine_dir . 'index.php', '<?php // Silence');
-        }
-        return $quarantine_dir;
     }
 
     private function is_own_file($path) {
@@ -299,15 +318,17 @@ class Tegatai_Scanner {
     }
 
     private function analyze_file($path, &$state) {
-        $rel_path = str_replace(ABSPATH, '', $path);
+        $rel_path = $this->rel_key($path);
 
         // --- SNAPSHOT CHECK MIT UNIFIED CACHE ---
         static $snapshot = null;
         if ($snapshot === null) {
             $snapshot = $this->get_cache('tegatai_scan_snapshot');
             if (!$snapshot) {
-                $snap_file = wp_upload_dir()['basedir'] . '/tegatai-logs/snapshot.json';
-                $snapshot = file_exists($snap_file) ? json_decode(file_get_contents($snap_file), true) : [];
+                $snap_file = tegatai_private_file('snapshot.json');
+                $data = file_exists($snap_file) ? json_decode((string) file_get_contents($snap_file), true) : [];
+                // Snapshots of older versions used other keys; they are ignored until a new one is created.
+                $snapshot = (is_array($data) && ($data['v'] ?? 0) === 2 && is_array($data['files'] ?? null)) ? $data['files'] : [];
                 $this->set_cache('tegatai_scan_snapshot', $snapshot, 3600);
             }
         }
@@ -354,18 +375,12 @@ class Tegatai_Scanner {
                 $ops = tegatai_get_setting('tegatai_options');
 
                 // Wir verschieben nur Dateien aus dem Upload-Ordner in Quarantäne (Schutz vor Zerstörung des WP-Cores)
-                if (!empty($ops['enable_auto_quarantine']) && strpos($path, wp_upload_dir()['basedir']) !== false) {
-                    $quarantine_dir = $this->ensure_quarantine_dir();
-                    $safe_filename = time() . '_' . basename($path) . '.quarantine';
-                    $target_path = $quarantine_dir . $safe_filename;
-
-                    // Atomic move into quarantine; WP_Filesystem::move() would fall back to copy + delete
-                    if (@rename($path, $target_path)) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-                        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SEC-WARN', "Malware in Quarantäne verschoben: " . basename($path));
-
-                        // Status im Scan-Array updaten
+                if (!empty($ops['enable_auto_quarantine']) && strpos($path, wp_upload_dir()['basedir']) !== false && class_exists('Tegatai_Quarantine')) {
+                    // Content goes into the quarantine table, the file is deleted (nothing is written to disk)
+                    $q = Tegatai_Quarantine::quarantine_file($path);
+                    if (!empty($q['ok'])) {
                         $last_idx = count($state['bad_files']) - 1;
-                        $state['bad_files'][$last_idx]['issue'] .= " (Verschoben in Quarantäne)";
+                        $state['bad_files'][$last_idx]['issue'] .= ' (' . __('moved to quarantine', 'tegatai-secure') . ')';
                     }
                 }
                 break;
@@ -374,7 +389,7 @@ class Tegatai_Scanner {
     }
 
     private function add_bad(&$state, $path, $issue) {
-        $rel = str_replace(ABSPATH, '', $path);
+        $rel = $this->rel_key($path);
         foreach ($state['bad_files'] as $b) if ($b['file'] === $rel) return;
         $state['bad_files'][] = ['file' => $rel, 'issue' => $issue];
     }
@@ -421,6 +436,9 @@ class Tegatai_Scanner {
     }
 
     public function check_cve_vulnerabilities() {
+        // Opt-in only: plugin slugs are sent to wpvulnerability.net, so nothing happens until the administrator enables it.
+        $ops = tegatai_get_setting('tegatai_options', []);
+        if (!is_array($ops) || empty($ops['enable_vuln_check'])) return;
         if (!function_exists('get_plugins')) require_once ABSPATH . 'wp-admin/includes/plugin.php';
         $plugins = get_plugins();
         $time_start = microtime(true);
@@ -455,11 +473,11 @@ class Tegatai_Scanner {
      * Startet den asynchronen Scan via AJAX
      */
     public function start_bg_scan_ajax() {
-        check_ajax_referer('teg_scan_nonce', 'security');
+        check_ajax_referer('tegatai_scan_nonce', 'security');
         if (!current_user_can('manage_options')) wp_die('Access Denied');
 
         $scan_token = wp_generate_password(32, false, false);
-        update_option('teg_scan_status', [
+        update_option('tegatai_scan_status', [
             'running' => true,
             'phase' => 'core',
             'offset' => 0,
@@ -477,11 +495,11 @@ class Tegatai_Scanner {
      * Der unsichtbare Background-Worker (WP-Cron) - Self-Contained Engine
      */
     public function process_bg_chunk() {
-        $state = get_option('teg_scan_status');
+        $state = get_option('tegatai_scan_status');
         if (empty($state) || empty($state['running'])) return;
 
         $done = $this->run_chunk($state);
-        update_option('teg_scan_status', $state, false);
+        update_option('tegatai_scan_status', $state, false);
 
         if (!$done) {
             wp_schedule_single_event(time() + 1, 'tegatai_bg_scan_chunk');

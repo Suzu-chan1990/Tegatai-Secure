@@ -4,8 +4,8 @@ if (!defined('ABSPATH')) { exit; }
 /* TEGATAI_FIM_ABS_PATHS_V1 applied */
 class Tegatai_FIM {
 
-    const OPT_SNAPSHOT = 'teg_fim_snapshot_v1';
-    const OPT_LASTRUN  = 'teg_fim_last_run_v1';
+    const OPT_SNAPSHOT = 'tegatai_fim_snapshot_v1';
+    const OPT_LASTRUN  = 'tegatai_fim_last_run_v1';
 
     private static function fim_paths(): array {
         // Auto-detect WP directories (works with renamed wp-content)
@@ -92,7 +92,7 @@ class Tegatai_FIM {
     }
 
     private static function snapshot_file(): string {
-        return wp_upload_dir()['basedir'] . '/tegatai-logs/fim_snapshot.json';
+        return tegatai_private_file('fim_snapshot.json');
     }
 
     /**

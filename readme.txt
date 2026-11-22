@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.2.1
+Stable tag: 2.2.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,7 +67,7 @@ Event log and timeline.
 
 Countries are looked up in the free "IP to Country Lite" database by [DB-IP](https://db-ip.com) (CC BY 4.0), read with the bundled MaxMind DB reader. Visitor IPs never leave the server.
 
-* The database (a few MB) is stored in `wp-content/uploads/tegatai-geoip/` and is only downloaded while the GeoIP block is on: by the daily maintenance job when it is missing or older than 30 days, or with **Download database** on the GeoIP tab.
+* The database (a few MB) is stored in `wp-content/uploads/tegatai-secure/geoip/` and is only downloaded while the GeoIP block is on: by the daily maintenance job when it is missing or older than 30 days, or with **Download database** on the GeoIP tab.
 * Behind a trusted proxy the `CF-IPCountry` header is used instead.
 * Unknown countries, a missing database and an empty list never block anyone (fail open).
 * Country codes can be separated by new lines, commas or spaces.
@@ -76,7 +76,7 @@ Countries are looked up in the free "IP to Country Lite" database by [DB-IP](htt
 
 * Database only (all tables of the database), no files
 * Daily or weekly via WP-Cron, or manually
-* Stored in `wp-content/uploads/tegatai-backups/`, the newest 7 are kept (configurable)
+* Stored in `wp-content/uploads/tegatai-secure/backups/`, the newest 7 are kept (configurable)
 * Streamed: rows are read one at a time, compressed and encrypted in 1 MB chunks, so memory use does not grow with the database size
 * Consistent: all InnoDB tables are read in one snapshot transaction (like `mysqldump --single-transaction`), so they show the same point in time even while the site keeps writing. Tables without transactions (MyISAM etc.) are named in the dump and the log.
 * A backup is written to a temporary file and only gets its final name when everything succeeded. On any error (disk full, database error) the temporary file is deleted, the error is logged, and old backups are not removed.
@@ -86,23 +86,23 @@ Countries are looked up in the free "IP to Country Lite" database by [DB-IP](htt
 
 **Encryption**
 
-With a backup key (recommended), created like the Hive key:
+With a backup key (recommended). Tegatai never writes key files itself: `wp tegatai backup-keygen` prints the key file, and you redirect it into the file, **as the site's PHP-FPM user** (not as root). The Backups tab shows this command with the right paths:
 
 ```bash
-sudo -u <fpm-user> wp tegatai backup-keygen --path=/path/to/site
+mkdir -p /var/www/example.com/secrets && chmod 700 /var/www/example.com/secrets && (umask 077; wp tegatai backup-keygen --path=/var/www/example.com/htdocs > /var/www/example.com/secrets/tegatai-backup-key.php.new) && mv -n /var/www/example.com/secrets/tegatai-backup-key.php.new /var/www/example.com/secrets/tegatai-backup-key.php
 ```
 
-* The key pair is written to `secrets/tegatai-backup-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`; an existing folder that others can read is set to `0700`, and the command stops if that is not possible). Another location: `define('TEGATAI_BACKUP_KEY_FILE', '/path/tegatai-backup-key.php');`
+* The key file lives next to `tegatai-secrets.php` (file `0600`, folder `0700`). `mv -n` never overwrites an existing key. Another location: `define('TEGATAI_BACKUP_KEY_FILE', '/path/tegatai-backup-key.php');`
 * Every backup gets its own random key, which is sealed to the public key (X25519, `crypto_box_seal`). The data is encrypted in chunks with XChaCha20-Poly1305 (`crypto_secretstream`); changed, reordered or cut-off files are rejected.
-* Tegatai never creates this key on its own, and the command does not overwrite an existing key (`--replace` creates a new one; older backups then need a copy of the old file).
+* Tegatai never creates this key on its own. To replace a key, move the old file away first; older backups then need a copy of the old file.
 * **Keep a copy of the key file outside the server.** Without it the backups cannot be decrypted.
 * Optional: if the file only contains `public_key` (the `private_key` line removed and kept offline), the server can still write backups but cannot decrypt them. To download one decrypted, put the full file back for that time.
 
-Without a backup key, backups use the same XChaCha20-Poly1305 chunks with a key derived from `TEGATAI_BACKUP_SECRET` (or a secret stored in the database). Older backups (AES-256-GCM from 1.5 to 2.1.0, AES-256-CBC before 1.5) can still be downloaded. AES-256-GCM files are decrypted in memory (PHP has no streaming GCM); for a very large one, the download says how much memory it needs. Decrypted downloads go through a temporary `0600` file in the backup folder, which is deleted right after.
+Without a backup key, backups use the same XChaCha20-Poly1305 chunks with a key derived from `TEGATAI_BACKUP_SECRET` (secrets file). Without either, no backup is written. Older backups (AES-256-GCM from 1.5 to 2.1.0, AES-256-CBC before 1.5) can still be downloaded. AES-256-GCM files are decrypted in memory (PHP has no streaming GCM); for a very large one, the download says how much memory it needs. Decrypted downloads go through a temporary `0600` file in the backup folder, which is deleted right after.
 
 = Secrets =
 
-Secrets do not have to be stored in the database. Tegatai reads them from a PHP file outside the web root, or from `wp-config.php`.
+Tegatai never stores secrets (keys, API secrets, captcha secret keys, webhook URLs) in the database. It reads them from a PHP file outside the web root, or from constants in `wp-config.php`. Tegatai only reads this file; you create it.
 
 **Secrets file**
 
@@ -123,6 +123,9 @@ return [
     'TEGATAI_SUDO_PIN'      => '$2y$10$...',
     'TEGATAI_BACKUP_SECRET' => '...',
     'TEGATAI_ABUSEIPDB_KEY' => '...',
+    'TEGATAI_RECAPTCHA_SECRET' => '...',
+    'TEGATAI_TURNSTILE_SECRET' => '...',
+    'TEGATAI_ALERT_WEBHOOK'    => 'https://discord.com/api/webhooks/...',
 ];
 ```
 
@@ -132,9 +135,9 @@ Another location is set in `wp-config.php` (only the path, no secret):
 define('TEGATAI_SECRETS_FILE', '/path/outside/webroot/tegatai-secrets.php');
 ```
 
-* Only these five names are read. A value that is also defined in `wp-config.php` wins.
-* **Management → Secrets → Create secrets file** copies the secrets currently defined in `wp-config.php` into the file. Remove the `define()` lines from `wp-config.php` afterwards.
-* Permissions: `chmod 600`, owned by the PHP-FPM user.
+* Only these names are read. A value that is also defined in `wp-config.php` wins.
+* **Management → Secrets** shows a ready shell command that writes the complete file (folder `0700`, file `0600`) with all values Tegatai currently knows. Run it as the site's PHP-FPM user, not as root.
+* Updating from 2.2.1 or older: secrets that older versions kept in the database (API sync secret, backup secret, Hive shared secret, captcha secret keys, webhook URL) are included in that command. As soon as they are in the file, Tegatai deletes the database copies. Until then they are only read, never written.
 * The Secrets tab shows the commands to create each value.
 
 Create values:
@@ -147,7 +150,7 @@ php -r "echo password_hash('YourPin', PASSWORD_BCRYPT), PHP_EOL;"        # TEGAT
 
 **Sudo PIN**
 
-`TEGATAI_SUDO_PIN` is a bcrypt hash. The PIN unlocks the display of secrets that are stored in the database. Only the hash is stored, never the PIN.
+`TEGATAI_SUDO_PIN` is a bcrypt hash. The PIN unlocks the display of secrets in the admin (and the generator for new keys). Only the hash is stored, never the PIN.
 
 = AbuseIPDB =
 
@@ -193,14 +196,13 @@ Shares IP bans between your own WordPress sites. A ban on one site is sent to th
 
 **Node keys**
 
-Tegatai never creates keys on its own. Create the key once per site, **as the site's PHP-FPM user** (not as root):
+Tegatai never creates or writes keys on its own. Create the key once per site, **as the site's PHP-FPM user** (not as root). `wp tegatai hive-keygen` prints the key file; the command shown on the Hive page redirects it into the file:
 
 ```bash
-sudo -u <fpm-user> wp tegatai hive-keygen --path=/path/to/site
+mkdir -p /var/www/example.com/secrets && chmod 700 /var/www/example.com/secrets && (umask 077; wp tegatai hive-keygen --path=/var/www/example.com/htdocs > /var/www/example.com/secrets/tegatai-hive-key.php.new) && mv -n /var/www/example.com/secrets/tegatai-hive-key.php.new /var/www/example.com/secrets/tegatai-hive-key.php
 ```
 
-* The private key is written to `secrets/tegatai-hive-key.php` next to `tegatai-secrets.php` (file `0600`, folder `0700`). It is never printed.
-* The command does not overwrite an existing key. `--replace` creates a new one; all peers then need the new public key.
+* The key file lives next to `tegatai-secrets.php` (file `0600`, folder `0700`). `mv -n` never overwrites an existing key; to replace one, move it away first (all peers then need the new public key).
 * Other location: `define('TEGATAI_HIVE_KEY_FILE', '/path/tegatai-hive-key.php');`, or the key itself as `TEGATAI_HIVE_PRIVATE_KEY` in `wp-config.php`. If two sites share one secrets folder, give each its own `TEGATAI_HIVE_KEY_FILE`.
 * The line for the other sites is printed by the command, shown on the Hive page and printed by `wp tegatai hive-pubkey`.
 
@@ -268,16 +270,16 @@ Please report security issues privately to `tegatai@anime-mitsuketa.tokyo`.
 
 **Server rules**
 
-**nginx:** Tegatai writes `tegatai-nginx.conf` into its own folder in the uploads directory (`wp-content/uploads/tegatai-server/`). The exact path is shown under **Server**. Include it once in the `server` block and reload nginx:
+**nginx:** Tegatai writes `tegatai-nginx.conf` into its own folder in the uploads directory (`wp-content/uploads/tegatai-secure/server/`). The exact path is shown under **Server**. Include it once in the `server` block and reload nginx:
 
 ```nginx
 server {
     # ...
-    include /path/to/wordpress/wp-content/uploads/tegatai-server/tegatai-nginx.conf;
+    include /path/to/wordpress/wp-content/uploads/tegatai-secure/server/tegatai-nginx.conf;
 }
 ```
 
-Updating from 2.2.0 or older: earlier versions wrote the file into the WordPress folder. Change the include line to the new path, reload nginx and delete the old file. The Server tab shows a notice while an old file exists.
+Updating from 2.2.1 or older: earlier versions wrote the file into the WordPress folder or to uploads/tegatai-server/. Change the include line to the new path, reload nginx and delete the old file. The Server tab shows a notice while an old file exists.
 
 After changing server rules or WP Masking in Tegatai, reload nginx again.
 
@@ -295,7 +297,7 @@ GeoIP lookups are local. Other services are only contacted when the matching fea
 
 = Where are the secrets stored? =
 
-In a PHP file outside the web root or in `wp-config.php`, see "Secrets". Keys for The Hive and for backups are created with WP-CLI and are never created by the plugin on its own.
+In a PHP file outside the web root or in `wp-config.php`, never in the database, see "Secrets". Tegatai only reads these files; keys for The Hive and for backups are printed by WP-CLI and written by you.
 
 = What happens when I deactivate the plugin? =
 
@@ -310,7 +312,7 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 * **Cloudflare Turnstile** (`challenges.cloudflare.com`): only when Turnstile is switched on for anti-spam or login. The visitor's browser loads the Turnstile script from Cloudflare; the server sends the Turnstile token and the secret key to Cloudflare for verification. [Terms](https://www.cloudflare.com/website-terms/), [privacy policy](https://www.cloudflare.com/privacypolicy/).
 * **Google reCAPTCHA** (`www.google.com/recaptcha`): only when reCAPTCHA is switched on for anti-spam or login (it switches Turnstile off). The visitor's browser loads the reCAPTCHA script from Google; the server sends the reCAPTCHA token and the secret key to Google for verification. [Terms](https://policies.google.com/terms), [privacy policy](https://policies.google.com/privacy).
 * **WordPress.org** (`api.wordpress.org`, `core.svn.wordpress.org`): core file check and restoring a core file. Sent: WordPress version and locale, and the path of the file to restore. [Privacy policy](https://wordpress.org/about/privacy/).
-* **WPVulnerability** (`www.wpvulnerability.net`): daily vulnerability check of the installed plugins. Sent: the plugin slug. [Privacy policy](https://www.wpvulnerability.com/privacy/).
+* **WPVulnerability** (`www.wpvulnerability.net`): optional daily vulnerability check of the installed plugins, **off by default** (Scanner tab). Only after you enable it: the plugin slugs are sent once a day. [Privacy policy](https://www.wpvulnerability.com/privacy/).
 * **Your webhook URL** (Discord or Slack, optional): event text, IP address and user agent of the logged event are sent to the URL you enter. [Discord terms](https://discord.com/terms), [Discord privacy policy](https://discord.com/privacy), [Slack terms](https://slack.com/terms-of-service), [Slack privacy policy](https://slack.com/privacy-policy).
 * **Your own sites** (The Hive): signed and encrypted ban messages are sent to the sites in your peer list.
 * **GitHub** (`api.github.com`, GitHub edition only): the admin, WP-Cron and WP-CLI check the releases of the plugin repository for updates and download a new release when you update. Sent: the request for the release information (no site or visitor data). [Terms](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service), [privacy statement](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement).
@@ -330,6 +332,21 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 11. IP Prison
 
 == Changelog ==
+
+= 2.2.2 =
+* Secrets are never stored in the database: API sync secret, backup secret, Hive shared secret, captcha secret keys and the alert webhook URL come from the secrets file or wp-config.php. Values that older versions stored in the database are offered in the secrets-file command and deleted once moved.
+* Tegatai no longer writes PHP files: the secrets file and the Hive/backup key files are created by the administrator (commands in the admin); WP-CLI only prints the key files.
+* WPVulnerability check is opt-in (off by default).
+* IP/Browser Guard uses the session data of WordPress itself (WP_Session_Tokens); nothing derived from the session token is stored.
+* Core integrity: check only; damaged core files are restored with Dashboard > Updates > "Re-install version".
+* Quarantine: file contents are kept in the database table `{prefix}tegatai_quarantine` and the file is deleted; quarantined files can be downloaded, not written back.
+* Data folder: `uploads/tegatai-secure/` (logs, backups, server, geoip) with unguessable names for private files; a warning appears when the folder is reachable from the web. On nginx the rules file always contains `location ^~` blocks for the data folder, which take precedence over the regex locations of the server block (e.g. static file rules); the file is written on activation on every nginx server, and a rules file of 2.2.1 in uploads/tegatai-server/ is kept up to date as well. nginx include path: `uploads/tegatai-secure/server/tegatai-nginx.conf`.
+* Scanner: scans content, plugins, must-use plugins, themes and uploads at their real locations; snapshot keys relative to each root (create a new snapshot after the update).
+* Backups read the database through $wpdb (paged), no direct mysqli calls.
+* WP Masking uses the template enhancement output buffer of WordPress 6.9+ instead of its own output buffer.
+* All admin CSS and JavaScript moved into files, loaded only on Tegatai's own screens; captcha scripts are enqueued.
+* Request data ($_SERVER, redirects, imports) is validated and sanitized; prefix "tegatai_" for all stored names (existing data is renamed automatically).
+* Settings registered with a schema-based sanitize callback.
 
 = 2.2.1 =
 * GitHub edition: updates come from the GitHub releases again (Plugin Update Checker 5.6, `Update URI` header).
@@ -367,6 +384,9 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 Older versions: see the [full changelog](https://github.com/Suzu-chan1990/Tegatai-Secure).
 
 == Upgrade Notice ==
+
+= 2.2.2 =
+Secrets are no longer kept in the database: move them into the secrets file with the command in the Secrets tab. nginx users: change the include line to uploads/tegatai-secure/server/tegatai-nginx.conf. Create a new scanner snapshot.
 
 = 2.1.4 =
 First release in the WordPress.org plugin directory. Updates now come from WordPress.org.

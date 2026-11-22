@@ -3,10 +3,10 @@ if (!defined('ABSPATH')) { exit; }
 
 class Tegatai_Cron {
 
-    const OPT_MW_LAST_SUMMARY = 'teg_mw_last_summary_v1';
-    const OPT_FIM_LAST_SUMMARY = 'teg_fim_last_summary_v1';
-    const OPT_SEAL_ENABLED = 'teg_seal_enabled_v1';
-    const OPT_SEAL_PHRASE = 'teg_seal_phrase_v1';
+    const OPT_MW_LAST_SUMMARY = 'tegatai_mw_last_summary_v1';
+    const OPT_FIM_LAST_SUMMARY = 'tegatai_fim_last_summary_v1';
+    const OPT_SEAL_ENABLED = 'tegatai_seal_enabled_v1';
+    const OPT_SEAL_PHRASE = 'tegatai_seal_phrase_v1';
 
     public static function init(): void {
         add_filter('cron_schedules', [__CLASS__, 'add_schedules']);

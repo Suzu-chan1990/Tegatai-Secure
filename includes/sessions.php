@@ -22,7 +22,7 @@ class Tegatai_SessionManager {
 
     public function kill_session() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        check_admin_referer('teg_session_nonce');
+        check_admin_referer('tegatai_session_nonce');
         
         $u = intval($_POST['user_id'] ?? 0);
         $v = isset($_POST['verifier']) && is_string($_POST['verifier']) ? sanitize_text_field(wp_unslash($_POST['verifier'])) : '';

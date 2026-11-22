@@ -12,7 +12,7 @@ class Tegatai_Logger {
         static $resolved = null;
         if ($resolved !== null) return $resolved;
 
-        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string)$_SERVER['REMOTE_ADDR']) : '';
+        $remote = tegatai_server_ip('REMOTE_ADDR');
         if (!filter_var($remote, FILTER_VALIDATE_IP)) {
             // No usable peer address (e.g. CLI). Must not map to a whitelisted loopback address.
             return $resolved = '0.0.0.0';
@@ -22,8 +22,9 @@ class Tegatai_Logger {
         // but only for X-Forwarded-For, which is evaluated from the right.
         $explicit = self::get_trusted_proxies();
         $local    = ['127.0.0.1', '::1'];
-        if (!empty($_SERVER['SERVER_ADDR']) && filter_var($_SERVER['SERVER_ADDR'], FILTER_VALIDATE_IP)) {
-            $local[] = (string)$_SERVER['SERVER_ADDR'];
+        $server_addr = tegatai_server_ip('SERVER_ADDR');
+        if ($server_addr !== '') {
+            $local[] = $server_addr;
         }
         $proxies  = array_merge($explicit, $local);
         if (!self::ip_matches_any($remote, $proxies)) {
@@ -34,17 +35,17 @@ class Tegatai_Logger {
         // so they are only accepted from explicitly configured proxies.
         if (!empty($explicit) && self::ip_matches_any($remote, $explicit)) {
             foreach (['HTTP_CF_CONNECTING_IP', 'HTTP_X_REAL_IP'] as $key) {
-                if (!empty($_SERVER[$key])) {
-                    $ip = trim((string)$_SERVER[$key]);
-                    if (filter_var($ip, FILTER_VALIDATE_IP)) return $resolved = $ip;
-                }
+                $ip = tegatai_server_ip($key);
+                if ($ip !== '') return $resolved = $ip;
             }
         }
 
         // X-Forwarded-For: walk from right to left, skip our own proxies, the first
         // untrusted hop is the client. Entries left of it are client-controlled.
-        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            $hops = array_reverse(array_map('trim', explode(',', (string)$_SERVER['HTTP_X_FORWARDED_FOR'])));
+        $xff = tegatai_server('HTTP_X_FORWARDED_FOR', 2048);
+        if ($xff !== '') {
+            // Every hop is validated as an IP address below
+            $hops = array_reverse(array_map('trim', explode(',', $xff)));
             foreach ($hops as $hop) {
                 if (!filter_var($hop, FILTER_VALIDATE_IP)) break;
                 if (!self::ip_matches_any($hop, $proxies)) return $resolved = $hop;
@@ -72,7 +73,7 @@ class Tegatai_Logger {
      * adds such as CF-IPCountry can be trusted.
      */
     public static function is_trusted_proxy_request() {
-        $remote = isset($_SERVER['REMOTE_ADDR']) ? trim((string)$_SERVER['REMOTE_ADDR']) : '';
+        $remote = tegatai_server_ip('REMOTE_ADDR');
         $explicit = self::get_trusted_proxies();
         return $remote !== '' && !empty($explicit) && self::ip_matches_any($remote, $explicit);
     }
@@ -128,7 +129,9 @@ class Tegatai_Logger {
         $table = $wpdb->prefix . 'tegatai_logs';
         
         if (!$ip) $ip = self::get_ip();
-        $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+        $ua = tegatai_server('HTTP_USER_AGENT', 255);
+        if ($ua === '') $ua = 'Unknown';
+        $message = sanitize_text_field((string) $message);
         $time = current_time('mysql');
 
         // Insert in DB
@@ -146,8 +149,9 @@ class Tegatai_Logger {
         );
 
         // --- WEBHOOK ALERTS ---
-        $ops = tegatai_get_setting('tegatai_options');
-        if (!empty($ops['alert_webhook_url']) && in_array($type, ['BAN-404', 'FLOOD', 'AUTH-BAN', 'SEC-WARN'])) {
+        // The webhook URL contains a token, so it is a secret (secrets file), never a database setting.
+        $webhook = function_exists('tegatai_secret') ? tegatai_secret('TEGATAI_ALERT_WEBHOOK') : '';
+        if ($webhook !== '' && in_array($type, ['BAN-404', 'FLOOD', 'AUTH-BAN', 'SEC-WARN'])) {
             $msg_json = wp_json_encode([
                 'content' => "🚨 **Tegatai Security Alert**",
                 'embeds' => [[
@@ -157,7 +161,7 @@ class Tegatai_Logger {
                 ]]
             ]);
             do {
-            $url = isset($ops['alert_webhook_url']) ? esc_url_raw($ops['alert_webhook_url']) : '';
+            $url = esc_url_raw($webhook);
             if (!$url || !wp_http_validate_url($url)) { break; }
             $host = (string)wp_parse_url($url, PHP_URL_HOST);
             if ($host === 'localhost' || $host === '127.0.0.1' || $host === '::1') { break; }
@@ -224,7 +228,7 @@ class Tegatai_Logger {
         delete_expired_transients();
 
         // 4. CLEANUP: Veraltete RAM-First Cache-Files löschen (DDoS-Trap Cleanup)
-        $cache_dir = wp_upload_dir()['basedir'] . '/tegatai-logs/cache/';
+        $cache_dir = tegatai_data_dir('logs') . '/cache/';
         if (is_dir($cache_dir)) {
             foreach (glob($cache_dir . '*.txt') as $file) {
                 if (time() - filemtime($file) > 86400) wp_delete_file($file);

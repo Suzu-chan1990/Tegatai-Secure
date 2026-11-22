@@ -19,7 +19,7 @@ class Tegatai_Spam {
             add_action('comment_form_default_fields', [$this, 'add_timestamp_field']);
             // Default fields are only rendered for guests; logged-in commenters need the fields too
             add_action('comment_form_logged_in_after', [$this, 'render_timestamp_field']);
-            add_action('wp_footer', [$this, 'inject_bot_timer_js']);
+            add_action('wp_enqueue_scripts', [$this, 'inject_bot_timer_js']);
             add_filter('preprocess_comment', [$this, 'check_timestamp']); 
         }
         
@@ -78,7 +78,7 @@ class Tegatai_Spam {
         if (current_user_can('moderate_comments') || $this->is_ping($commentdata)) return $commentdata;
         $ops = tegatai_get_setting('tegatai_options');
         $provider = Tegatai_Captcha::provider($ops);
-        $secret = $provider === 'recaptcha' ? ($ops['recaptcha_secret_key'] ?? '') : ($ops['turnstile_secret_key'] ?? '');
+        $secret = $provider === 'recaptcha' ? tegatai_secret('TEGATAI_RECAPTCHA_SECRET') : tegatai_secret('TEGATAI_TURNSTILE_SECRET');
         if ($provider === '' || empty($secret)) return $commentdata;
 
         $result = Tegatai_Captcha::check($provider, $ops, 'comment');
@@ -111,7 +111,7 @@ class Tegatai_Spam {
 
     public function check_referrer($d) {
         if (current_user_can('moderate_comments') || $this->is_ping($d)) return $d;
-        $r=$_SERVER['HTTP_REFERER']??'';
+        $r = tegatai_server('HTTP_REFERER', 2048);
         // Compare hosts exactly ("site.com.evil.tld" must not match), scheme does not matter
         $rh=strtolower((string)wp_parse_url($r, PHP_URL_HOST));
         $hh=strtolower((string)wp_parse_url(home_url(), PHP_URL_HOST));
@@ -120,13 +120,13 @@ class Tegatai_Spam {
     }
     
     public function add_honeypot_field($f) { 
-        $f['teg_hp'] = '<p style="display:none;"><label>Leave empty:</label><input type="text" name="teg_hp_check" value="" /></p>'; 
+        $f['tegatai_hp'] = '<p style="display:none;"><label>Leave empty:</label><input type="text" name="tegatai_hp_check" value="" /></p>'; 
         return $f; 
     }
     
     public function check_honeypot($d) { 
         if (current_user_can('moderate_comments')) return $d; 
-        if (!empty($_POST['teg_hp_check'])) { 
+        if (!empty($_POST['tegatai_hp_check'])) { 
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SPAM', "Honeypot"); 
             wp_die('Spam detected.', 'Spam', ['response'=>403]); 
         } 
@@ -140,14 +140,14 @@ class Tegatai_Spam {
         if ($rendered) return '';
         $rendered = true;
         $ts = time();
-        $h = wp_hash($ts.'teg_salt');
-        return '<input type="hidden" name="teg_ts_val" value="'.$ts.'"/>' .
-               '<input type="hidden" name="teg_ts_hash" value="'.esc_attr($h).'"/>' .
-               '<input type="hidden" name="teg_js_time" value="0"/>';
+        $h = wp_hash($ts.'tegatai_salt');
+        return '<input type="hidden" name="tegatai_ts_val" value="'.$ts.'"/>' .
+               '<input type="hidden" name="tegatai_ts_hash" value="'.esc_attr($h).'"/>' .
+               '<input type="hidden" name="tegatai_js_time" value="0"/>';
     }
 
     public function add_timestamp_field($f) {
-        $f['teg_ts'] = $this->timestamp_fields_html();
+        $f['tegatai_ts'] = $this->timestamp_fields_html();
         return $f;
     }
 
@@ -155,36 +155,25 @@ class Tegatai_Spam {
         echo wp_kses($this->timestamp_fields_html(), TEGATAI_KSES_INPUT);
     }
 
+    // Front end script that measures the time until a form is sent (single posts and pages only).
     public function inject_bot_timer_js() {
         if (is_single() || is_page()) {
-            echo "<script>
-            document.addEventListener('DOMContentLoaded', function() {
-                var tegStartTime = Date.now();
-                document.querySelectorAll('form').forEach(function(form) {
-                    form.addEventListener('submit', function() {
-                        var jsTimeInput = form.querySelector('input[name=\"teg_js_time\"]');
-                        if (jsTimeInput) {
-                            jsTimeInput.value = Date.now() - tegStartTime;
-                        }
-                    });
-                });
-            });
-            </script>";
+            wp_enqueue_script('tegatai-bot-timer', TEGATAI_URL . 'js/bot-timer.js', [], TEGATAI_VERSION, ['in_footer' => true, 'strategy' => 'defer']);
         }
     }
 
     public function check_timestamp($d) {
         if (current_user_can('moderate_comments') || $this->is_ping($d)) return $d;
 
-        // Server-side check: signed render timestamp, cannot be faked by posting teg_js_time
-        $ts = isset($_POST['teg_ts_val']) && is_string($_POST['teg_ts_val']) ? (int) $_POST['teg_ts_val'] : 0;
-        $h  = isset($_POST['teg_ts_hash']) && is_string($_POST['teg_ts_hash']) ? $_POST['teg_ts_hash'] : '';
-        if (!$ts || !hash_equals(wp_hash($ts.'teg_salt'), $h) || (time() - $ts) < 3) {
+        // Server-side check: signed render timestamp, cannot be faked by posting tegatai_js_time
+        $ts = isset($_POST['tegatai_ts_val']) && is_string($_POST['tegatai_ts_val']) ? (int) $_POST['tegatai_ts_val'] : 0;
+        $h  = isset($_POST['tegatai_ts_hash']) && is_string($_POST['tegatai_ts_hash']) ? $_POST['tegatai_ts_hash'] : '';
+        if (!$ts || !hash_equals(wp_hash($ts.'tegatai_salt'), $h) || (time() - $ts) < 3) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SPAM', 'Bot Timer (Missing/invalid or too fast timestamp)');
             wp_die('Spam detected. Please enable JavaScript or type slower.', 'Spam', ['response'=>403]);
         }
 
-        $time_spent = intval($_POST['teg_js_time'] ?? 0);
+        $time_spent = isset($_POST['tegatai_js_time']) ? absint(wp_unslash($_POST['tegatai_js_time'])) : 0; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- comment form field
         // Falls kein JS aktiviert ist, ist der Wert 0. Wenn zu schnell getippt wird (< 3 Sekunden), blockiert.
         if ($time_spent < 3000) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('SPAM', 'Bot Timer (Too fast or JS disabled)');

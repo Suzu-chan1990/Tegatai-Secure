@@ -45,7 +45,7 @@ class Tegatai_Firewall {
         $ops = tegatai_get_setting('tegatai_options', []);
         $slug = is_array($ops) ? ($ops['custom_login_slug'] ?? '') : '';
         if (!is_string($slug) || $slug === '') return false;
-        $path = trim((string)wp_parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH), '/');
+        $path = trim((string)wp_parse_url(tegatai_server_raw('REQUEST_URI'), PHP_URL_PATH), '/');
         // Subdirectory installs: compare relative to the home path
         $home = trim((string)wp_parse_url(home_url(), PHP_URL_PATH), '/');
         if ($home !== '' && strpos($path . '/', $home . '/') === 0) $path = trim(substr($path, strlen($home)), '/');
@@ -54,13 +54,13 @@ class Tegatai_Firewall {
 
     // DRY: Zentrale Client-IP Ermittlung
     private function get_client_ip() {
-        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : ($_SERVER['REMOTE_ADDR'] ?? '');
+        return class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip') ? Tegatai_Logger::get_ip() : tegatai_server_ip('REMOTE_ADDR');
     }
 
     // DRY: Zentrale Immunitäts-Prüfung
     private function is_protected_ip($ip = null) {
         if ($ip === null) $ip = $this->get_client_ip();
-        $server_ip = $_SERVER['SERVER_ADDR'] ?? '';
+        $server_ip = tegatai_server_ip('SERVER_ADDR');
         return in_array($ip, ['127.0.0.1', '::1', $server_ip], true);
     }
 
@@ -125,7 +125,7 @@ class Tegatai_Firewall {
         // CUSTOM RULES CHECK with ReDoS Shield
         if (!empty($ops['custom_waf_blocklist'])) {
             $custom_rules = explode("\n", $ops['custom_waf_blocklist']);
-            $check_target = ($_SERVER['REQUEST_URI'] ?? '') . ' ' . ($_SERVER['HTTP_USER_AGENT'] ?? '');
+            $check_target = tegatai_server_raw('REQUEST_URI') . ' ' . tegatai_server_raw('HTTP_USER_AGENT', 1024);
             
             foreach ($custom_rules as $rule) {
                 $rule = trim($rule);
@@ -148,7 +148,7 @@ class Tegatai_Firewall {
         }
 
         // HONEYPOT TRAP CHECK
-        if (strpos($_SERVER['REQUEST_URI'] ?? '', '/secret-backup-db/') !== false) {
+        if (strpos(tegatai_server_raw('REQUEST_URI'), '/secret-backup-db/') !== false) {
             if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('BAN-TRAP', "Honeypot ausgelöst: secret-backup-db");
             // Setze Ban-Counter sofort auf Maximum (50) -> 24h Sperre
             Tegatai_Bans::ban_and_broadcast($this->get_client_ip(), DAY_IN_SECONDS, 'Honeypot URL', 'critical');
@@ -160,11 +160,11 @@ class Tegatai_Firewall {
             $urls = explode("\n", $ops['waf_whitelist_urls']);
             foreach($urls as $w) {
                 $w = trim($w);
-                if(!empty($w) && strpos($_SERVER['REQUEST_URI'] ?? '', $w) !== false) return; // Erlaubt
+                if(!empty($w) && strpos(tegatai_server_raw('REQUEST_URI'), $w) !== false) return; // allowed
             }
         }
 
-        $u = $_SERVER['REQUEST_URI'] ?? ''; 
+        $u = tegatai_server_raw('REQUEST_URI'); 
         foreach($this->sensitive_files as $f) {
             if(stripos($u,$f)!==false) { 
                 if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('FW-FILE',$f); 
@@ -172,16 +172,18 @@ class Tegatai_Firewall {
             } 
         }
         
-        $d = array_merge($_GET, $_POST, $_COOKIE); 
+        // Request data is only matched against the attack patterns (read-only, never stored or
+        // output); sanitizing it first would remove exactly the parts an attack is detected by.
+        $d = array_merge($_GET, $_POST, $_COOKIE); // phpcs:ignore WordPress.Security.NonceVerification, WordPress.Security.ValidatedSanitizedInput -- inspected only, see above
         $d['uri'] = $u; 
-        $d['ua']  = $_SERVER['HTTP_USER_AGENT'] ?? ''; 
+        $d['ua']  = tegatai_server_raw('HTTP_USER_AGENT', 1024); 
         $this->recursive_scan($d); 
     }
 
     private function check_geoip($ops) {
         if (!empty($ops['geoip_login_only'])) {
             global $pagenow;
-            $is_login = ($pagenow === 'wp-login.php') || ($_SERVER['REQUEST_METHOD'] === 'POST' && strpos($_SERVER['REQUEST_URI'] ?? '', 'xmlrpc.php') !== false);
+            $is_login = ($pagenow === 'wp-login.php') || (tegatai_server('REQUEST_METHOD') === 'POST' && strpos(tegatai_server_raw('REQUEST_URI'), 'xmlrpc.php') !== false);
             if (!$is_login) return; 
         }
         // Unknown countries, a missing database and an empty list never block (fail open)
@@ -196,8 +198,8 @@ class Tegatai_Firewall {
     private function get_country_code() {
         // The header is only meaningful when the request really comes through a configured proxy (e.g. Cloudflare),
         // otherwise any client could pick its own country.
-        if (isset($_SERVER['HTTP_CF_IPCOUNTRY']) && class_exists('Tegatai_Logger') && Tegatai_Logger::is_trusted_proxy_request()) {
-            $cc = strtoupper(sanitize_text_field($_SERVER['HTTP_CF_IPCOUNTRY']));
+        if (tegatai_server('HTTP_CF_IPCOUNTRY') !== '' && class_exists('Tegatai_Logger') && Tegatai_Logger::is_trusted_proxy_request()) {
+            $cc = strtoupper(tegatai_server('HTTP_CF_IPCOUNTRY', 2));
             if (preg_match('/^[A-Z]{2}$/', $cc)) return $cc;
         }
 
@@ -229,8 +231,7 @@ class Tegatai_Firewall {
         if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) return wp_cache_get($key, 'tegatai');
 
         // Fallback auf File-Cache (Format: expiry|value). Stale files are removed by Tegatai_Logger::prune_logs().
-        $ud = wp_upload_dir();
-        $dir = $ud['basedir'] . '/tegatai-logs/cache/';
+        $dir = tegatai_data_dir('logs') . '/cache/';
         $file = $dir . $key . '.txt';
         if (file_exists($file)) {
             $data = explode('|', (string)@file_get_contents($file), 2);
@@ -247,8 +248,7 @@ class Tegatai_Firewall {
         if (function_exists('wp_using_ext_object_cache') && wp_using_ext_object_cache()) { wp_cache_set($key, $val, 'tegatai', $time_window); return; }
 
         // No transients here: one row per visitor IP would turn every new visitor into a DB write.
-        $ud = wp_upload_dir();
-        $dir = $ud['basedir'] . '/tegatai-logs/cache/';
+        $dir = tegatai_data_dir('logs') . '/cache/';
         if (!is_dir($dir)) wp_mkdir_p($dir);
         @file_put_contents($dir . $key . '.txt', (time() + (int)$time_window) . '|' . $val, LOCK_EX);
     }
@@ -261,9 +261,9 @@ class Tegatai_Firewall {
         if (!is_404() || current_user_can('manage_options')) return; 
         
         $ip = $this->get_client_ip();
-        $k = 'teg_404_' . md5($ip);
+        $k = 'tegatai_404_' . md5($ip);
 
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = tegatai_server_raw('REQUEST_URI');
         $instant_ban_triggers = ['phpmyadmin', '.env', 'actuator/health', 'wp-config.php.bak', 'shell.php', 'phpunit'];
         foreach ($instant_ban_triggers as $trigger) {
             if (stripos($uri, $trigger) !== false) {
@@ -292,12 +292,12 @@ class Tegatai_Firewall {
         // Editors/authors: the block editor, heartbeat, autosave and media library easily exceed guest limits.
         if(current_user_can('edit_posts')) return;
 
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = tegatai_server_raw('REQUEST_URI');
         $is_api = (strpos($uri, '/wp-json/') !== false || strpos($uri, 'rest_route=') !== false || strpos($uri, 'admin-ajax.php') !== false);
         $limit = $is_api ? 60 : 180; // Strengeres Limit für API/AJAX (cart fragments, forms etc. need some headroom)
         
         $ip = $this->get_client_ip();
-        $k = 'teg_rl_' . md5($ip . ($is_api ? '_api' : '')); 
+        $k = 'tegatai_rl_' . md5($ip . ($is_api ? '_api' : '')); 
         $c = $this->get_hit_count($k, 60); 
         
         if ($c === false) {
@@ -334,7 +334,7 @@ class Tegatai_Firewall {
     }
 
     private function check_bot() { 
-        $u=strtolower($_SERVER['HTTP_USER_AGENT']??''); 
+        $u=strtolower(tegatai_server_raw('HTTP_USER_AGENT', 1024)); 
         if(strlen($u)<5) wp_die('Bot','403',['response'=>403]); 
         foreach($this->bad_agents as $b) {
             if(strpos($u,$b)!==false) wp_die('Bot','403',['response'=>403]); 
@@ -362,7 +362,7 @@ class Tegatai_Firewall {
 
     // --- SMART BOT ROUTING ---
     private function verify_good_bot() {
-        $ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $ua = strtolower(tegatai_server_raw('HTTP_USER_AGENT', 1024));
         $ip = $this->get_client_ip();
         
         $bots = [
@@ -386,7 +386,7 @@ class Tegatai_Firewall {
         if (!$matched_bot) return false;
 
         // The DNS verdict is cached per IP and bot, so a flood with a spoofed UA does not cost two blocking lookups per request.
-        $cache_key = 'teg_bot_' . md5($ip . '|' . $matched_bot);
+        $cache_key = 'tegatai_bot_' . md5($ip . '|' . $matched_bot);
         $verdict = $this->get_hit_count($cache_key, 86400);
         if ($verdict === false) {
             $verdict = $this->resolve_bot_verdict($ip, $matched_bot, $valid_domains);
@@ -439,7 +439,7 @@ class Tegatai_Firewall {
     }
 
     private function check_specific_bots($bot_list, $type_name) {
-        $ua = strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $ua = strtolower(tegatai_server_raw('HTTP_USER_AGENT', 1024));
         foreach ($bot_list as $b) {
             if (strpos($ua, $b) !== false) {
                 wp_die(esc_html("Access Denied: $type_name not allowed."), 'Firewall', ['response' => 403]);

@@ -26,9 +26,10 @@ class Tegatai_API_Guard {
     // IP Fallback Wrapper
     private function get_client_ip() {
         if (class_exists('Tegatai_Logger') && method_exists('Tegatai_Logger', 'get_ip')) {
-            return Tegatai_Logger::get_ip() ?: $_SERVER['REMOTE_ADDR'];
+            return Tegatai_Logger::get_ip() ?: tegatai_server_ip('REMOTE_ADDR');
         }
-        return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+        // Validated IP or '' (never a default that could match a whitelisted address)
+        return tegatai_server_ip('REMOTE_ADDR');
     }
 
     public function protect_sync_routes() {
@@ -39,7 +40,7 @@ class Tegatai_API_Guard {
         $endpoints = array_filter(array_map('trim', explode("\n", str_replace(["\r\n", "\r"], "\n", $raw_endpoints))));
         if (empty($endpoints)) return;
 
-        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        $uri = tegatai_server_raw('REQUEST_URI');
         $match_mode = isset($ops['match_mode']) ? $ops['match_mode'] : 'contains';
         $is_protected = false;
         
@@ -97,7 +98,7 @@ class Tegatai_API_Guard {
             $this->set_cache($h_key, ((int)$this->get_cache($h_key)) + 1, 3600);
         }
 
-        $secret = defined('TEGATAI_API_SECRET') ? TEGATAI_API_SECRET : get_option('tegatai_api_sync_secret');
+        $secret = tegatai_secret('TEGATAI_API_SECRET');
         if (empty($secret)) {
             http_response_code(500); die('500 Internal Error - API Guard not initialized');
         }
@@ -109,12 +110,12 @@ class Tegatai_API_Guard {
             // Signature v2: METHOD|REQUEST_URI|timestamp|req_id|sha256(raw body)
             // Method and body are covered, so an intercepted request cannot be reused with
             // a different verb or payload.
-            $ts = (int)($_SERVER['HTTP_X_TEGATAI_TIMESTAMP'] ?? 0);
-            $sig = (string)($_SERVER['HTTP_X_TEGATAI_SIGNATURE'] ?? '');
-            $req_id = (string)($_SERVER['HTTP_X_TEGATAI_REQ_ID'] ?? '');
+            $ts = (int) tegatai_server('HTTP_X_TEGATAI_TIMESTAMP', 20);
+            $sig = (string) preg_replace('/[^a-f0-9]/i', '', tegatai_server('HTTP_X_TEGATAI_SIGNATURE', 128));
+            $req_id = tegatai_server('HTTP_X_TEGATAI_REQ_ID', 128);
 
             if ($sig !== '' && preg_match('/^[a-f0-9]{16,64}$/i', $req_id) && abs(time() - $ts) <= self::HMAC_MAX_DRIFT) {
-                $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+                $method = strtoupper(tegatai_server('REQUEST_METHOD', 10) ?: 'GET');
                 $body = (string)file_get_contents('php://input');
                 $string_to_sign = $method . '|' . $uri . '|' . $ts . '|' . strtolower($req_id) . '|' . hash('sha256', $body);
                 $expected = hash_hmac('sha256', $string_to_sign, $secret);
@@ -128,7 +129,8 @@ class Tegatai_API_Guard {
                 }
             }
         } else {
-            $token = $_SERVER['HTTP_X_TEGATAI_SYNC'] ?? $_GET['sync_token'] ?? '';
+            $token = tegatai_server('HTTP_X_TEGATAI_SYNC', 256);
+            if ($token === '' && isset($_GET['sync_token'])) $token = sanitize_text_field(wp_unslash((string) $_GET['sync_token'])); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- authenticated by the token itself
             if (!empty($token) && is_string($token) && hash_equals($secret, $token)) $auth_passed = true;
         }
 
@@ -191,11 +193,11 @@ class Tegatai_API_Guard {
 
         $mode = isset($_POST['mode']) ? sanitize_text_field(wp_unslash($_POST['mode'])) : 'reveal';
         
+        // "generate" only creates a value to copy into the secrets file; secrets are never stored in the database.
         if ($mode === 'generate') {
             $secret = bin2hex(random_bytes(32));
-            update_option('tegatai_api_sync_secret', $secret, false);
         } else {
-            $secret = get_option('tegatai_api_sync_secret');
+            $secret = tegatai_secret('TEGATAI_API_SECRET');
         }
 
         wp_send_json_success(['secret' => $secret]);
@@ -219,62 +221,9 @@ class Tegatai_API_Guard {
         }
         
         $ops = get_option('tegatai_api_guard_options', ['endpoints' => '', 'match_mode' => 'contains', 'auth_mode' => 'static', 'enable_rate_limit' => 0, 'allowlist' => '']);
-        $db_secret = get_option('tegatai_api_sync_secret');
         $is_locked = defined('TEGATAI_API_SECRET');
-        $secret = $is_locked ? TEGATAI_API_SECRET : $db_secret;
+        $secret = tegatai_secret('TEGATAI_API_SECRET');
         ?>
-        <style>
-            :root { 
-                --teg-primary: #06b6d4; 
-                --teg-accent: #7c3aed; 
-                --teg-bg: #f8fafc; 
-                --teg-surface: #ffffff; 
-                --teg-card: #ffffff; 
-                --teg-text: #0f1720; 
-                --teg-muted: #6b7280; 
-                --teg-border: #e2e8f0; 
-                --teg-success: #10b981; 
-                --teg-danger: #ef4444; 
-            }
-            .teg-wrap { max-width: 1400px; margin: 20px auto; font-family: 'Inter', system-ui, sans-serif; color: var(--teg-text); }
-            .teg-header { background: linear-gradient(135deg, #0f1720 0%, #1e293b 100%); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            .teg-title { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
-            .teg-badge { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; color: #fff; border: 1px solid rgba(255,255,255,0.2); }
-            
-            /* Horizontal Inner Nav */
-            .teg-inner-nav { display: flex; align-items: center; background: var(--teg-surface); padding: 12px 20px; border-radius: 10px; border: 1px solid var(--teg-border); margin-bottom: 24px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02); gap: 20px; }
-            .teg-back-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--teg-text); font-weight: 700; font-size: 13px; border-right: 1px solid var(--teg-border); padding-right: 20px; transition: 0.2s; white-space: nowrap; }
-            .teg-back-btn:hover { color: var(--teg-primary); }
-            .teg-horizontal-tabs { display: flex; align-items: center; gap: 10px; }
-            .teg-h-tab { padding: 8px 16px; border-radius: 6px; text-decoration: none; color: var(--teg-muted); font-size: 13px; font-weight: 600; white-space: nowrap; transition: 0.2s; border: 1px solid transparent; }
-            .teg-h-tab.active { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); color: #fff; border-color: transparent; }
-
-            /* Kachel-Optik (Tile UI) */
-            .teg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; align-items: start; }
-            .teg-card { background: var(--teg-card); border-radius: 6px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--teg-border); }
-            .teg-card h3 { margin-top: 0; font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--teg-border); padding-bottom: 10px; margin-bottom: 12px; text-transform: uppercase; color: var(--teg-muted); letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
-            
-            /* Switches */
-            .teg-switch-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f8fafc; }
-            .teg-switch-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-            .teg-switch-label { font-size: 13px; font-weight: 600; color: var(--teg-text); display: flex; align-items: center; gap: 4px; }
-            .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4; margin-bottom: 10px; display: block; }
-            
-            .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin: 0; }
-            .switch input { opacity: 0; width: 0; height: 0; }
-            .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--teg-border); transition: .3s; border-radius: 34px; }
-            .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-            input:checked + .slider { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); }
-            input:checked + .slider:before { transform: translateX(16px); }
-
-            /* Inputs */
-            .teg-form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--teg-border); border-radius: 6px; font-size: 13px; margin-bottom: 8px; background: var(--teg-bg); color: var(--teg-text); transition: all 0.2s; box-sizing: border-box; }
-            .teg-form-input:focus { border-color: var(--teg-primary); outline: none; background: var(--teg-surface); box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15); }
-            textarea.teg-form-input { min-height: 80px; font-family: monospace; font-size: 12px; line-height: 1.4; resize: vertical; }
-
-            .button-primary { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)) !important; border: none !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color:#fff !important; text-shadow: none !important; }
-            .button-secondary { background: var(--teg-surface) !important; border: 1px solid var(--teg-border) !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color: var(--teg-text) !important; text-shadow: none !important; cursor: pointer; }
-        </style>
 
         <div class="teg-wrap">
             <div class="teg-header">
@@ -306,8 +255,8 @@ class Tegatai_API_Guard {
                         <?php else: ?>
                             <?php if (!empty($secret)) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in tegatai-secrets.php (outside the web root) to lock it.', 'tegatai-secure'); ?>
+                                    <strong>⚠️ <?php esc_html_e('Secret still in the database (older version)', 'tegatai-secure'); ?></strong><br>
+                                    <?php esc_html_e('Copy it into the secrets file as TEGATAI_API_SECRET (command in the Secrets tab). It is then deleted from the database automatically.', 'tegatai-secure'); ?>
                                 </div>
                             <?php endif; ?>
                             
@@ -322,7 +271,7 @@ class Tegatai_API_Guard {
                                 <button type="button" class="button button-secondary" id="generate_api_btn" style="font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Generate New', 'tegatai-secure'); ?></button>
                                 <button type="button" class="button button-secondary" id="copy_api_btn" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
                             </div>
-                            <p class="teg-switch-desc"><?php esc_html_e('Generate a new key only if you need to copy it to your tegatai-secrets.php or client applications.', 'tegatai-secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('"Generate New" only shows a new random key; it is not saved. Put it into the secrets file as TEGATAI_API_SECRET and into your API clients.', 'tegatai-secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
@@ -365,7 +314,7 @@ class Tegatai_API_Guard {
                         
                         <div id="snippet_static" style="display: <?php echo $ops['auth_mode'] === 'static' ? 'block' : 'none'; ?>;">
                             <p style="font-size:12px; color:var(--teg-text); font-weight:600;">Static Header Mode:</p>
-                            <pre style="background: #1d2327; color: #a9b7c6; padding: 15px; border-radius: 6px; font-size:12px; overflow-x:auto;">curl -H "X-Tegatai-Sync: YOUR_SECRET" https://<?php echo esc_html($_SERVER['HTTP_HOST'] ?? ''); ?>/api</pre>
+                            <pre style="background: #1d2327; color: #a9b7c6; padding: 15px; border-radius: 6px; font-size:12px; overflow-x:auto;">curl -H "X-Tegatai-Sync: YOUR_SECRET" https://<?php echo esc_html((string) wp_parse_url(home_url(), PHP_URL_HOST)); ?>/api</pre>
                         </div>
                         
                         <div id="snippet_hmac" style="display: <?php echo $ops['auth_mode'] === 'hmac' ? 'block' : 'none'; ?>;">
@@ -376,7 +325,7 @@ $req_id = bin2hex(random_bytes(16));
 $body = json_encode(['example' => true]);
 $signature = hash_hmac('sha256', 'POST|' . $uri . '|' . $timestamp . '|' . $req_id . '|' . hash('sha256', $body), 'YOUR_SECRET');
 
-$ch = curl_init('https://<?php echo esc_html($_SERVER['HTTP_HOST'] ?? ''); ?>' . $uri);
+$ch = curl_init('https://<?php echo esc_html((string) wp_parse_url(home_url(), PHP_URL_HOST)); ?>' . $uri);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
@@ -395,81 +344,6 @@ curl_exec($ch);</pre>
                 </div>
             </form>
             
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const modeSelector = document.getElementById('auth_mode_selector');
-                if (modeSelector) {
-                    modeSelector.addEventListener('change', function() {
-                        document.getElementById('snippet_static').style.display = this.value === 'static' ? 'block' : 'none';
-                        document.getElementById('snippet_hmac').style.display = this.value === 'hmac' ? 'block' : 'none';
-                    });
-                }
-
-                const input = document.getElementById('api_secret_gen');
-                const btnRev = document.getElementById('reveal_api_btn');
-                const btnGen = document.getElementById('generate_api_btn');
-                const btnCop = document.getElementById('copy_api_btn');
-
-                function triggerApiSudo(mode) {
-                    const pin = prompt('Tegatai Sudo Vault: Please enter your TEGATAI_SUDO_PIN');
-                    if (!pin) return;
-                    
-                    const fd = new FormData();
-                    fd.append('action', 'tegatai_sudo_api'); 
-                    fd.append('pin', pin); 
-                    fd.append('mode', mode);
-                    fd.append('security', document.getElementById('tegatai_api_sudo_nonce').value);
-                    
-                    fetch(ajaxurl, {method:'POST', body:fd})
-                        .then(res => res.text())
-                        .then(text => { let clean = text.substring(text.indexOf('{')); return JSON.parse(clean); })
-                        .then(data => {
-                            if (!data.success) { 
-                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined (tegatai-secrets.php or wp-config.php).' : 'Sudo Access Denied: Invalid PIN.'); 
-                                return; 
-                            }
-                            
-                            input.value = data.data.secret; 
-                            input.type = 'text';
-                            
-                            if (btnCop) btnCop.style.display = 'inline-block';
-                            if (mode === 'reveal' && btnRev) btnRev.style.display = 'none';
-                        }).catch(err => alert('Error: ' + err.message));
-                }
-
-                if (btnRev) {
-                    btnRev.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        triggerApiSudo('reveal');
-                    });
-                }
-
-                if (btnGen) {
-                    btnGen.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        triggerApiSudo('generate');
-                    });
-                }
-
-                if (btnCop) {
-                    btnCop.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        if(input.value === '') return;
-                        
-                        navigator.clipboard.writeText(input.value).then(() => {
-                            const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
-                            setTimeout(() => btnCop.innerText = orig, 2000);
-                        }).catch(err => {
-                            input.type = 'text'; input.select(); document.execCommand('copy'); input.type = 'password';
-                            const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
-                            setTimeout(() => btnCop.innerText = orig, 2000);
-                        });
-                    });
-                }
-            });
-            </script>
         </div>
         <?php
     }

@@ -40,7 +40,8 @@ class Tegatai_Hive {
     }
 
     private static function get_shared_secret($ops) {
-        return defined('TEGATAI_HIVE_SECRET') ? TEGATAI_HIVE_SECRET : (!empty($ops['shared_secret']) ? $ops['shared_secret'] : '');
+        // Secrets file / wp-config.php; a database copy from older versions is only read until it is moved.
+        return tegatai_secret('TEGATAI_HIVE_SECRET');
     }
 
     /**
@@ -141,18 +142,14 @@ class Tegatai_Hive {
     }
 
     /**
-     * Creates a new key pair and writes the private key to the key file (0600, folder 0700).
-     * Only called by the WP-CLI command the admin runs explicitly. Refuses to overwrite an
-     * existing key unless $replace is true. Returns the public key or a WP_Error.
+     * Creates a new Ed25519 key pair and returns the content of the key file plus the public key.
+     * Tegatai never writes key files itself: the WP-CLI command prints the content and the
+     * administrator redirects it into the key file (see the command in the Hive screen).
+     *
+     * @return array{php:string,public:string}|WP_Error
      */
-    public static function write_new_key($replace = false) {
+    public static function new_key_file_content() {
         if (!self::sodium_available()) return new WP_Error('sodium', 'The PHP sodium extension is missing.');
-        if (defined('TEGATAI_HIVE_PRIVATE_KEY')) return new WP_Error('constant', 'TEGATAI_HIVE_PRIVATE_KEY is set in wp-config.php; remove it there first.');
-        $file = self::key_file();
-        if (@is_file($file) && !$replace) return new WP_Error('exists', 'A key already exists: ' . $file . ' (use --replace to create a new one; all peers then need the new public key).');
-        $dir_ok = tegatai_secure_key_dir(dirname($file));
-        if (is_wp_error($dir_ok)) return $dir_ok;
-
         $pair = sodium_crypto_sign_keypair();
         $sk   = sodium_crypto_sign_secretkey($pair);
         $pk   = sodium_crypto_sign_publickey($pair);
@@ -161,11 +158,16 @@ class Tegatai_Hive {
               . "return [ 'private_key' => '" . base64_encode($sk) . "', 'created' => '" . gmdate('c') . "' ];\n";
         sodium_memzero($sk);
         sodium_memzero($pair);
+        return ['php' => $php, 'public' => 'ed25519:' . base64_encode($pk)];
+    }
 
-        $written = tegatai_write_key_file($file, $php);
-        sodium_memzero($php);
-        if (is_wp_error($written)) return $written;
-        return 'ed25519:' . base64_encode($pk);
+    // Shell command (run as the site's PHP-FPM user) that creates the key file without overwriting one.
+    public static function keygen_command() {
+        $file = self::key_file();
+        $sh = static function ($v) { return "'" . str_replace("'", "'\\''", (string) $v) . "'"; };
+        return 'mkdir -p ' . $sh(dirname($file)) . ' && chmod 700 ' . $sh(dirname($file))
+            . ' && (umask 077; wp tegatai hive-keygen --path=' . $sh(untrailingslashit(ABSPATH)) . ' > ' . $sh($file . '.new') . ')'
+            . ' && mv -n ' . $sh($file . '.new') . ' ' . $sh($file);
     }
 
     // --- Never-ban protection ---
@@ -190,7 +192,8 @@ class Tegatai_Hive {
     public static function is_protected_ip($ip, $ops = null) {
         if (!filter_var($ip, FILTER_VALIDATE_IP)) return true;
         if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) return true;
-        if (!empty($_SERVER['SERVER_ADDR']) && $ip === $_SERVER['SERVER_ADDR']) return true;
+        $server_ip = tegatai_server_ip('SERVER_ADDR');
+        if ($server_ip !== '' && $ip === $server_ip) return true;
 
         $ops = $ops ?? self::get_options();
         $teg = tegatai_get_setting('tegatai_options', []);
@@ -300,7 +303,7 @@ class Tegatai_Hive {
         }
         $sk = self::own_secret_key();
         if ($sk === '') {
-            return new WP_Error('no_key', 'This node has no Hive key yet (wp tegatai hive-keygen).', ['status' => 403]);
+            return new WP_Error('no_key', 'This node has no Hive key yet (see the Hive screen).', ['status' => 403]);
         }
         $sig = base64_decode(trim($signature_b64), true);
         if (!is_string($sig) || strlen($sig) !== SODIUM_CRYPTO_SIGN_BYTES || !sodium_crypto_sign_verify_detached($sig, $raw_body, $peer['pubkey'])) {
@@ -432,7 +435,7 @@ class Tegatai_Hive {
         $url = self::endpoint_url($peer['url']);
         if (!empty($peer['pubkey'])) {
             $sk = self::own_secret_key();
-            if ($sk === '') return new WP_Error('no_key', __('This node has no Hive key yet (wp tegatai hive-keygen).', 'tegatai-secure'));
+            if ($sk === '') return new WP_Error('no_key', __('This node has no Hive key yet (see the Hive screen).', 'tegatai-secure'));
             return self::send_v2($url, $peer, $payload, $sk, $ssl_verify, $timeout);
         }
         $secret = self::secret_for_peer($peer, $ops);
@@ -638,11 +641,11 @@ class Tegatai_Hive {
 
         $mode = isset($_POST['mode']) ? sanitize_text_field(wp_unslash($_POST['mode'])) : 'reveal';
         
+        // "generate" only creates a value to copy into the secrets file; secrets are never stored in the database.
         if ($mode === 'generate') {
             $key = 'tg_hmac_' . bin2hex(random_bytes(32));
         } else {
-            $ops = self::get_options();
-            $key = !empty($ops['shared_secret']) ? $ops['shared_secret'] : '';
+            $key = tegatai_secret('TEGATAI_HIVE_SECRET');
         }
 
         wp_send_json_success(['key' => $key]);
@@ -657,16 +660,16 @@ class Tegatai_Hive {
 
         if (isset($_POST['tegatai_hive_nonce']) && wp_verify_nonce(sanitize_key(wp_unslash($_POST['tegatai_hive_nonce'])), 'save_hive_settings')) {
             $current_ops = get_option('tegatai_hive_options', []);
-            $new_secret = isset($_POST['shared_secret']) ? sanitize_text_field(wp_unslash($_POST['shared_secret'])) : '';
             $ops = [
                 'enable_hive' => isset($_POST['enable_hive']) ? 1 : 0,
                 'ssl_verify' => isset($_POST['ssl_verify']) ? 1 : 0,
-                'shared_secret' => !empty($new_secret) ? $new_secret : (isset($current_ops['shared_secret']) ? $current_ops['shared_secret'] : ''),
                 'node_urls' => sanitize_textarea_field(wp_unslash($_POST['node_urls'] ?? '')),
                 'strict_peers' => isset($_POST['strict_peers']) ? 1 : 0,
                 'ban_ttl_hours' => max(1, min(720, absint(wp_unslash($_POST['ban_ttl_hours'] ?? 24)))),
                 'protected_ips' => sanitize_textarea_field(wp_unslash($_POST['protected_ips'] ?? '')),
             ];
+            // A shared secret saved by an older version stays until it is moved to the secrets file (then it is deleted).
+            if (is_array($current_ops) && !empty($current_ops['shared_secret'])) $ops['shared_secret'] = $current_ops['shared_secret'];
             update_option('tegatai_hive_options', $ops);
             echo '<div class="notice notice-success is-dismissible" style="margin-top:20px;"><p>' . esc_html__('Hive network settings updated successfully.', 'tegatai-secure') . '</p></div>';
         }
@@ -675,58 +678,6 @@ class Tegatai_Hive {
         $active_bans = array_filter(Tegatai_Bans::active(), function ($b) { return strpos((string)($b['source'] ?? ''), 'hive:') === 0; });
         
         ?>
-        <style>
-            :root { 
-                --teg-primary: #06b6d4; 
-                --teg-accent: #7c3aed; 
-                --teg-bg: #f8fafc; 
-                --teg-surface: #ffffff; 
-                --teg-card: #ffffff; 
-                --teg-text: #0f1720; 
-                --teg-muted: #6b7280; 
-                --teg-border: #e2e8f0; 
-                --teg-success: #10b981; 
-                --teg-danger: #ef4444; 
-            }
-            .teg-wrap { max-width: 1400px; margin: 20px auto; font-family: 'Inter', system-ui, sans-serif; color: var(--teg-text); }
-            .teg-header { background: linear-gradient(135deg, #0f1720 0%, #1e293b 100%); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            .teg-title { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
-            .teg-badge { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; color: #fff; border: 1px solid rgba(255,255,255,0.2); }
-            
-            /* Horizontal Inner Nav */
-            .teg-inner-nav { display: flex; align-items: center; background: var(--teg-surface); padding: 12px 20px; border-radius: 10px; border: 1px solid var(--teg-border); margin-bottom: 24px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02); gap: 20px; }
-            .teg-back-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--teg-text); font-weight: 700; font-size: 13px; border-right: 1px solid var(--teg-border); padding-right: 20px; transition: 0.2s; white-space: nowrap; }
-            .teg-back-btn:hover { color: var(--teg-primary); }
-            .teg-horizontal-tabs { display: flex; align-items: center; gap: 10px; }
-            .teg-h-tab { padding: 8px 16px; border-radius: 6px; text-decoration: none; color: var(--teg-muted); font-size: 13px; font-weight: 600; white-space: nowrap; transition: 0.2s; border: 1px solid transparent; }
-            .teg-h-tab.active { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); color: #fff; border-color: transparent; }
-
-            /* Kachel-Optik (Tile UI) */
-            .teg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 16px; align-items: start; }
-            .teg-card { background: var(--teg-card); border-radius: 6px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid var(--teg-border); }
-            .teg-card h3 { margin-top: 0; font-size: 12px; font-weight: 700; border-bottom: 1px solid var(--teg-border); padding-bottom: 10px; margin-bottom: 12px; text-transform: uppercase; color: var(--teg-muted); letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px; }
-            
-            /* Switches */
-            .teg-switch-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #f8fafc; }
-            .teg-switch-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-            .teg-switch-label { font-size: 13px; font-weight: 600; color: var(--teg-text); display: flex; align-items: center; gap: 4px; }
-            .teg-switch-desc { font-size: 11px; color: var(--teg-muted); line-height: 1.4; margin-bottom: 10px; display: block; }
-            
-            .teg-wrap .switch { position: relative; display: inline-block; width: 36px; height: 20px; flex-shrink: 0; margin: 0; }
-            .teg-wrap .switch input { opacity: 0; width: 0; height: 0; }
-            .teg-wrap .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: var(--teg-border); transition: .3s; border-radius: 34px; }
-            .teg-wrap .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .3s; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-            .teg-wrap input:checked + .slider { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); }
-            .teg-wrap input:checked + .slider:before { transform: translateX(16px); }
-
-            /* Inputs */
-            .teg-form-input { width: 100%; padding: 8px 10px; border: 1px solid var(--teg-border); border-radius: 6px; font-size: 13px; margin-bottom: 8px; background: var(--teg-bg); color: var(--teg-text); transition: all 0.2s; box-sizing: border-box; }
-            .teg-form-input:focus { border-color: var(--teg-primary); outline: none; background: var(--teg-surface); box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.15); }
-            .teg-wrap textarea.teg-form-input { min-height: 80px; font-family: monospace; font-size: 12px; line-height: 1.4; resize: vertical; }
-
-            .teg-wrap .button-primary { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)) !important; border: none !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color:#fff !important; text-shadow: none !important; }
-            .teg-wrap .button-secondary { background: var(--teg-surface) !important; border: 1px solid var(--teg-border) !important; padding: 6px 16px !important; border-radius: 6px !important; font-weight:600 !important; color: var(--teg-text) !important; text-shadow: none !important; cursor: pointer; }
-        </style>
 
         <div class="teg-wrap">
             <div class="teg-header">
@@ -779,8 +730,8 @@ class Tegatai_Hive {
                         <?php else : ?>
                             <div style="background:#fffbeb; border:1px solid #fde68a; color:#b45309; padding:12px; border-radius:6px; font-size:12px;">
                                 <strong><?php esc_html_e('No node key yet.', 'tegatai-secure'); ?></strong><br>
-                                <?php esc_html_e('Create it on the server as the site\'s PHP user (Tegatai never creates keys on its own). The private key is written to the secrets folder and never shown:', 'tegatai-secure'); ?>
-                                <code style="display:block; margin-top:8px; word-break:break-all;">sudo -u &lt;fpm-user&gt; wp tegatai hive-keygen --path=<?php echo esc_html(untrailingslashit(ABSPATH)); ?></code>
+                                <?php esc_html_e('Create it on the server as the site\'s PHP-FPM user (not as root). Tegatai never writes key files itself; this command creates the key file in the secrets folder and does not overwrite an existing one:', 'tegatai-secure'); ?>
+                                <code style="display:block; margin-top:8px; word-break:break-all;"><?php echo esc_html(self::keygen_command()); ?></code>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -796,12 +747,12 @@ class Tegatai_Hive {
                         <?php else : ?>
                             <?php if (!empty($ops['shared_secret'])) : ?>
                                 <div style="background: #fffbeb; border: 1px solid #fde68a; color: #b45309; padding: 12px; border-radius: 6px; font-size: 12px; margin-bottom:10px;">
-                                    <strong>⚠️ <?php esc_html_e('Secret active in Database', 'tegatai-secure'); ?></strong><br>
-                                    <?php esc_html_e('For security reasons, it is not displayed here. We strongly recommend moving it to tegatai-secrets.php (outside the web root).', 'tegatai-secure'); ?>
+                                    <strong>⚠️ <?php esc_html_e('Secret still in the database (older version)', 'tegatai-secure'); ?></strong><br>
+                                    <?php esc_html_e('Copy it into the secrets file as TEGATAI_HIVE_SECRET (command in the Secrets tab). It is then deleted from the database automatically.', 'tegatai-secure'); ?>
                                 </div>
                             <?php endif; ?>
                             <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
-                                <input type="password" name="shared_secret" id="hive_secret_key" value="" class="teg-form-input" style="margin:0;" autocomplete="new-password" placeholder="<?php echo !empty($ops['shared_secret']) ? '••••••••••••••••••••••••••••••••' : ''; ?>">
+                                <input type="password" id="hive_secret_key" value="" class="teg-form-input" style="margin:0;" readonly autocomplete="off" placeholder="<?php echo !empty($ops['shared_secret']) ? '••••••••••••••••••••••••••••••••' : ''; ?>">
                             </div>
                             
                             <div style="display:flex; gap:8px; margin-bottom:10px; margin-top:8px;">
@@ -812,19 +763,22 @@ class Tegatai_Hive {
                                 <button type="button" class="button button-secondary" id="copy_hive_key" style="display: none; font-size:11px; padding:2px 8px !important;"><?php esc_html_e('Copy', 'tegatai-secure'); ?></button>
                             </div>
                             
-                            <p class="teg-switch-desc"><?php esc_html_e('Leave blank to keep current secret.', 'tegatai-secure'); ?></p>
+                            <p class="teg-switch-desc"><?php esc_html_e('Secrets are not saved in the database. "Generate New" only shows a new key: put it into the secrets file as TEGATAI_HIVE_SECRET on every Hive site.', 'tegatai-secure'); ?></p>
                         <?php endif; ?>
                     </div>
 
                     <div class="teg-card">
                         <h3><span class="dashicons dashicons-admin-links"></span> <?php esc_html_e('Peer Node URLs', 'tegatai-secure'); ?></h3>
-                        <p class="teg-switch-desc"><?php esc_html_e('One peer per line: "URL | ed25519:public key" (recommended), "URL | pair secret" or "URL" (shared secret). Peers with a key are only accepted with their Ed25519 signature.', 'tegatai-secure'); ?></p>
+                        <p class="teg-switch-desc"><?php esc_html_e('One peer per line: "URL | ed25519:public key" (recommended; only public keys are stored) or "URL" (shared secret from the secrets file). Older "URL | pair secret" lines still work, but the pair secret is stored in the database. Peers with a key are only accepted with their Ed25519 signature.', 'tegatai-secure'); ?></p>
                         <textarea name="node_urls" class="teg-form-input" placeholder="https://example.com | ed25519:...&#10;https://another-site.net | tg_hmac_..."><?php echo esc_textarea($ops['node_urls']); ?></textarea>
                         <?php
                         $peer_list = self::get_peers($ops);
                         if ($peer_list) {
                             $n_ed = count(array_filter($peer_list, function ($p) { return !empty($p['pubkey']); }));
                             echo '<p class="teg-switch-desc">' . esc_html(sprintf(/* translators: 1: peers with Ed25519, 2: all peers */ __('%1$d of %2$d peers use Ed25519.', 'tegatai-secure'), $n_ed, count($peer_list))) . '</p>';
+                            // Pair secrets are part of the peer list and therefore stored in the database.
+                            $n_pair = count(array_filter($peer_list, function ($p) { return empty($p['pubkey']) && !empty($p['secret']); }));
+                            if ($n_pair) echo '<p class="teg-switch-desc" style="color:#b45309;">⚠️ ' . esc_html(sprintf(/* translators: %d: number of peers */ __('%d peers use a pair secret, which is stored in the database with this list. Switch them to Ed25519 keys: only public keys are stored then.', 'tegatai-secure'), $n_pair)) . '</p>';
                         }
                         ?>
                         <div class="teg-switch-row">
@@ -856,150 +810,28 @@ class Tegatai_Hive {
 
             <div id="test_results" style="margin-top: 20px; display: none; padding: 16px; background: #fff; border: 1px solid var(--teg-border); border-left: 4px solid var(--teg-primary); border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.02);"></div>
 
-            <script>
-            document.addEventListener('DOMContentLoaded', function() {
-                const input = document.getElementById('hive_secret_key');
-                const btnGen = document.getElementById('generate_hive_key');
-                const btnRev = document.getElementById('reveal_hive_key');
-                const btnCop = document.getElementById('copy_hive_key');
-                const btnTest = document.getElementById('test_hive_connections');
-                const spinner = document.getElementById('test_spinner');
-                const resultsDiv = document.getElementById('test_results');
-
-                function triggerSudoAction(mode) {
-                    const pin = prompt('Tegatai Sudo Vault: Please enter your TEGATAI_SUDO_PIN');
-                    if (!pin) return;
-
-                    const fd = new FormData();
-                    fd.append('action', 'tegatai_sudo_hive');
-                    fd.append('pin', pin);
-                    fd.append('mode', mode);
-                    fd.append('security', document.getElementById('tegatai_hive_sudo_nonce').value);
-
-                    fetch(ajaxurl, { method: 'POST', body: fd })
-                        .then(res => res.text())
-                        .then(text => { 
-                            let clean = text.substring(text.indexOf('{'));
-                            return JSON.parse(clean); 
-                        })
-                        .then(data => {
-                            if (!data.success) {
-                                alert(data.data === 'SUDO_NOT_CONFIGURED' ? 'Error: TEGATAI_SUDO_PIN is not defined (tegatai-secrets.php or wp-config.php).' : 'Sudo Access Denied: Invalid PIN.');
-                                return;
-                            }
-                            input.value = data.data.key;
-                            input.type = 'text';
-                            if (btnCop) btnCop.style.display = 'inline-block';
-                            if (mode === 'reveal' && btnRev) btnRev.style.display = 'none';
-                        })
-                        .catch(err => alert('Sudo Request failed: ' + err.message));
-                }
-
-                if (btnGen) {
-                    btnGen.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        triggerSudoAction('generate');
-                    });
-                }
-
-                if (btnRev) {
-                    btnRev.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        triggerSudoAction('reveal');
-                    });
-                }
-
-                if (btnCop) {
-                    btnCop.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        if(input.value === '') return;
-                        
-                        navigator.clipboard.writeText(input.value).then(() => {
-                            const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
-                            setTimeout(() => btnCop.innerText = orig, 2000);
-                        }).catch(err => {
-                            input.type = 'text'; input.select(); document.execCommand('copy'); input.type = 'password';
-                            const orig = btnCop.innerText; 
-                            btnCop.innerText = '✔ <?php esc_html_e('Copied!', 'tegatai-secure'); ?>';
-                            setTimeout(() => btnCop.innerText = orig, 2000);
-                        });
-                    });
-                }
-
-                if (btnTest) {
-                    btnTest.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        spinner.classList.add('is-active');
-                        resultsDiv.style.display = 'block';
-                        resultsDiv.innerHTML = '<em style="font-size:13px; color:var(--teg-muted);"><?php esc_html_e('Signing payload and pinging nodes...', 'tegatai-secure'); ?></em>';
-
-                        const fd = new FormData();
-                        fd.append('action', 'tegatai_hive_test');
-                        fd.append('security', '<?php echo esc_js( wp_create_nonce('tegatai_hive_test_nonce') ); ?>');
-
-                        fetch(ajaxurl, { method: 'POST', body: fd })
-                            .then(res => res.text())
-                            .then(text => {
-                                try {
-                                    let jsonStr = text.trim();
-                                    const jsonStart = jsonStr.indexOf('{');
-                                    if (jsonStart > -1) jsonStr = jsonStr.substring(jsonStart);
-                                    return JSON.parse(jsonStr);
-                                } catch(err) {
-                                    throw new Error(text.substring(0, 400));
-                                }
-                            })
-                            .then(data => {
-                                spinner.classList.remove('is-active');
-                                if (!data || !data.success) {
-                                    let errMsg = (data && data.data) ? data.data : 'Unbekannter Backend-Fehler';
-                                    resultsDiv.innerHTML = '<span style="color: var(--teg-danger); font-weight:600;">✖ ' + errMsg + '</span>';
-                                    return;
-                                }
-                                let html = '<strong style="font-size:14px;"><?php esc_html_e('Cryptographic Handshake Results:', 'tegatai-secure'); ?></strong><br><ul style="margin-top: 8px; margin-bottom: 0; font-size:13px; line-height:1.6;">';
-                                data.data.forEach(item => {
-                                    const color = item.status === 'success' ? 'var(--teg-success)' : 'var(--teg-danger)';
-                                    const icon = item.status === 'success' ? '✔' : '✖';
-                                    html += '<li style="color: ' + color + ';">' + icon + ' <strong>' + item.url + '</strong> &rarr; ' + item.msg + '</li>';
-                                });
-                                resultsDiv.innerHTML = html + '</ul>';
-                            })
-                            .catch(err => {
-                                spinner.classList.remove('is-active');
-                                resultsDiv.innerHTML = '<div style="background:#fffbeb; border-left:4px solid #b45309; padding:12px; margin-top:10px; border-radius:4px;"><strong style="color:#b45309;">Verbindungsfehler oder ungültige Server-Antwort:</strong><br><pre style="white-space:pre-wrap; margin:8px 0 0 0; font-family:monospace; font-size:11px; color:#333;">' + err.message + '</pre></div>';
-                            });
-                    });
-                }
-            });
-            </script>
         </div>
         <?php
     }
 }
 
 /**
- * WP-CLI commands for the Hive node key. Run them as the site's FPM user, never as root,
- * so the key file belongs to the user PHP runs as:
- *   sudo -u <fpm-user> wp tegatai hive-keygen --path=/path/to/site
+ * WP-CLI commands for the Hive node key. Run them as the site's PHP-FPM user (never as root).
  */
 if (defined('WP_CLI') && WP_CLI) {
     /**
-     * Creates this node's Ed25519 key pair for The Hive.
+     * Creates a new Ed25519 key pair for The Hive and prints the key file to STDOUT.
      *
-     * The private key is written to secrets/tegatai-hive-key.php next to tegatai-secrets.php
-     * (file 0600, folder 0700) and is never printed. Only the public key is shown; add it to
-     * the peer lists of the other nodes as "URL | ed25519:...".
-     *
-     * [--replace]
-     * : Replace an existing key. All peers then need the new public key.
+     * Redirect the output into the key file; Tegatai does not write it itself. The public key
+     * line for the other nodes is printed to STDERR. Example (as the PHP-FPM user):
+     *   (umask 077; wp tegatai hive-keygen > /path/secrets/tegatai-hive-key.php.new) && mv -n /path/secrets/tegatai-hive-key.php.new /path/secrets/tegatai-hive-key.php
      */
-    WP_CLI::add_command('tegatai hive-keygen', function ($args, $assoc) {
-        $r = Tegatai_Hive::write_new_key(!empty($assoc['replace']));
+    WP_CLI::add_command('tegatai hive-keygen', function () {
+        $r = Tegatai_Hive::new_key_file_content();
         if (is_wp_error($r)) WP_CLI::error($r->get_error_message());
-        WP_CLI::success('Private key written to ' . Tegatai_Hive::key_file());
-        WP_CLI::log('Add this line to the peer list of every other node:');
-        WP_CLI::log(home_url() . ' | ' . $r);
+        WP_CLI::line(rtrim($r['php'], "\n"));
+        // Hint goes to STDERR, so it does not end up in the redirected key file
+        WP_CLI::warning('Add this line to the peer list of every other node: ' . home_url() . ' | ' . $r['public']);
     });
 
     /**
@@ -1007,7 +839,7 @@ if (defined('WP_CLI') && WP_CLI) {
      */
     WP_CLI::add_command('tegatai hive-pubkey', function () {
         $pk = Tegatai_Hive::own_public_key();
-        if ($pk === '') WP_CLI::error('No Hive key yet. Create one with: wp tegatai hive-keygen');
+        if ($pk === '') WP_CLI::error('No Hive key yet. Create one with the command shown in the Hive screen.');
         WP_CLI::log(home_url() . ' | ' . $pk);
     });
 }

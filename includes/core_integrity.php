@@ -1,7 +1,11 @@
 <?php
 if (!defined('ABSPATH')) { exit; }
 
-/* TEGATAI_CORE_INTEGRITY_MD5_V1 applied */
+/**
+ * Read-only check of the WordPress core files against the official checksums of wordpress.org.
+ * Tegatai does not repair core files itself; damaged files are restored with WordPress' own
+ * "Re-install version" (Dashboard > Updates).
+ */
 class Tegatai_Core_Integrity {
     public static function check(): array {
         global $wp_version;
@@ -36,14 +40,16 @@ class Tegatai_Core_Integrity {
         }
 
         $extra = [];
-        foreach (['wp-admin', 'wp-includes'] as $dir) {
-            $root = ABSPATH . $dir;
+        // Core directories: wp-includes via WPINC, wp-admin has no constant (core uses ABSPATH . 'wp-admin' as well).
+        $core_dirs = [ABSPATH . WPINC, ABSPATH . 'wp-admin'];
+        foreach ($core_dirs as $root) {
             if (!is_dir($root)) continue;
             $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
             foreach ($it as $f) {
                 if (!$f->isFile()) continue;
                 $abs = $f->getPathname();
-                $rel = ltrim(str_replace('\\', '/', str_replace(ABSPATH, '', $abs)), '/');
+                // Path relative to the WordPress directory, the same form as the checksum list uses
+                $rel = ltrim(str_replace('\\', '/', substr($abs, strlen(ABSPATH))), '/');
                 if (!isset($seen[$rel])) {
                     $extra[] = $rel;
                     if (count($extra) >= 300) break;
@@ -59,77 +65,4 @@ class Tegatai_Core_Integrity {
 
         return ['ok'=>true, 'version'=>$wp_version, 'bad'=>$bad, 'missing'=>$missing, 'extra'=>$extra];
     }
-
-    /**
-     * Lädt die Originaldatei von WP.org herunter, prüft den MD5-Hash und überschreibt die lokale Datei.
-     */
-    public static function heal_file($file_path) {
-        global $wp_version;
-        
-        // Sicherheit: Pfad säubern und sicherstellen, dass wir nicht aus WP ausbrechen
-        $clean_path = ltrim(str_replace('\\', '/', $file_path), '/');
-        
-        // Only files listed in the official checksums of this version may be healed (no "../", no theme/plugin paths).
-        if ($clean_path === '' || preg_match('#(^|/)\.\.(/|$)#', $clean_path)) {
-            return ['ok' => false, 'error' => __('Security warning: Invalid core path.', 'tegatai-secure')];
-        }
-
-        if (!function_exists('wp_get_core_checksums')) {
-            require_once ABSPATH . 'wp-admin/includes/update.php';
-        }
-        $locale = function_exists('get_locale') ? get_locale() : 'en_US';
-        $checksums = function_exists('wp_get_core_checksums') ? wp_get_core_checksums($wp_version, $locale) : null;
-        if (!is_array($checksums) || empty($checksums)) {
-            $checksums = function_exists('wp_get_core_checksums') ? wp_get_core_checksums($wp_version, 'en_US') : null;
-        }
-        if (!is_array($checksums) || !isset($checksums[$clean_path])) {
-            return ['ok' => false, 'error' => __('Security warning: Invalid core path.', 'tegatai-secure')];
-        }
-
-        $abs_file = ABSPATH . $clean_path;
-        
-        // Die originale Datei vom offiziellen WP.org SVN Server anfordern
-        $url = "https://core.svn.wordpress.org/tags/{$wp_version}/{$clean_path}";
-        $response = wp_remote_get($url, ['timeout' => 15]);
-        
-        if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
-            return ['ok' => false, 'error' => sprintf(/* translators: %d: HTTP status code */ __('Could not load original file from WordPress.org (HTTP %d).', 'tegatai-secure'), wp_remote_retrieve_response_code($response))];
-        }
-        
-        $body = wp_remote_retrieve_body($response);
-        if (empty($body)) {
-            return ['ok' => false, 'error' => __('Downloaded file is empty. Aborting.', 'tegatai-secure')];
-        }
-
-        // --- Strict MD5 Checksum Verification (always, the path is guaranteed to be in $checksums) ---
-        $expected_hash = (string)$checksums[$clean_path];
-        $downloaded_hash = md5($body);
-
-        if (strtolower($expected_hash) !== strtolower($downloaded_hash)) {
-            if (class_exists('Tegatai_Logger')) {
-                Tegatai_Logger::log('SEC-WARN', "Heal aborted: MD5 mismatch for $clean_path. Expected: $expected_hash, Got: $downloaded_hash");
-            }
-            return ['ok' => false, 'error' => __('MD5 checksum mismatch! Downloaded file is corrupted or tampered.', 'tegatai-secure')];
-        }
-        // ---------------------------------------------
-        
-        // Zielordner sicherstellen, falls es eine gelöschte Datei war
-        $dir = dirname($abs_file);
-        if (!is_dir($dir)) {
-            @wp_mkdir_p($dir);
-        }
-        
-        // Überschreiben
-        $put = @file_put_contents($abs_file, $body); // phpcs:ignore PluginCheck.CodeAnalysis.WriteFile.ABSPATHDetected -- restores a WordPress core file at its original path (admin action)
-        if ($put === false) {
-            return ['ok' => false, 'error' => __('Missing write permissions. The file could not be overwritten.', 'tegatai-secure')];
-        }
-        
-        if (class_exists('Tegatai_Logger')) {
-            Tegatai_Logger::log('HEAL', sprintf(/* translators: %s: file path */ __('Core file successfully repaired and verified: %s', 'tegatai-secure'), $clean_path));
-        }
-        
-        return ['ok' => true];
-    }
-
 }

@@ -176,7 +176,7 @@ class Tegatai_AbuseIPDB {
         foreach ($queue as $item) {
             if ($stop || $sent >= self::BATCH) { $keep[] = $item; continue; }
 
-            $last = get_transient('teg_aipdb_' . md5($item['ip']));
+            $last = get_transient('tegatai_aipdb_' . md5($item['ip']));
             if ($last) continue; // reported in the last 15 minutes
 
             $res = wp_remote_post(self::ENDPOINT, [
@@ -200,7 +200,7 @@ class Tegatai_AbuseIPDB {
 
             $code = (int) wp_remote_retrieve_response_code($res);
             if ($code >= 200 && $code < 300) {
-                set_transient('teg_aipdb_' . md5($item['ip']), 1, self::REPEAT_WINDOW);
+                set_transient('tegatai_aipdb_' . md5($item['ip']), 1, self::REPEAT_WINDOW);
                 $sent++;
                 $st['sent_today'] = (int) $st['sent_today'] + 1;
                 $st['sent_total'] = (int) $st['sent_total'] + 1;

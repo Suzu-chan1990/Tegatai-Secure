@@ -3,7 +3,7 @@ if (!defined('ABSPATH')) { exit; }
 
 class Tegatai_Uploads_Monitor {
 
-    const OPT_LAST = 'teg_uploads_hits_v1';
+    const OPT_LAST = 'tegatai_uploads_hits_v1';
 
     public static function init(): void {}
 

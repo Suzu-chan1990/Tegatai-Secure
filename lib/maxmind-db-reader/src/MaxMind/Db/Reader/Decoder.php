@@ -1,4 +1,5 @@
 <?php
+// phpcs:disable WordPress.Security.EscapeOutput.ExceptionNotEscaped, WordPress.WP.AlternativeFunctions -- Bundled third-party library (MaxMind DB Reader, Apache-2.0), code unchanged: exception messages are never printed by Tegatai, and the local database is read with PHP stream functions (seek/read on an open handle, not possible with WP_Filesystem)
 
 declare(strict_types=1);
 

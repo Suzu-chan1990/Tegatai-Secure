@@ -166,7 +166,7 @@ class Tegatai_Mask {
     // Runs while the plugin file is loaded, before the firewall and WordPress read the request URI.
     public static function boot() {
         if (self::on('core')) {
-            $uri  = isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only compared and remapped, never output
+            $uri  = tegatai_server_raw('REQUEST_URI'); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- only compared and remapped, never output
             $home = self::home_path();
 
             // /<rest>/... is answered by the REST API like /wp-json/...
@@ -223,10 +223,11 @@ class Tegatai_Mask {
         }
 
         if (self::on('paths') || self::on('core') || self::on('strip')) {
-            // Late priority: this buffer is processed before buffers that were started earlier
-            // (page caches), so cached pages contain the masked HTML.
-            add_action('template_redirect', [__CLASS__, 'start_buffer'], PHP_INT_MAX - 10);
-            add_action('login_init', [__CLASS__, 'start_buffer'], 1);
+            // WordPress' own template output buffer (6.9+): core opens and closes the buffer and
+            // passes the finished HTML of the template through this filter. Tegatai opens none itself.
+            add_filter('wp_template_enhancement_output_buffer', [__CLASS__, 'process_template'], 10, 1);
+            // wp-login.php is no template: its asset URLs are rewritten where they are generated.
+            add_action('login_init', [__CLASS__, 'login_url_filters'], 1);
         }
     }
 
@@ -245,9 +246,34 @@ class Tegatai_Mask {
         return is_string($src) ? remove_query_arg('ver', $src) : $src;
     }
 
-    public static function start_buffer() {
-        if (is_admin() || wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST) || is_feed() || is_robots()) return;
-        ob_start([__CLASS__, 'process']);
+    // Filter callback for wp_template_enhancement_output_buffer (front end templates only).
+    public static function process_template($html) {
+        if (is_admin() || wp_doing_ajax() || (defined('REST_REQUEST') && REST_REQUEST)) return $html;
+        return self::process($html);
+    }
+
+    // Login screen: rewrite the URLs of enqueued scripts and styles.
+    public static function login_url_filters() {
+        add_filter('script_loader_src', [__CLASS__, 'rewrite_url'], 100);
+        add_filter('style_loader_src', [__CLASS__, 'rewrite_url'], 100);
+    }
+
+    // Applies the verified path replacements to a single URL of this site.
+    public static function rewrite_url($url) {
+        if (!is_string($url) || $url === '') return $url;
+        $map = self::replacements();
+        if (!$map) return $url;
+        $parts = wp_parse_url($url);
+        $site  = wp_parse_url(home_url());
+        if (!empty($parts['host']) && strcasecmp($parts['host'], (string) ($site['host'] ?? '')) !== 0) return $url;
+        $path = (string) ($parts['path'] ?? '');
+        foreach ($map as $from => $to) {
+            if (strpos($path, $from) === 0) {
+                $new = $to . substr($path, strlen($from));
+                return str_replace($path, $new, $url);
+            }
+        }
+        return $url;
     }
 
     // ------------------------------------------------------------------

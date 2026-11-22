@@ -21,7 +21,7 @@ class Tegatai_UserHistory {
             'user' => $user_login, 
             'role' => $role, 
             'ip' => $ip, 
-            'ua' => $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown'
+            'ua' => tegatai_server('HTTP_USER_AGENT', 255) ?: 'Unknown'
         ];
         array_unshift($history, $entry); 
         if (count($history) > 100) $history = array_slice($history, 0, 100);
@@ -43,7 +43,7 @@ class Tegatai_UserHistory {
 
     public function clear_history() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        check_admin_referer('teg_hist_nonce');
+        check_admin_referer('tegatai_hist_nonce');
         
         update_option('tegatai_login_history', []);
         

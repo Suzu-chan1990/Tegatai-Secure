@@ -40,8 +40,8 @@ class Tegatai_Captcha {
 
     /** Is the provider usable (site key and secret key set)? */
     public static function is_configured($provider, $ops) {
-        if ($provider === 'recaptcha') return !empty($ops['recaptcha_site_key']) && !empty($ops['recaptcha_secret_key']);
-        if ($provider === 'turnstile') return !empty($ops['turnstile_site_key']) && !empty($ops['turnstile_secret_key']);
+        if ($provider === 'recaptcha') return !empty($ops['recaptcha_site_key']) && tegatai_secret('TEGATAI_RECAPTCHA_SECRET') !== '';
+        if ($provider === 'turnstile') return !empty($ops['turnstile_site_key']) && tegatai_secret('TEGATAI_TURNSTILE_SECRET') !== '';
         return false;
     }
 
@@ -54,12 +54,12 @@ class Tegatai_Captcha {
         return self::RECAPTCHA_API;
     }
 
-    /** wp-login.php: printed in login_enqueue_scripts (async, like Turnstile). */
+    /** wp-login.php: enqueued in login_enqueue_scripts (async). */
     public static function recaptcha_login_script() {
         $ops = tegatai_get_setting('tegatai_options');
         if (empty($ops['recaptcha_site_key'])) return;
-        // reCAPTCHA can only be loaded from Google (no self-hosting possible); wp-login.php has no enqueue for async defer
-        echo '<script src="' . esc_url(self::recaptcha_script_url($ops)) . '" async defer></script>'; // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent, WordPress.WP.EnqueuedResources.NonEnqueuedScript
+        // reCAPTCHA can only be loaded from Google (service script, no self-hosting possible)
+        wp_enqueue_script('tegatai-recaptcha', self::recaptcha_script_url($ops), [], null, ['in_footer' => false, 'strategy' => 'async']); // phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion, PluginCheck.CodeAnalysis.EnqueuedResourceOffloading.OffloadedContent -- external service script (reCAPTCHA cannot be self-hosted)
     }
 
     /** Front end (comment forms): enqueued on single posts and pages only. */
@@ -111,7 +111,7 @@ class Tegatai_Captcha {
     public static function check($provider, $ops, $action) {
         $token = self::token_from_post($provider);
         if ($provider === 'recaptcha') return self::recaptcha_check($ops, $token, $action);
-        return Tegatai_LoginGuard::turnstile_check($ops['turnstile_secret_key'] ?? '', $token);
+        return Tegatai_LoginGuard::turnstile_check(tegatai_secret('TEGATAI_TURNSTILE_SECRET'), $token);
     }
 
     /**
@@ -129,7 +129,7 @@ class Tegatai_Captcha {
 
         // Server-side token check against the reCAPTCHA API (not a loaded resource)
         $verify = wp_remote_post(self::RECAPTCHA_VERIFY, // phpcs:ignore PluginCheck.CodeAnalysis.Offloading.OffloadedContent
-            ['timeout' => 10, 'body' => ['secret' => (string) ($ops['recaptcha_secret_key'] ?? ''), 'response' => $token]]);
+            ['timeout' => 10, 'body' => ['secret' => tegatai_secret('TEGATAI_RECAPTCHA_SECRET'), 'response' => $token]]);
         if (is_wp_error($verify)) {
             return ['ok' => false, 'reason' => 'unreachable', 'detail' => $verify->get_error_message()];
         }

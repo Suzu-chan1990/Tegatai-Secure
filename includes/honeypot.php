@@ -6,8 +6,8 @@ if (!defined('ABSPATH')) { exit; }
 /* TEGATAI_HONEYPOT_UNIFIED_IP_V1 applied */
 class Tegatai_Honeypot {
 
-    const FIELD = 'teg_hp_field';
-    const OPT_ENABLED = 'teg_honeypot_enabled_v1';
+    const FIELD = 'tegatai_hp_field';
+    const OPT_ENABLED = 'tegatai_honeypot_enabled_v1';
 
     public static function init(): void {
         $en = get_option(self::OPT_ENABLED, null);
@@ -48,7 +48,7 @@ class Tegatai_Honeypot {
             }
             Tegatai_Bans::ban_and_broadcast($ip, DAY_IN_SECONDS, 'Login form honeypot', 'critical');
 
-            return new WP_Error('teg_hp', __('Login blocked (honeypot).', 'tegatai-secure'));
+            return new WP_Error('tegatai_hp', __('Login blocked (honeypot).', 'tegatai-secure'));
         }
         return $user;
     }

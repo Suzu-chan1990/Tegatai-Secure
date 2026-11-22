@@ -29,8 +29,7 @@ class Tegatai_Backup {
     const TMP_PREFIX   = 'tmp_';
 
     public function __construct() {
-        $upload = wp_upload_dir();
-        $this->backup_dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
+        $this->backup_dir = trailingslashit(tegatai_data_dir('backups'));
         if (!is_dir($this->backup_dir)) { tegatai_protect_directory($this->backup_dir); }
 
         add_action('admin_post_tegatai_create_backup', [$this, 'create_backup_action']);
@@ -49,7 +48,7 @@ class Tegatai_Backup {
 
     public function create_backup_action() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        check_admin_referer('teg_backup_nonce');
+        check_admin_referer('tegatai_backup_nonce');
 
         $r = $this->create_db_backup('manual');
         if ($r === true) {
@@ -61,14 +60,10 @@ class Tegatai_Backup {
 
     // --- Symmetric key (TGB4 and the old formats) ---
 
+    // Backup secret from the secrets file / wp-config.php (a database copy of an older version is
+    // only read until it is moved). Tegatai never creates or stores a secret in the database.
     private function get_encryption_key() {
-        if (defined('TEGATAI_BACKUP_SECRET')) return TEGATAI_BACKUP_SECRET;
-        $secret = get_option('tegatai_backup_secret');
-        if (empty($secret)) {
-            $secret = bin2hex(random_bytes(32));
-            update_option('tegatai_backup_secret', $secret, false);
-        }
-        return $secret;
+        return tegatai_secret('TEGATAI_BACKUP_SECRET');
     }
 
     // Raw 32-byte key. The stored secret is 64 hex chars; passing it directly made OpenSSL
@@ -119,15 +114,14 @@ class Tegatai_Backup {
     }
 
     /**
-     * Creates a new key pair and writes it to the key file (0600, folder 0700). Only called by
-     * the WP-CLI command the admin runs explicitly. Refuses to overwrite an existing key unless
-     * $replace is true. Returns the key file path or a WP_Error.
+     * Creates a new X25519 key pair and returns the content of the key file. Tegatai never
+     * writes key files itself: the WP-CLI command prints the content and the administrator
+     * redirects it into the key file (see the command in the Backups tab).
+     *
+     * @return string|WP_Error
      */
-    public static function write_new_key($replace = false) {
+    public static function new_key_file_content() {
         if (!self::sodium_available()) return new WP_Error('sodium', 'The PHP sodium extension is missing.');
-        $file = self::key_file();
-        if (@is_file($file) && !$replace) return new WP_Error('exists', 'A backup key already exists: ' . $file . ' (use --replace to create a new one; backups made with the old key can then only be decrypted with a copy of the old key file).');
-
         $pair = sodium_crypto_box_keypair();
         $sk   = sodium_crypto_box_secretkey($pair);
         $pk   = sodium_crypto_box_publickey($pair);
@@ -136,10 +130,16 @@ class Tegatai_Backup {
               . "return [ 'private_key' => '" . base64_encode($sk) . "', 'public_key' => '" . base64_encode($pk) . "', 'created' => '" . gmdate('c') . "' ];\n";
         sodium_memzero($sk);
         sodium_memzero($pair);
+        return $php;
+    }
 
-        $written = tegatai_write_key_file($file, $php);
-        sodium_memzero($php);
-        return is_wp_error($written) ? $written : $file;
+    // Shell command (run as the site's PHP-FPM user) that creates the key file without overwriting one.
+    public static function keygen_command() {
+        $file = self::key_file();
+        $sh = static function ($v) { return "'" . str_replace("'", "'\\''", (string) $v) . "'"; };
+        return 'mkdir -p ' . $sh(dirname($file)) . ' && chmod 700 ' . $sh(dirname($file))
+            . ' && (umask 077; wp tegatai backup-keygen --path=' . $sh(untrailingslashit(ABSPATH)) . ' > ' . $sh($file . '.new') . ')'
+            . ' && mv -n ' . $sh($file . '.new') . ' ' . $sh($file);
     }
 
     // --- Creating a backup ---
@@ -175,6 +175,9 @@ class Tegatai_Backup {
         if (function_exists('set_time_limit')) @set_time_limit(0); // phpcs:ignore Squiz.PHP.DiscouragedFunctions.Discouraged -- a large database takes longer than the default time limit
 
         $keys = self::own_keys();
+        if ($keys['public'] === '' && $this->get_encryption_key() === '') {
+            return new WP_Error('nokey', __('No backup key: create the backup key file or set TEGATAI_BACKUP_SECRET in the secrets file (see the Backups and Secrets tabs).', 'tegatai-secure'));
+        }
         $hash = bin2hex(random_bytes(4));
         $type = sanitize_key($type);
         $filename = 'db_backup_' . gmdate('Y-m-d_H-i-s') . '_' . $type . '_' . $hash . '.sql.php' . (function_exists('deflate_init') ? '.gz' : '') . '.enc';
@@ -288,11 +291,7 @@ class Tegatai_Backup {
             $q = $this->quote_name($tbl);
             $out->write("\nDROP TABLE IF EXISTS $q;\n" . $row[1] . ";\n\n");
 
-            if ($wpdb->dbh instanceof mysqli) {
-                $this->dump_rows_mysqli($wpdb->dbh, $tbl, $out);
-            } else {
-                $this->dump_rows_wpdb($tbl, $out);
-            }
+            $this->dump_rows($tbl, $out);
         }
 
         $out->write("\n/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;\n"
@@ -313,44 +312,84 @@ class Tegatai_Backup {
     }
 
     /**
-     * Rows read unbuffered (one row in memory at a time). Values are written by column type:
-     * NULL, numbers unquoted, binary columns as hex literals, text escaped with the connection's
-     * own escaping (charset-aware, unlike addslashes()).
+     * Column list and value kind per column, from information_schema.
+     * kind: 'num' (written unquoted), 'bin' (read as HEX(), written as 0x literal), 'str'.
+     * BIT columns are read as CAST(col AS UNSIGNED), so they are plain numbers.
      */
-    private function dump_rows_mysqli(mysqli $dbh, $tbl, Tegatai_Backup_Stream $out) {
-        $q   = $this->quote_name($tbl);
-        $res = mysqli_query($dbh, 'SELECT ' . $this->select_list($tbl) . " FROM $q", MYSQLI_USE_RESULT);
-        if ($res === false) throw new RuntimeException("Reading $tbl failed: " . mysqli_error($dbh));
-
-        $numeric = [MYSQLI_TYPE_TINY, MYSQLI_TYPE_SHORT, MYSQLI_TYPE_LONG, MYSQLI_TYPE_LONGLONG, MYSQLI_TYPE_INT24, MYSQLI_TYPE_FLOAT, MYSQLI_TYPE_DOUBLE, MYSQLI_TYPE_DECIMAL, MYSQLI_TYPE_NEWDECIMAL, MYSQLI_TYPE_YEAR];
-        $binary_types = [MYSQLI_TYPE_TINY_BLOB, MYSQLI_TYPE_MEDIUM_BLOB, MYSQLI_TYPE_LONG_BLOB, MYSQLI_TYPE_BLOB, MYSQLI_TYPE_STRING, MYSQLI_TYPE_VAR_STRING, MYSQLI_TYPE_GEOMETRY];
-        $kinds = [];
-        foreach (mysqli_fetch_fields($res) as $f) {
-            // Binary data only for blob/string types with the binary charset (63); date and time
-            // columns also report charset 63 but are written as text. BIT columns are selected
-            // as CAST(... AS UNSIGNED), so they arrive as decimal numbers with every driver.
-            if ((int) $f->charsetnr === 63 && in_array($f->type, $binary_types, true)) {
-                $kinds[] = 'bin';
-            } elseif (in_array($f->type, $numeric, true)) {
-                $kinds[] = 'num';
-            } else {
-                $kinds[] = 'str';
-            }
+    private function column_info($tbl) {
+        global $wpdb;
+        $cols = $wpdb->get_results($wpdb->prepare(
+            'SELECT COLUMN_NAME, DATA_TYPE, COLUMN_KEY FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
+            $tbl
+        ), ARRAY_A);
+        $num = ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint', 'decimal', 'numeric', 'float', 'double', 'real', 'year', 'bit'];
+        $bin = ['binary', 'varbinary', 'tinyblob', 'blob', 'mediumblob', 'longblob', 'geometry', 'point', 'linestring', 'polygon', 'multipoint', 'multilinestring', 'multipolygon', 'geometrycollection'];
+        $out = [];
+        foreach ((array) $cols as $c) {
+            $type = strtolower((string) $c['DATA_TYPE']);
+            $n = $this->quote_name($c['COLUMN_NAME']);
+            if ($type === 'bit') $sel = "CAST($n AS UNSIGNED) AS $n";
+            elseif (in_array($type, $bin, true)) $sel = "HEX($n) AS $n";
+            else $sel = $n;
+            $out[] = [
+                'name' => (string) $c['COLUMN_NAME'],
+                'type' => $type,
+                'pri'  => $c['COLUMN_KEY'] === 'PRI',
+                'kind' => in_array($type, $num, true) ? 'num' : (in_array($type, $bin, true) ? 'bin' : 'str'),
+                'sel'  => $sel,
+            ];
         }
+        return $out;
+    }
 
+    /**
+     * Writes the rows of one table as INSERT statements, read through $wpdb in pages.
+     * Tables with a single integer primary key are paged by key (WHERE pk > last), all others
+     * by LIMIT/OFFSET; the backup runs inside one consistent snapshot, so both are stable.
+     * Text is escaped with $wpdb's connection escaping (charset-aware).
+     */
+    private function dump_rows($tbl, Tegatai_Backup_Stream $out) {
+        global $wpdb;
+        $q    = $this->quote_name($tbl);
+        $cols = $this->column_info($tbl);
+        if (!$cols) throw new RuntimeException("Reading $tbl failed: no columns found");
+        $select = implode(', ', array_column($cols, 'sel'));
+
+        $pri = array_values(array_filter($cols, static function ($c) { return $c['pri']; }));
+        $int_types = ['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'];
+        $key = (count($pri) === 1 && in_array($pri[0]['type'], $int_types, true)) ? $pri[0]['name'] : '';
+        $key_idx = $key !== '' ? array_search($key, array_column($cols, 'name'), true) : false;
+
+        $page = 1000;
+        $last = null;
+        $offset = 0;
         $batch = '';
-        try {
-            while (($row = mysqli_fetch_row($res)) !== null && $row !== false) {
+        while (true) {
+            // Column list and table name come from information_schema and are quoted (quote_name()).
+            if ($key !== '') {
+                $sql = $last === null
+                    ? $wpdb->prepare("SELECT $select FROM %i ORDER BY %i LIMIT %d", $tbl, $key, $page) // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- quoted column list
+                    : $wpdb->prepare("SELECT $select FROM %i WHERE %i > %d ORDER BY %i LIMIT %d", $tbl, $key, $last, $key, $page); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- quoted column list
+            } else {
+                $sql = $wpdb->prepare("SELECT $select FROM %i LIMIT %d OFFSET %d", $tbl, $page, $offset); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- quoted column list
+            }
+            $rows = $wpdb->get_results($sql, ARRAY_N); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- prepared above with %i/%d placeholders
+            if ($wpdb->last_error !== '') throw new RuntimeException("Reading $tbl failed: " . $wpdb->last_error);
+            if (empty($rows)) break;
+
+            foreach ($rows as $row) {
                 $vals = [];
                 foreach ($row as $i => $v) {
+                    $kind = $cols[$i]['kind'] ?? 'str';
                     if ($v === null) {
                         $vals[] = 'NULL';
-                    } elseif ($kinds[$i] === 'num' && is_numeric($v)) {
+                    } elseif ($kind === 'num' && is_numeric($v)) {
                         $vals[] = $v;
-                    } elseif ($kinds[$i] === 'bin') {
-                        $vals[] = $v === '' ? "''" : '0x' . bin2hex($v);
+                    } elseif ($kind === 'bin') {
+                        $vals[] = $v === '' ? "''" : '0x' . preg_replace('/[^0-9A-Fa-f]/', '', (string) $v);
                     } else {
-                        $vals[] = "'" . mysqli_real_escape_string($dbh, $v) . "'";
+                        // esc_sql() adds placeholder escapes for "%"; they are removed again for the dump
+                        $vals[] = "'" . $wpdb->remove_placeholder_escape(esc_sql((string) $v)) . "'";
                     }
                 }
                 $batch .= ($batch === '' ? "INSERT INTO $q VALUES\n(" : ",\n(") . implode(',', $vals) . ')';
@@ -359,53 +398,15 @@ class Tegatai_Backup {
                     $batch = '';
                 }
             }
-        } finally {
-            mysqli_free_result($res);
-        }
-        if (mysqli_errno($dbh)) throw new RuntimeException("Reading $tbl failed: " . mysqli_error($dbh));
-        if ($batch !== '') $out->write($batch . ";\n");
-    }
 
-    /**
-     * Column list in table order. BIT columns are read as CAST(col AS UNSIGNED): mysqlnd returns
-     * BIT as a decimal string, libmysqlclient as raw bytes; the cast gives a plain number with
-     * both, which is written unquoted and imports into BIT(1) to BIT(64).
-     */
-    private function select_list($tbl) {
-        global $wpdb;
-        $cols = $wpdb->get_results($wpdb->prepare(
-            'SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s ORDER BY ORDINAL_POSITION',
-            $tbl
-        ), ARRAY_A);
-        if (empty($cols)) return '*';
-        $list = [];
-        foreach ($cols as $c) {
-            $n = $this->quote_name($c['COLUMN_NAME']);
-            $list[] = strtolower((string) $c['DATA_TYPE']) === 'bit' ? "CAST($n AS UNSIGNED) AS $n" : $n;
-        }
-        return implode(', ', $list);
-    }
-
-    /** Fallback for database drivers other than mysqli: pages of 500 rows. */
-    private function dump_rows_wpdb($tbl, Tegatai_Backup_Stream $out) {
-        global $wpdb;
-        $q = $this->quote_name($tbl);
-        for ($offset = 0; ; $offset += 500) {
-            $rows = $wpdb->get_results($wpdb->prepare('SELECT ' . $this->select_list($tbl) . ' FROM %i LIMIT %d OFFSET %d', $tbl, 500, $offset), ARRAY_N); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- column list built from information_schema with quoted names
-            if ($wpdb->last_error !== '') throw new RuntimeException("Reading $tbl failed: " . $wpdb->last_error);
-            if (empty($rows)) break;
-            $lines = [];
-            foreach ($rows as $row) {
-                $vals = [];
-                foreach ($row as $v) {
-                    // _real_escape() adds placeholder escapes for "%"; they are removed again
-                    $vals[] = $v === null ? 'NULL' : "'" . $wpdb->remove_placeholder_escape($wpdb->_real_escape($v)) . "'";
-                }
-                $lines[] = '(' . implode(',', $vals) . ')';
+            if (count($rows) < $page) break;
+            if ($key !== '') {
+                $last = (int) $rows[count($rows) - 1][$key_idx];
+            } else {
+                $offset += $page;
             }
-            $out->write("INSERT INTO $q VALUES\n" . implode(",\n", $lines) . ";\n");
-            if (count($rows) < 500) break;
         }
+        if ($batch !== '') $out->write($batch . ";\n");
     }
 
     // --- Retention ---
@@ -441,7 +442,7 @@ class Tegatai_Backup {
 
     public function delete_backup() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        check_admin_referer('teg_backup_nonce');
+        check_admin_referer('tegatai_backup_nonce');
 
         $path = $this->backup_path_from_request();
         if ($path !== '' && is_file($path)) {
@@ -458,7 +459,7 @@ class Tegatai_Backup {
      */
     public function download_backup() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
-        check_admin_referer('teg_backup_nonce');
+        check_admin_referer('tegatai_backup_nonce');
 
         $path = $this->backup_path_from_request();
         if ($path === '' || !is_file($path)) wp_die('File not found or access denied.');
@@ -624,8 +625,7 @@ class Tegatai_Backup {
     }
 
     public static function get_backups() {
-        $upload = wp_upload_dir();
-        $dir = trailingslashit($upload['basedir']) . 'tegatai-backups/';
+        $dir = trailingslashit(tegatai_data_dir('backups'));
         $files = [];
 
         foreach ((array) glob($dir . 'db_backup_*') as $path) {
@@ -767,25 +767,21 @@ class Tegatai_Backup_Stream {
 }
 
 /**
- * WP-CLI command for the backup key. Run it as the site's FPM user, never as root,
- * so the key file belongs to the user PHP runs as:
- *   sudo -u <fpm-user> wp tegatai backup-keygen --path=/path/to/site
+ * WP-CLI command for the backup key. Run it as the site's PHP-FPM user (never as root).
  */
 if (defined('WP_CLI') && WP_CLI) {
     /**
-     * Creates the X25519 key pair for encrypted database backups (format v3).
+     * Creates a new X25519 key pair for encrypted database backups and prints the key file to STDOUT.
      *
-     * The key pair is written to secrets/tegatai-backup-key.php next to tegatai-secrets.php
-     * (file 0600, folder 0700) and is never printed. Keep a copy of the file in a safe place:
-     * without it the backups cannot be decrypted.
-     *
-     * [--replace]
-     * : Replace an existing key. Older backups then need a copy of the old key file.
+     * Redirect the output into the key file; Tegatai does not write it itself. Keep a copy of
+     * the file in a safe place: without it the backups cannot be decrypted. Example:
+     *   (umask 077; wp tegatai backup-keygen > /path/secrets/tegatai-backup-key.php.new) && mv -n /path/secrets/tegatai-backup-key.php.new /path/secrets/tegatai-backup-key.php
      */
-    WP_CLI::add_command('tegatai backup-keygen', function ($args, $assoc) {
-        $r = Tegatai_Backup::write_new_key(!empty($assoc['replace']));
-        if (is_wp_error($r)) WP_CLI::error($r->get_error_message());
-        WP_CLI::success('Backup key written to ' . $r);
-        WP_CLI::log('New backups are encrypted with this key. Keep a copy of the file outside the server.');
+    WP_CLI::add_command('tegatai backup-keygen', function () {
+        $r = Tegatai_Backup::new_key_file_content();
+        if (is_wp_error($r)) WP_CLI::error($r);
+        WP_CLI::line(rtrim($r, "\n"));
+        // Hint goes to STDERR, so it does not end up in the redirected key file
+        WP_CLI::warning('Backup key created. Keep a copy of the key file outside the server.');
     });
 }

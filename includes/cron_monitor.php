@@ -59,7 +59,7 @@ class Tegatai_Cron_Monitor {
     }
 
     public static function maybe_log_once_daily(): void {
-        $k = 'teg_cron_monitor_lastlog_v1';
+        $k = 'tegatai_cron_monitor_lastlog_v1';
         $last = (int)get_option($k, 0);
         // Half a day: daily cron runs can start slightly earlier than 24h after the previous one.
         if ($last > (time() - DAY_IN_SECONDS / 2)) return;

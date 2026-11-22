@@ -9,6 +9,7 @@ class Tegatai_Terminal {
     public function __construct() {
         add_action('admin_menu', [$this, 'register_page'], 20);
         add_action('wp_ajax_tegatai_terminal_fetch', [$this, 'ajax_fetch']);
+        add_action('admin_enqueue_scripts', [$this, 'enqueue_assets']);
     }
 
     // DRY: Unified IP Handling
@@ -29,6 +30,18 @@ class Tegatai_Terminal {
         set_transient($key, $val, $ttl);
     }
 
+    // Script only on the terminal screen (styles: css/subpages.css, loaded by Tegatai_Admin).
+    public function enqueue_assets($hook) {
+        $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- screen detection only
+        if ($page !== 'tegatai-terminal') return;
+        wp_enqueue_script('tegatai-terminal', TEGATAI_URL . 'js/terminal.js', [], TEGATAI_VERSION, ['in_footer' => true]);
+        wp_localize_script('tegatai-terminal', 'TegataiTerminal', [
+            'ajaxUrl' => admin_url('admin-ajax.php'),
+            'nonce'   => wp_create_nonce('tegatai_terminal_nonce'),
+            'backUrl' => admin_url('admin.php?page=tegatai-Secure&tab=logs'),
+        ]);
+    }
+
     public function register_page() {
         // Versteckte Seite (kein Menü-Eintrag links)
         add_submenu_page('tegatai-Secure', 'Tegatai Terminal', 'Terminal', 'manage_options', 'tegatai-terminal', [$this, 'render_terminal']);
@@ -38,11 +51,11 @@ class Tegatai_Terminal {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         
         // 1. Security Check: Nonce Validation
-        check_ajax_referer('teg_terminal_nonce', 'security');
+        check_ajax_referer('tegatai_terminal_nonce', 'security');
 
         // 2. Security Check: Rate Limiting (DDoS Protection via Unified Cache)
         $ip = $this->get_client_ip();
-        $rl_key = 'teg_term_rl_' . md5($ip);
+        $rl_key = 'tegatai_term_rl_' . md5($ip);
         
         // Maximal 1 Request alle 2 Sekunden erlaubt
         if ($this->get_cache($rl_key)) {
@@ -92,54 +105,6 @@ class Tegatai_Terminal {
     public function render_terminal() {
         if (!current_user_can('manage_options')) wp_die('Access Denied');
         ?>
-        <style>
-            :root { 
-                --teg-primary: #06b6d4; 
-                --teg-accent: #7c3aed; 
-                --teg-bg: #f8fafc; 
-                --teg-surface: #ffffff; 
-                --teg-card: #ffffff; 
-                --teg-text: #0f1720; 
-                --teg-muted: #6b7280; 
-                --teg-border: #e2e8f0; 
-                --teg-success: #10b981; 
-                --teg-danger: #ef4444; 
-            }
-            .teg-wrap { max-width: 1400px; margin: 20px auto; font-family: 'Inter', system-ui, sans-serif; color: var(--teg-text); }
-            .teg-header { background: linear-gradient(135deg, #0f1720 0%, #1e293b 100%); color: white; padding: 25px 30px; border-radius: 12px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-            .teg-title { font-size: 24px; font-weight: 800; display: flex; align-items: center; gap: 12px; }
-            .teg-badge { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; color: #fff; border: 1px solid rgba(255,255,255,0.2); }
-            
-            /* Horizontal Inner Nav */
-            .teg-inner-nav { display: flex; align-items: center; background: var(--teg-surface); padding: 12px 20px; border-radius: 10px; border: 1px solid var(--teg-border); margin-bottom: 24px; overflow-x: auto; box-shadow: 0 1px 3px rgba(0,0,0,0.02); gap: 20px; }
-            .teg-back-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: var(--teg-text); font-weight: 700; font-size: 13px; border-right: 1px solid var(--teg-border); padding-right: 20px; transition: 0.2s; white-space: nowrap; }
-            .teg-back-btn:hover { color: var(--teg-primary); }
-            .teg-horizontal-tabs { display: flex; align-items: center; gap: 10px; }
-            .teg-h-tab { padding: 8px 16px; border-radius: 6px; text-decoration: none; color: var(--teg-muted); font-size: 13px; font-weight: 600; white-space: nowrap; transition: 0.2s; border: 1px solid transparent; }
-            .teg-h-tab.active { background: linear-gradient(90deg, var(--teg-primary), var(--teg-accent)); color: #fff; border-color: transparent; }
-
-            /* Terminal Specific styling */
-            .teg-terminal-card { background-color: #0f172a; border-radius: 8px; border: 1px solid #1e293b; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); display: flex; flex-direction: column; height: 65vh; min-height: 500px; overflow: hidden; margin-top: 10px; }
-            .teg-term-header { background: #1e293b; padding: 12px 20px; color: #94a3b8; font-size: 13px; font-family: monospace; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
-            .teg-term-output { flex-grow: 1; padding: 20px; overflow-y: auto; font-family: 'Courier New', Courier, monospace; font-size: 13px; line-height: 1.6; color: #cbd5e1; background: #0f172a; }
-            .teg-term-output::-webkit-scrollbar { width: 8px; }
-            .teg-term-output::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-            .teg-term-footer { background: #1e293b; padding: 10px 20px; color: #64748b; font-size: 12px; font-family: 'Inter', system-ui, sans-serif; border-top: 1px solid #334155; }
-            
-            .teg-wrap .log-row { white-space: pre-wrap; word-wrap: break-word; margin-bottom: 4px; }
-            .teg-wrap .log-row .time { color: #64748b; margin-right: 8px; }
-            .teg-wrap .log-row .ip { color: #818cf8; margin-right: 8px; }
-            .teg-wrap .log-row .type { font-weight: 700; margin-right: 8px; }
-            
-            .teg-wrap .log-row.danger .type, .teg-wrap .log-row.danger .msg { color: #f87171; }
-            .teg-wrap .log-row.warn .type, .teg-wrap .log-row.warn .msg { color: #fbbf24; }
-            .teg-wrap .log-row.success .type, .teg-wrap .log-row.success .msg { color: #34d399; }
-            .teg-wrap .log-row.info .type, .teg-wrap .log-row.info .msg { color: #94a3b8; }
-            
-            .teg-key { display: inline-block; background: #334155; color: #cbd5e1; padding: 2px 6px; border-radius: 4px; border: 1px solid #475569; margin: 0 4px; font-family: monospace; font-size: 11px; }
-            .teg-btn-term { background: transparent; border: 1px solid #475569; color: #cbd5e1; border-radius: 4px; cursor: pointer; padding: 4px 10px; font-size: 11px; font-family: monospace; transition: all 0.2s; }
-            .teg-btn-term:hover { background: #334155; color: #fff; }
-        </style>
 
         <div class="teg-wrap">
             <div class="teg-header">
@@ -175,85 +140,6 @@ class Tegatai_Terminal {
                 </div>
             </div>
             
-            <script>
-                const ajaxurl = '<?php echo esc_url(admin_url('admin-ajax.php')); ?>';
-                const output = document.getElementById('terminal-output');
-                const status = document.getElementById('status');
-                const btnPause = document.getElementById('btn-pause');
-                
-                let autoRefresh;
-                let isPaused = false;
-
-                function fetchLogs() {
-                    if (isPaused) return;
-
-                    status.innerText = '[ FETCHING... ]';
-                    status.style.color = '#fbbf24';
-                    
-                    const fd = new FormData();
-                    fd.append('action', 'tegatai_terminal_fetch');
-                    fd.append('limit', '100');
-                    fd.append('security', '<?php echo esc_js( wp_create_nonce('teg_terminal_nonce') ); ?>');
-
-                    fetch(ajaxurl, { method: 'POST', body: fd })
-                        .then(res => res.status === 429 ? null : res.text())
-                        .then(data => {
-                            if (isPaused) return; // Verhindert Update, falls während des Fetches pausiert wurde
-                            if (data === null) { status.innerText = '[ IDLE ]'; status.style.color = '#34d399'; return; } // Rate limited: keep output
-                            output.innerHTML = data;
-                            status.innerText = '[ IDLE ]';
-                            status.style.color = '#34d399';
-                        }).catch(err => {
-                            status.innerText = '[ ERROR ]';
-                            status.style.color = '#ef4444';
-                        });
-                }
-
-                function togglePause() {
-                    isPaused = !isPaused;
-                    if (isPaused) {
-                        status.innerText = '[ PAUSED ]';
-                        status.style.color = '#ef4444';
-                        btnPause.innerText = 'Resume (P)';
-                        btnPause.style.color = '#34d399';
-                        btnPause.style.borderColor = '#34d399';
-                    } else {
-                        status.innerText = '[ RESUMED ]';
-                        btnPause.innerText = 'Pause (P)';
-                        btnPause.style.color = '#cbd5e1';
-                        btnPause.style.borderColor = '#475569';
-                        fetchLogs();
-                    }
-                }
-
-                btnPause.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    togglePause();
-                });
-
-                // Initial fetch & interval (5 Sekunden)
-                setTimeout(fetchLogs, 500);
-                autoRefresh = setInterval(fetchLogs, 5000);
-
-                // Keyboard Controls
-                document.addEventListener('keydown', (e) => {
-                    // Verhindert Shortcuts, wenn man sich in einem Input-Feld befinden würde
-                    if(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-
-                    if (e.key === 'r' || e.key === 'R') {
-                        fetchLogs();
-                    }
-                    if (e.key === 'p' || e.key === 'P') {
-                        togglePause();
-                    }
-                    if (e.key === 'c' || e.key === 'C') {
-                        output.innerHTML = '<div class="log-row info">[SYS] Console cleared. Waiting for new events...</div>';
-                    }
-                    if (e.key === 'Escape') {
-                        window.location.href = '<?php echo esc_url(admin_url('admin.php?page=tegatai-Secure&tab=logs')); ?>';
-                    }
-                });
-            </script>
         </div>
         <?php
     }

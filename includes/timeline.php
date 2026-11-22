@@ -3,7 +3,7 @@ if (!defined('ABSPATH')) { exit; }
 
 /* TEGATAI_TIMELINE_PRUNING_V1 applied */
 class Tegatai_Timeline {
-    const OPT = 'teg_timeline_v1';
+    const OPT = 'tegatai_timeline_v1';
 
     public static function init(): void {
         // Hängt sich ressourcenschonend in den bestehenden Tegatai-Cron ein (läuft alle 6h)

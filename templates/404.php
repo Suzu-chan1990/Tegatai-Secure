@@ -1,7 +1,7 @@
 <?php
 /**
  * Tegatai Secure - Fallback 404 Page
- * Wird genutzt, wenn das aktive Theme keine 404.php besitzt.
+ * Shown for blocked wp-admin requests (Hide wp-admin).
  */
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 ?>
@@ -11,16 +11,11 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Page Not Found - 404</title>
-    <style>
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; display: flex; align-items: center; justify-content: center; height: 100vh; text-align: center; }
-        .container { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); max-width: 400px; width: 90%; }
-        h1 { font-size: 80px; margin: 0; font-weight: 900; color: #4f46e5; line-height: 1; letter-spacing: -2px; }
-        h2 { margin: 20px 0 10px; font-size: 24px; font-weight: 700; }
-        p { color: #6b7280; margin-bottom: 30px; line-height: 1.5; }
-        a { display: inline-block; background-color: #4f46e5; color: white; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; transition: background-color 0.2s; }
-        a:hover { background-color: #4338ca; }
-        .icon { font-size: 40px; margin-bottom: 10px; display: block; }
-    </style>
+    <?php
+    // Own stylesheet through the WordPress API (no inline styles)
+    wp_register_style('tegatai-404', TEGATAI_URL . 'css/404.css', [], TEGATAI_VERSION);
+    wp_print_styles('tegatai-404');
+    ?>
 </head>
 <body>
     <div class="container">

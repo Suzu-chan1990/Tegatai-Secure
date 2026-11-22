@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Secure
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Firewall, login protection with 2FA, anti-spam, scanners, server rules, encrypted database backups and IP ban sharing between your own sites.
- * Version: 2.2.1
+ * Version: 2.2.2
  * Author: Saguya
  * License: GPLv2 or later
  * Text Domain: tegatai-secure
@@ -19,6 +19,37 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 // Allowed markup for hidden form fields (nonce fields, anti-spam fields) when output through wp_kses()
 const TEGATAI_KSES_INPUT = [ 'input' => [ 'type' => true, 'id' => true, 'name' => true, 'value' => true ] ];
+
+// =================================================================
+// REQUEST DATA
+// =================================================================
+
+/**
+ * A $_SERVER value as plain text (sanitize_text_field), for storing, logging and output.
+ */
+function tegatai_server( $key, $max = 1024 ) {
+    if ( ! isset( $_SERVER[ $key ] ) || ! is_scalar( $_SERVER[ $key ] ) ) return '';
+    return substr( sanitize_text_field( wp_unslash( (string) $_SERVER[ $key ] ) ), 0, $max );
+}
+
+/**
+ * A $_SERVER value for pattern matching by the firewall (request URI, user agent).
+ * sanitize_text_field() would remove percent-encoded octets and tags, i.e. exactly the parts an
+ * attack is detected by. This keeps the characters but removes control characters and invalid
+ * UTF-8 and limits the length. The value is never output or stored without tegatai_server().
+ */
+function tegatai_server_raw( $key, $max = 8192 ) {
+    if ( ! isset( $_SERVER[ $key ] ) || ! is_scalar( $_SERVER[ $key ] ) ) return '';
+    $v = wp_check_invalid_utf8( wp_unslash( (string) $_SERVER[ $key ] ) ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitized right below (control characters, invalid UTF-8, length), see the function comment
+    $v = preg_replace( '/[\x00-\x1F\x7F]/', '', $v );
+    return substr( (string) $v, 0, $max );
+}
+
+// A $_SERVER value that must be an IP address ('' otherwise).
+function tegatai_server_ip( $key ) {
+    $v = isset( $_SERVER[ $key ] ) && is_scalar( $_SERVER[ $key ] ) ? trim( sanitize_text_field( wp_unslash( (string) $_SERVER[ $key ] ) ) ) : '';
+    return filter_var( $v, FILTER_VALIDATE_IP ) ? $v : '';
+}
 
 // =================================================================
 // HIGH-SPEED DATENBANK & RAM CACHE FÜR TEGATAI OPTIONS
@@ -155,7 +186,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.2.1' );
+define( 'TEGATAI_VERSION', '2.2.2' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
@@ -207,12 +238,34 @@ function tegatai_plugins_url() {
 }
 
 /**
- * Folder for files Tegatai generates for the web server (nginx include file).
- * Lives in its own protected subfolder of the uploads directory.
+ * Tegatai's own data folder in the uploads directory, named after the plugin slug:
+ * uploads/tegatai-secure/ with the subfolders logs, backups, server and geoip.
+ * The whole folder is protected against web access (tegatai_protect_directory(), nginx rules).
  */
+function tegatai_data_dir( $sub = '' ) {
+    $ud   = wp_upload_dir( null, false );
+    $base = trailingslashit( $ud['basedir'] ) . 'tegatai-secure';
+    return $sub === '' ? $base : $base . '/' . $sub;
+}
+
+// Folder for the nginx include file.
 function tegatai_server_dir() {
-    $ud = wp_upload_dir( null, false );
-    return trailingslashit( $ud['basedir'] ) . 'tegatai-server';
+    return tegatai_data_dir( 'server' );
+}
+
+/**
+ * Path of a private data file (snapshots, file lists) in the logs folder. The name carries a
+ * random suffix created once per site, so the files cannot be guessed even where the deny
+ * rules do not apply.
+ */
+function tegatai_private_file( $name ) {
+    $suffix = get_option( 'tegatai_file_suffix', '' );
+    if ( ! is_string( $suffix ) || ! preg_match( '/^[a-f0-9]{16}$/', $suffix ) ) {
+        $suffix = bin2hex( random_bytes( 8 ) );
+        update_option( 'tegatai_file_suffix', $suffix, false );
+    }
+    $info = pathinfo( $name );
+    return tegatai_data_dir( 'logs' ) . '/' . $info['filename'] . '-' . $suffix . ( isset( $info['extension'] ) ? '.' . $info['extension'] : '' );
 }
 
 /**
@@ -233,92 +286,31 @@ function tegatai_secrets_file() {
     return $file;
 }
 
-/**
- * Prepares the folder for a key file: creates it as 0700, or tightens an existing folder that
- * group or others can access. Fails when the rights cannot be set (e.g. the folder belongs to
- * another user), so a key is never written into a readable folder.
- *
- * @return true|WP_Error
- */
-function tegatai_secure_key_dir( $dir ) {
-    if ( ! is_dir( $dir ) ) {
-        $old = umask( 0077 );
-        $ok  = @mkdir( $dir, 0700, true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_mkdir -- key folder must be created with 0700
-        umask( $old );
-        if ( ! $ok && ! is_dir( $dir ) ) {
-            return new WP_Error( 'dir', 'Folder could not be created: ' . $dir );
-        }
-    }
-    clearstatcache( true, $dir );
-    $perms = @fileperms( $dir );
-    if ( $perms === false ) {
-        return new WP_Error( 'dir', 'Folder permissions could not be read: ' . $dir );
-    }
-    if ( ( $perms & 0077 ) !== 0 ) {
-        if ( ! @chmod( $dir, 0700 ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- key folder must not be accessible by others
-            return new WP_Error( 'chmod', sprintf( 'Folder %s has permissions %o and could not be changed to 0700. Run the command as the owner of the folder (the PHP-FPM user) or fix it with: chmod 700 %s', $dir, $perms & 0777, $dir ) );
-        }
-        clearstatcache( true, $dir );
-        if ( ( (int) @fileperms( $dir ) & 0077 ) !== 0 ) {
-            return new WP_Error( 'chmod', 'Folder permissions could not be changed to 0700: ' . $dir );
-        }
-    }
-    if ( ! wp_is_writable( $dir ) ) {
-        return new WP_Error( 'dir', 'Folder is not writable: ' . $dir );
-    }
-    return true;
-}
-
-/**
- * Writes a key file atomically with 0600 (temporary file, rights checked, then renamed).
- *
- * @return true|WP_Error
- */
-function tegatai_write_key_file( $file, $content ) {
-    $dir_ok = tegatai_secure_key_dir( dirname( $file ) );
-    if ( is_wp_error( $dir_ok ) ) {
-        return $dir_ok;
-    }
-    $tmp = $file . '.tmp-' . bin2hex( random_bytes( 4 ) );
-    $old = umask( 0077 );
-    $ok  = file_put_contents( $tmp, $content, LOCK_EX );
-    umask( $old );
-    if ( $ok !== strlen( $content ) ) {
-        wp_delete_file( $tmp );
-        return new WP_Error( 'write', 'The key file could not be written.' );
-    }
-    @chmod( $tmp, 0600 ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_chmod -- only the PHP user may read the key
-    clearstatcache( true, $tmp );
-    if ( ( (int) @fileperms( $tmp ) & 0077 ) !== 0 ) {
-        wp_delete_file( $tmp );
-        return new WP_Error( 'chmod', 'The key file could not be set to 0600; nothing was written.' );
-    }
-    if ( ! @rename( $tmp, $file ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- atomic replace of the key file; WP_Filesystem::move() is not atomic
-        wp_delete_file( $tmp );
-        return new WP_Error( 'write', 'The key file could not be written.' );
-    }
-    if ( function_exists( 'opcache_invalidate' ) ) {
-        @opcache_invalidate( $file, true );
-    }
-    return true;
-}
-
-// Names accepted from the secrets file.
+// Names accepted from the secrets file (or as constants in wp-config.php).
 function tegatai_secret_names() {
-    return [ 'TEGATAI_API_SECRET', 'TEGATAI_HIVE_SECRET', 'TEGATAI_SUDO_PIN', 'TEGATAI_BACKUP_SECRET', 'TEGATAI_ABUSEIPDB_KEY' ];
+    return [
+        'TEGATAI_API_SECRET', 'TEGATAI_HIVE_SECRET', 'TEGATAI_SUDO_PIN', 'TEGATAI_BACKUP_SECRET', 'TEGATAI_ABUSEIPDB_KEY',
+        'TEGATAI_RECAPTCHA_SECRET', 'TEGATAI_TURNSTILE_SECRET', 'TEGATAI_ALERT_WEBHOOK',
+    ];
 }
 
-// Reads the secrets file; returns the accepted, non-empty values (or [] when missing or invalid).
+/**
+ * Reads the secrets file; returns the accepted, non-empty values (or [] when missing or invalid).
+ * Tegatai only reads this file. It never creates or changes it: the administrator creates it
+ * with the command shown in the Secrets tab (outside the web root, folder 0700, file 0600).
+ */
 function tegatai_read_secrets_file() {
+    static $cache = null;
+    if ( $cache !== null ) return $cache;
+    $cache = [];
     $file = tegatai_secrets_file();
-    if ( $file === '' || ! @is_file( $file ) || ! @is_readable( $file ) ) return [];
+    if ( $file === '' || ! @is_file( $file ) || ! @is_readable( $file ) ) return $cache;
     $data = include $file;
-    if ( ! is_array( $data ) ) return [];
-    $out = [];
+    if ( ! is_array( $data ) ) return $cache;
     foreach ( tegatai_secret_names() as $name ) {
-        if ( isset( $data[ $name ] ) && is_string( $data[ $name ] ) && $data[ $name ] !== '' ) $out[ $name ] = $data[ $name ];
+        if ( isset( $data[ $name ] ) && is_string( $data[ $name ] ) && $data[ $name ] !== '' ) $cache[ $name ] = $data[ $name ];
     }
-    return $out;
+    return $cache;
 }
 
 function tegatai_load_secrets() {
@@ -327,7 +319,7 @@ function tegatai_load_secrets() {
     $loaded = [];
     $data = tegatai_read_secrets_file();
     foreach ( tegatai_secret_names() as $name ) {
-        if ( defined( $name ) || ! isset( $data[ $name ] ) || ! is_string( $data[ $name ] ) || $data[ $name ] === '' ) continue;
+        if ( defined( $name ) || ! isset( $data[ $name ] ) ) continue;
         define( $name, $data[ $name ] ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.VariableConstantNameFound -- names come from the fixed list above
         $loaded[] = $name;
     }
@@ -336,29 +328,119 @@ function tegatai_load_secrets() {
 tegatai_load_secrets();
 
 /**
- * Where each secret currently comes from: 'file', 'wp-config', 'database' or '' (not set).
+ * Secrets that older versions kept in the database. They are only read (so nothing breaks
+ * after an update) until the same secret exists in the secrets file or wp-config.php; then the
+ * database copy is deleted (tegatai_purge_legacy_db_secrets()). Tegatai never writes a secret
+ * to the database anymore.
+ */
+function tegatai_legacy_db_secrets() {
+    $ops  = tegatai_get_setting( 'tegatai_options', [] );
+    $ops  = is_array( $ops ) ? $ops : [];
+    $hive = get_option( 'tegatai_hive_options', [] );
+    $hive = is_array( $hive ) ? $hive : [];
+    return array_filter( [
+        'TEGATAI_API_SECRET'       => (string) get_option( 'tegatai_api_sync_secret', '' ),
+        'TEGATAI_BACKUP_SECRET'    => (string) get_option( 'tegatai_backup_secret', '' ),
+        'TEGATAI_HIVE_SECRET'      => (string) ( $hive['shared_secret'] ?? '' ),
+        'TEGATAI_RECAPTCHA_SECRET' => (string) ( $ops['recaptcha_secret_key'] ?? '' ),
+        'TEGATAI_TURNSTILE_SECRET' => (string) ( $ops['turnstile_secret_key'] ?? '' ),
+        'TEGATAI_ALERT_WEBHOOK'    => (string) ( $ops['alert_webhook_url'] ?? '' ),
+    ], 'strlen' );
+}
+
+/**
+ * Value of a secret: constant (secrets file or wp-config.php) first, then a legacy database copy.
+ */
+function tegatai_secret( $name ) {
+    if ( defined( $name ) && is_string( constant( $name ) ) && constant( $name ) !== '' ) return (string) constant( $name );
+    $legacy = tegatai_legacy_db_secrets();
+    return isset( $legacy[ $name ] ) ? $legacy[ $name ] : '';
+}
+
+/**
+ * Deletes database copies of secrets that now exist in the secrets file or wp-config.php.
+ * The backup secret is only removed when both values are equal, so older backups stay readable.
+ */
+function tegatai_purge_legacy_db_secrets() {
+    $legacy = tegatai_legacy_db_secrets();
+    if ( ! $legacy ) return;
+    $done = [];
+    foreach ( $legacy as $name => $value ) {
+        if ( ! defined( $name ) || ! is_string( constant( $name ) ) || constant( $name ) === '' ) continue;
+        if ( $name === 'TEGATAI_BACKUP_SECRET' && ! hash_equals( (string) constant( $name ), $value ) ) continue;
+        $done[] = $name;
+    }
+    if ( ! $done ) return;
+    if ( in_array( 'TEGATAI_API_SECRET', $done, true ) ) delete_option( 'tegatai_api_sync_secret' );
+    if ( in_array( 'TEGATAI_BACKUP_SECRET', $done, true ) ) delete_option( 'tegatai_backup_secret' );
+    if ( in_array( 'TEGATAI_HIVE_SECRET', $done, true ) ) {
+        $hive = get_option( 'tegatai_hive_options', [] );
+        if ( is_array( $hive ) ) { unset( $hive['shared_secret'] ); update_option( 'tegatai_hive_options', $hive ); }
+    }
+    $map = [ 'TEGATAI_RECAPTCHA_SECRET' => 'recaptcha_secret_key', 'TEGATAI_TURNSTILE_SECRET' => 'turnstile_secret_key', 'TEGATAI_ALERT_WEBHOOK' => 'alert_webhook_url' ];
+    $ops = tegatai_get_setting( 'tegatai_options', [] );
+    if ( is_array( $ops ) ) {
+        $changed = false;
+        foreach ( $map as $name => $key ) {
+            if ( in_array( $name, $done, true ) && isset( $ops[ $key ] ) ) { unset( $ops[ $key ] ); $changed = true; }
+        }
+        if ( $changed ) tegatai_update_setting( 'tegatai_options', $ops );
+    }
+    if ( class_exists( 'Tegatai_Logger' ) ) Tegatai_Logger::log( 'INFO', 'Secrets removed from the database (now in secrets file / wp-config.php): ' . implode( ', ', $done ) );
+}
+add_action( 'admin_init', 'tegatai_purge_legacy_db_secrets' );
+
+// Reminder on the Tegatai screens while secrets of an older version are still in the database.
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'manage_options' ) ) return;
+    $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only
+    if ( strpos( $page, 'tegatai' ) !== 0 ) return;
+    $legacy = tegatai_legacy_db_secrets();
+    if ( ! $legacy ) return;
+    echo '<div class="notice notice-warning"><p><strong>Tegatai Secure:</strong> '
+        . esc_html( sprintf( /* translators: %s: list of secret names */ __( 'These secrets are still stored in the database by an older version: %s. Move them into the secrets file with the command in the Secrets tab; the database copies are then deleted automatically.', 'tegatai-secure' ), implode( ', ', array_keys( $legacy ) ) ) )
+        . ' <a href="' . esc_url( admin_url( 'admin.php?page=tegatai-Secure&tab=secrets' ) ) . '">' . esc_html__( 'Open Secrets tab', 'tegatai-secure' ) . '</a></p></div>';
+} );
+
+/**
+ * Where each secret currently comes from: 'file', 'wp-config', 'database' (legacy, read only) or ''.
  * 'in_file' is true when the secrets file contains the name (also when wp-config.php wins).
  */
 function tegatai_secrets_status() {
-    $loaded = tegatai_load_secrets();
+    $loaded  = tegatai_load_secrets();
     $in_file = tegatai_read_secrets_file();
-    $hive = get_option( 'tegatai_hive_options', [] );
-    $db = [
-        'TEGATAI_API_SECRET'    => (string) get_option( 'tegatai_api_sync_secret', '' ) !== '',
-        'TEGATAI_HIVE_SECRET'   => is_array( $hive ) && ! empty( $hive['shared_secret'] ),
-        'TEGATAI_SUDO_PIN'      => false,
-        'TEGATAI_BACKUP_SECRET' => (string) get_option( 'tegatai_backup_secret', '' ) !== '',
-        'TEGATAI_ABUSEIPDB_KEY' => false,
-    ];
+    $legacy  = tegatai_legacy_db_secrets();
     $out = [];
     foreach ( tegatai_secret_names() as $name ) {
         if ( in_array( $name, $loaded, true ) ) $src = 'file';
         elseif ( defined( $name ) ) $src = 'wp-config';
-        elseif ( $db[ $name ] ) $src = 'database';
+        elseif ( isset( $legacy[ $name ] ) ) $src = 'database';
         else $src = '';
         $out[ $name ] = [ 'source' => $src, 'in_file' => isset( $in_file[ $name ] ) ];
     }
     return $out;
+}
+
+/**
+ * Shell command (run as the PHP-FPM user, never as root) that creates a PHP key/secrets file
+ * with safe permissions. Tegatai shows this command instead of writing the file itself.
+ *
+ * @param string $file    Target path.
+ * @param array  $entries name => value pairs for the returned array.
+ * @param array  $comment Lines written as comments into the file.
+ */
+function tegatai_key_file_command( $file, array $entries, array $comment = [] ) {
+    $q = static function ( $v ) { return "'" . addcslashes( (string) $v, "\\'" ) . "'"; };
+    $body = "<?php\n";
+    foreach ( $comment as $line ) $body .= '// ' . $line . "\n";
+    $body .= "if ( ! defined( 'ABSPATH' ) ) { exit; }\n\nreturn [\n";
+    foreach ( $entries as $name => $value ) {
+        $body .= ( $value === null ? '    // ' . $q( $name ) . " => '',\n" : '    ' . $q( $name ) . ' => ' . $q( $value ) . ",\n" );
+    }
+    $body .= "];\n";
+    $sh  = static function ( $v ) { return "'" . str_replace( "'", "'\\''", (string) $v ) . "'"; };
+    $dir = dirname( $file );
+    return 'umask 077 && mkdir -p ' . $sh( $dir ) . ' && chmod 700 ' . $sh( $dir ) . " && cat > " . $sh( $file ) . " <<'TEGATAI_EOF'\n" . $body . "TEGATAI_EOF\nchmod 600 " . $sh( $file );
 }
 
 /**
@@ -373,17 +455,62 @@ function tegatai_protect_directory( $dir ) {
     // Apache 2.4 (mod_authz_core) and 2.2 / mod_access_compat. A bare "Order" directive
     // causes a 500 on Apache 2.4 without mod_access_compat.
     $htaccess = "<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder Deny,Allow\nDeny from all\n</IfModule>\n";
-    if ( ! file_exists( $dir . '.htaccess' ) || file_get_contents( $dir . '.htaccess' ) !== $htaccess ) {
-        @file_put_contents( $dir . '.htaccess', $htaccess );
+    $files = [
+        '.htaccess'  => $htaccess,
+        // Empty index.html against directory listings (no PHP file is ever written)
+        'index.html' => '',
+        'web.config' => '<?xml version="1.0" encoding="UTF-8"?><configuration><system.webServer><authorization><deny users="*" /></authorization></system.webServer></configuration>',
+    ];
+    $ok = true;
+    foreach ( $files as $name => $content ) {
+        $path = $dir . $name;
+        if ( file_exists( $path ) && ( $name === 'index.html' || file_get_contents( $path ) === $content ) ) continue;
+        if ( @file_put_contents( $path, $content ) === false ) $ok = false;
     }
-    if ( ! file_exists( $dir . 'index.php' ) ) {
-        @file_put_contents( $dir . 'index.php', "<?php\n// Silence is golden." );
-    }
-    if ( ! file_exists( $dir . 'web.config' ) ) {
-        @file_put_contents( $dir . 'web.config', '<?xml version="1.0" encoding="UTF-8"?><configuration><system.webServer><authorization><deny users="*" /></authorization></system.webServer></configuration>' );
-    }
-    return true;
+    // Only Apache/LiteSpeed/IIS read these files; on nginx the folder is protected by the
+    // generated rules. tegatai_data_dir_exposed() checks what actually happens.
+    return $ok;
 }
+
+/**
+ * Checks over HTTP whether the data folder is reachable from the web (cached for 12 hours).
+ * Returns true when a request for uploads/tegatai-secure/index.html is answered with 200,
+ * i.e. the deny rules are not effective (e.g. nginx without the Tegatai include).
+ */
+function tegatai_data_dir_exposed() {
+    $cached = get_transient( 'tegatai_dir_check' );
+    if ( $cached !== false ) return $cached === 'exposed';
+    $url = trailingslashit( wp_upload_dir( null, false )['baseurl'] ) . 'tegatai-secure/index.html';
+    $r = wp_remote_head( $url, [ 'timeout' => 5, 'redirection' => 0, 'sslverify' => false ] );
+    if ( is_wp_error( $r ) ) {
+        // Loopback not possible (firewall, DNS): no result, try again in an hour
+        set_transient( 'tegatai_dir_check', 'unknown', HOUR_IN_SECONDS );
+        return false;
+    }
+    $exposed = (int) wp_remote_retrieve_response_code( $r ) === 200;
+    set_transient( 'tegatai_dir_check', $exposed ? 'exposed' : 'ok', 12 * HOUR_IN_SECONDS );
+    return $exposed;
+}
+
+// Warning on the Tegatai screens when the data folder (logs, backups) is reachable from the web.
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'manage_options' ) ) return;
+    $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only
+    if ( strpos( $page, 'tegatai' ) !== 0 || ! tegatai_data_dir_exposed() ) return;
+    $recheck = wp_nonce_url( admin_url( 'admin-post.php?action=tegatai_dir_recheck' ), 'tegatai_dir_recheck' );
+    echo '<div class="notice notice-error"><p><strong>Tegatai Secure:</strong> '
+        . esc_html__( 'The data folder uploads/tegatai-secure/ (logs, backups) can be reached from the web. The block is already part of the Tegatai nginx file: make sure the include line in the server block points to the file shown in the Server tab and reload nginx. On Apache, make sure .htaccess files are allowed (AllowOverride).', 'tegatai-secure' )
+        . ' <a href="' . esc_url( $recheck ) . '">' . esc_html__( 'Check again', 'tegatai-secure' ) . '</a></p></div>';
+} );
+
+// "Check again" link of the notice above: drops the cached result.
+add_action( 'admin_post_tegatai_dir_recheck', function () {
+    check_admin_referer( 'tegatai_dir_recheck' );
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Access Denied', 'tegatai-secure' ) );
+    delete_transient( 'tegatai_dir_check' );
+    wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=tegatai-Secure' ) );
+    exit;
+} );
 
 /**
  * Atomically claims a one-time key (replay protection for signed requests).
@@ -504,6 +631,12 @@ class Tegatai_Security_Core {
         if (is_admin() || wp_doing_cron()) {
             add_action('init', [__CLASS__, 'ensure_environment'], 20);
         }
+        // The rename of the stored names must happen before the first login or 2FA check,
+        // so it runs once on any request (front end and wp-login.php included).
+        if (get_option('tegatai_prefix_migrated') !== '1') {
+            self::migrate_prefix();
+            update_option('tegatai_prefix_migrated', '1', true);
+        }
     }
 
     // Registered at top level below; runs in the activation request.
@@ -516,27 +649,28 @@ class Tegatai_Security_Core {
         // Installs deactivated by older versions have no flag; enabled server_* options count as well.
         $ops = tegatai_get_setting('tegatai_options', []);
         $server_opts = is_array($ops) ? array_filter($ops, static function ($v, $k) { return strpos((string) $k, 'server_') === 0 && !empty($v); }, ARRAY_FILTER_USE_BOTH) : [];
-        if (class_exists('Tegatai_Server') && (get_option('tegatai_restore_rules') || $server_opts || Tegatai_Server::has_rules())) {
+        if (class_exists('Tegatai_Server') && (get_option('tegatai_restore_rules') || $server_opts || Tegatai_Server::has_rules() || Tegatai_Server::detect_server() === 'nginx')) {
             Tegatai_Server::force_update();
         }
         delete_option('tegatai_restore_rules');
         flush_rewrite_rules();
     }
 
-    const ENV_VERSION = '4';
+    const ENV_VERSION = '6';
 
     public static function ensure_environment() {
         if (get_option('tegatai_env_version') !== self::ENV_VERSION) {
-            $upload = wp_upload_dir();
-            tegatai_protect_directory($upload['basedir'] . '/tegatai-logs');
-            tegatai_protect_directory($upload['basedir'] . '/tegatai-backups');
-            tegatai_protect_directory(tegatai_server_dir());
+            self::migrate_data_dirs();
+            tegatai_protect_directory(tegatai_data_dir());
+            foreach (['logs', 'backups', 'server', 'geoip'] as $sub) {
+                tegatai_protect_directory(tegatai_data_dir($sub));
+            }
             // Leftover credentials of the never-implemented FTP feature.
             delete_option('tegatai_ftp_settings');
             // Bans now live in Tegatai_Bans. Old per-IP "permanent" transients from the admin
             // honeypot were autoloaded on every request; old Hive bans are migrated.
             global $wpdb;
-            $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_teg\\_404\\_%' AND option_name NOT IN (SELECT * FROM (SELECT CONCAT('_transient_', SUBSTRING(option_name, 20)) FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_timeout\\_teg\\_404\\_%') AS t)");
+            // Old per-IP transients of older versions are removed by migrate_prefix().
             $legacy = get_option('tegatai_hive_bans', []);
             if (is_array($legacy)) {
                 foreach ($legacy as $ip => $b) {
@@ -545,13 +679,87 @@ class Tegatai_Security_Core {
                 }
             }
             delete_option('tegatai_hive_bans');
-            // Regenerate existing server rules once (2.2.1: nginx file moved to uploads/tegatai-server/).
-            if (class_exists('Tegatai_Server') && Tegatai_Server::has_rules()) {
+            // Regenerate existing server rules once (2.2.2: nginx file moved to uploads/tegatai-secure/server/).
+            // On nginx the rules file is always written: it carries the block for the data folder.
+            if (class_exists('Tegatai_Server') && (Tegatai_Server::has_rules() || Tegatai_Server::detect_server() === 'nginx')) {
                 Tegatai_Server::force_update();
             }
             update_option('tegatai_env_version', self::ENV_VERSION, false);
         }
         self::ensure_cron_events();
+    }
+
+    /**
+     * 2.2.2: all stored names use the prefix "tegatai_" (older versions used the short "tegatai_").
+     * Options and user meta are renamed (values kept); short-lived transients of the old names
+     * are deleted. The old prefix is built at runtime, it is not used anywhere else.
+     */
+    public static function migrate_prefix() {
+        global $wpdb;
+        $old = 'te' . 'g_';
+        $like = $wpdb->esc_like($old) . '%';
+        // Options
+        $names = $wpdb->get_col($wpdb->prepare("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s", $like));
+        foreach ((array) $names as $name) {
+            $new = 'tegatai_' . substr((string) $name, strlen($old));
+            $exists = $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$wpdb->options} WHERE option_name = %s", $new));
+            if ((int) $exists === 0) {
+                $wpdb->update($wpdb->options, ['option_name' => $new], ['option_name' => $name]);
+            } else {
+                $wpdb->delete($wpdb->options, ['option_name' => $name]);
+            }
+        }
+        // Transients (rate limits, pending 2FA logins, cached scan data): dropped, they are rebuilt
+        foreach (['_transient_', '_transient_timeout_', '_site_transient_', '_site_transient_timeout_'] as $pre) {
+            $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE %s", $wpdb->esc_like($pre . $old) . '%'));
+        }
+        // User meta (2FA secrets and status, known devices, activity). An old key whose new name
+        // already exists for the same user is dropped first, so no duplicates are created.
+        $wpdb->query($wpdb->prepare(
+            "DELETE o FROM {$wpdb->usermeta} o INNER JOIN {$wpdb->usermeta} n ON n.user_id = o.user_id AND n.meta_key = CONCAT('tegatai_', SUBSTRING(o.meta_key, %d)) WHERE o.meta_key LIKE %s",
+            strlen($old) + 1,
+            $like
+        ));
+        // User meta (2FA secrets and status, known devices, activity)
+        $wpdb->query($wpdb->prepare(
+            "UPDATE {$wpdb->usermeta} SET meta_key = CONCAT('tegatai_', SUBSTRING(meta_key, %d)) WHERE meta_key LIKE %s",
+            strlen($old) + 1,
+            $like
+        ));
+        wp_cache_flush();
+    }
+
+    /**
+     * 2.2.2: the folders uploads/tegatai-logs, -backups and -geoip move into uploads/tegatai-secure/.
+     * The old nginx folder (uploads/tegatai-server) stays where it is, because the running nginx
+     * config may still include it; the Server tab asks the admin to switch the include line.
+     */
+    private static function migrate_data_dirs() {
+        $base = trailingslashit(wp_upload_dir(null, false)['basedir']);
+        if (!is_dir(tegatai_data_dir()) && !wp_mkdir_p(tegatai_data_dir())) return;
+        foreach (['tegatai-logs' => 'logs', 'tegatai-backups' => 'backups', 'tegatai-geoip' => 'geoip'] as $old => $new) {
+            $from = $base . $old;
+            $to   = tegatai_data_dir($new);
+            if (!is_dir($from)) continue;
+            if (!file_exists($to)) {
+                @rename($from, $to); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- moves the plugin's own data folder inside uploads
+                continue;
+            }
+            // Target already created (e.g. by an early request): move the entries one by one
+            foreach ((array) scandir($from) as $entry) {
+                if ($entry === '.' || $entry === '..' || $entry === '.htaccess' || $entry === 'index.php' || $entry === 'web.config') continue;
+                if (!file_exists($to . '/' . $entry)) @rename($from . '/' . $entry, $to . '/' . $entry); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same as above
+            }
+            foreach (['.htaccess', 'index.php', 'web.config'] as $f) {
+                if (is_file($from . '/' . $f)) wp_delete_file($from . '/' . $f);
+            }
+            @rmdir($from); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- only succeeds when the old folder is empty
+        }
+        // Private files get unguessable names
+        foreach (['snapshot.json', 'scan_files.json', 'fim_snapshot.json'] as $f) {
+            $old = tegatai_data_dir('logs') . '/' . $f;
+            if (is_file($old)) @rename($old, tegatai_private_file($f)); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same folder, new name
+        }
     }
 
     public static function ensure_cron_events() {

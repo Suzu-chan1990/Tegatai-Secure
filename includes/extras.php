@@ -79,7 +79,7 @@ class Tegatai_Extras {
     public function cleanup_temp_admins() {
         // Suche alle User, die ein festgelegtes Ablaufdatum besitzen
         $args = [
-            'meta_key' => 'teg_temp_admin_expiry', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- daily cron job, only finds the few temporary admins
+            'meta_key' => 'tegatai_temp_admin_expiry', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- daily cron job, only finds the few temporary admins
             'meta_compare' => 'EXISTS'
         ];
         
@@ -99,26 +99,26 @@ class Tegatai_Extras {
 
     // Content of a deleted temp admin goes to the admin who created it, or to another regular admin.
     private function get_reassign_target($user_id) {
-        $creator = intval(get_user_meta($user_id, 'teg_temp_admin_creator', true));
-        if ($creator && $creator !== $user_id && user_can($creator, 'manage_options') && !get_user_meta($creator, 'teg_temp_admin_expiry', true)) {
+        $creator = intval(get_user_meta($user_id, 'tegatai_temp_admin_creator', true));
+        if ($creator && $creator !== $user_id && user_can($creator, 'manage_options') && !get_user_meta($creator, 'tegatai_temp_admin_expiry', true)) {
             return $creator;
         }
         $admins = get_users(['role' => 'administrator', 'exclude' => [$user_id], 'fields' => 'ID', 'orderby' => 'ID']);
         foreach ($admins as $admin_id) {
-            if (!get_user_meta($admin_id, 'teg_temp_admin_expiry', true)) return intval($admin_id);
+            if (!get_user_meta($admin_id, 'tegatai_temp_admin_expiry', true)) return intval($admin_id);
         }
         return null;
     }
 
     private function is_expired_temp_admin($user_id) {
-        $expiry = get_user_meta($user_id, 'teg_temp_admin_expiry', true);
+        $expiry = get_user_meta($user_id, 'tegatai_temp_admin_expiry', true);
         return $expiry && time() > intval($expiry);
     }
 
     // Login with an expired temp admin account is refused even before the daily cleanup ran.
     public function reject_expired_temp_admin($user) {
         if ($user instanceof WP_User && $this->is_expired_temp_admin($user->ID)) {
-            return new WP_Error('teg_temp_expired', esc_html__('This temporary access has expired.', 'tegatai-secure'));
+            return new WP_Error('tegatai_temp_expired', esc_html__('This temporary access has expired.', 'tegatai-secure'));
         }
         return $user;
     }

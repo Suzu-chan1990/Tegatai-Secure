@@ -91,7 +91,7 @@ class Tegatai_Server {
      * nginx does not read any file on its own; the rules only become active through an
      * "include" line in the server block, which can point anywhere. The file is therefore
      * kept in a dedicated, protected folder below the uploads directory
-     * (uploads/tegatai-server/tegatai-nginx.conf), never in the WordPress root.
+     * (uploads/tegatai-secure/server/tegatai-nginx.conf), never in the WordPress root.
      */
     public static function get_rules_file_path() {
         return trailingslashit(tegatai_server_dir()) . 'tegatai-nginx.conf';
@@ -105,6 +105,9 @@ class Tegatai_Server {
         if ($home !== '' && file_exists($home . 'tegatai-nginx.conf')) $out[] = $home . 'tegatai-nginx.conf';
         $ud = wp_upload_dir(null, false);
         $up = trailingslashit($ud['basedir']) . 'tegatai-nginx.conf';
+        if (file_exists($up)) $out[] = $up;
+        // 2.2.1
+        $up = trailingslashit($ud['basedir']) . 'tegatai-server/tegatai-nginx.conf';
         if (file_exists($up)) $out[] = $up;
         return $out;
     }
@@ -185,6 +188,7 @@ class Tegatai_Server {
         $file_path = self::get_rules_file_path();
         // Own folder below uploads, protected for Apache/IIS; nginx denies it via the rules themselves.
         tegatai_protect_directory(tegatai_server_dir());
+        delete_transient('tegatai_dir_check'); // re-check the web access to the data folder
         $rules = self::generate_nginx_content();
         
         $end_marker = "# --- END TEGATAI RULES ---";
@@ -196,6 +200,13 @@ class Tegatai_Server {
         // Same target and write call as before (no extra locations); only the result is reported now.
         if (function_exists('error_clear_last')) error_clear_last();
         $bytes = @file_put_contents($file_path, $rules);
+        // Tegatai 2.2.1 wrote the file to uploads/tegatai-server/. If it still exists, it is kept up
+        // to date as well (same content, also inside uploads), so an nginx include that still
+        // points there gets the current rules too until the admin switches the include line.
+        $old_up = trailingslashit(wp_upload_dir(null, false)['basedir']) . 'tegatai-server/tegatai-nginx.conf';
+        if ($bytes !== false && is_file($old_up) && wp_is_writable($old_up)) {
+            @file_put_contents($old_up, $rules);
+        }
         if ($bytes !== false && $bytes === strlen($rules)) {
             $status = ['ok' => true, 'path' => $file_path, 'error' => '', 'bytes' => (int) $bytes, 'time' => time()];
             update_option('tegatai_rules_status', $status, false);
@@ -233,6 +244,20 @@ class Tegatai_Server {
         $lines[] = "# --- TEGATAI SECURITY RULES ($date) ---";
         $lines[] = "# Include this file in your Nginx server block:";
         $lines[] = "# include " . self::get_rules_file_path() . ";";
+        $lines[] = "";
+
+        // Always written: Tegatai's data folder (logs, backups, server rules, GeoIP database) and
+        // the folders of older versions. "^~" prefix locations win over every regex location of
+        // the server block (e.g. static file rules for .html/.json), whatever their order.
+        $up_path = untrailingslashit(self::url_path($ud['baseurl']));
+        $ct_path = untrailingslashit(self::url_path(content_url()));
+        $deny = ' { deny all; access_log off; log_not_found off; return 403; }';
+        $lines[] = "# Tegatai data folder: never reachable from the web";
+        $lines[] = 'location ^~ "' . $up_path . '/tegatai-secure/"' . $deny;
+        foreach (['tegatai-backups', 'tegatai-logs', 'tegatai-quarantine', 'tegatai-server', 'tegatai-geoip'] as $old_dir) {
+            $lines[] = 'location ^~ "' . $up_path . '/' . $old_dir . '/"' . $deny;
+        }
+        $lines[] = 'location ^~ "' . $ct_path . '/tegatai-quarantine/"' . $deny;
         $lines[] = "";
 
         if (!empty($ops['server_disable_indexing'])) {
@@ -306,12 +331,6 @@ class Tegatai_Server {
             $lines[] = "location = /xmlrpc.php { deny all; access_log off; log_not_found off; return 403; }";
         }
 
-        $lines[] = "location ~ ^" . $up_dir . "/tegatai-backups/ { deny all; access_log off; log_not_found off; return 403; }";
-        $lines[] = "location ~ ^" . $up_dir . "/tegatai-logs/ { deny all; access_log off; log_not_found off; return 403; }";
-        $lines[] = "location ~ ^" . $up_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
-        $lines[] = "location ~ ^" . $up_dir . "/tegatai-server/ { deny all; access_log off; log_not_found off; return 403; }";
-        // Quarantine folder of older versions (below the content directory)
-        $lines[] = "location ~ ^" . $ct_dir . "/tegatai-quarantine/ { deny all; access_log off; log_not_found off; return 403; }";
 
         if (!empty($ops['server_disable_php_uploads'])) {
             $lines[] = "location ~ ^" . $up_dir . "/.+\.php$ { deny all; access_log off; log_not_found off; return 403; }";

@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
  * Database: "IP to Country Lite" by DB-IP (https://db-ip.com), CC BY 4.0, MaxMind DB format,
  * read with the bundled MaxMind DB reader (lib/maxmind-db-reader, Apache-2.0).
  *
- * The file lives in wp-content/uploads/tegatai-geoip/ because WordPress replaces the plugin
+ * The file lives in wp-content/uploads/tegatai-secure/geoip/ because WordPress replaces the plugin
  * folder on every update. It is only downloaded while the GeoIP block is switched on: by the
  * daily maintenance job when the local file is missing or older than 30 days, or with the
  * button on the GeoIP tab. That download from download.db-ip.com is the only external request;
@@ -55,8 +55,7 @@ class Tegatai_GeoIP {
     }
 
     public static function dir() {
-        $up = wp_upload_dir(null, false);
-        return trailingslashit((string) $up['basedir']) . 'tegatai-geoip';
+        return tegatai_data_dir('geoip');
     }
 
     public static function path() {
@@ -137,7 +136,7 @@ class Tegatai_GeoIP {
 
     public static function handle_update() {
         if (!current_user_can('manage_options')) wp_die('Access Denied', 403);
-        check_admin_referer('teg_geoip_update');
+        check_admin_referer('tegatai_geoip_update');
         $r = self::update();
         $msg = is_wp_error($r) ? 'geoip_failed' : 'geoip_updated';
         wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=geoip&msg=' . $msg));
