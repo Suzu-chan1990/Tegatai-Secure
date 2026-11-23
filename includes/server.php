@@ -102,7 +102,7 @@ class Tegatai_Server {
         // folders of older versions. The folders also carry their own .htaccess.
         if ($up !== null) {
             $r[] = '# Tegatai: data folder';
-            $r[] = 'RewriteRule ^' . ($up !== '' ? $q($up) . '/' : '') . '(tegatai-secure|tegatai-backups|tegatai-logs|tegatai-quarantine|tegatai-server|tegatai-geoip)(/|$) - [F,L]';
+            $r[] = 'RewriteRule ^' . ($up !== '' ? $q($up) . '/' : '') . '(' . implode('|', array_map($q, array_merge([tegatai_data_dir_name()], self::old_data_dir_names()))) . ')(/|$) - [F,L]';
         }
         if ($ct !== null) {
             $r[] = 'RewriteRule ^' . ($ct !== '' ? $q($ct) . '/' : '') . 'tegatai-quarantine(/|$) - [F,L]';
@@ -295,7 +295,7 @@ class Tegatai_Server {
     /**
      * nginx does not read any file on its own; the rules only become active through an
      * "include" line in the server block, which can point anywhere. The file is therefore
-     * kept in a dedicated, protected folder below the uploads directory
+     * kept in Tegatai's protected data folder below the uploads directory
      * (uploads/tegatai-secure/server/tegatai-nginx.conf), never in the WordPress root.
      */
     public static function get_rules_file_path() {
@@ -390,11 +390,96 @@ class Tegatai_Server {
         }
     }
 
+    /**
+     * Folders of older versions in uploads, denied as long as they may exist. "tegatai-secure" is
+     * left out where it is the plugin folder itself (uploads folder = plugins folder).
+     */
+    private static function old_data_dir_names() {
+        $names = ['tegatai-backups', 'tegatai-logs', 'tegatai-quarantine', 'tegatai-server', 'tegatai-geoip'];
+        if (tegatai_data_dir_name() !== 'tegatai-secure') {
+            $plugin_in_uploads = untrailingslashit(wp_normalize_path(TEGATAI_PATH)) === untrailingslashit(wp_normalize_path(trailingslashit(wp_upload_dir(null, false)['basedir']) . 'tegatai-secure'));
+            if (!$plugin_in_uploads) $names[] = 'tegatai-secure';
+        }
+        return $names;
+    }
+
+    // Folder of the 2.2.1 nginx file.
+    public static function old_server_dir() {
+        return trailingslashit(wp_upload_dir(null, false)['basedir']) . 'tegatai-server';
+    }
+
+    // URL of the include check (answered by the current rules file only).
+    private static function include_check_url() {
+        return trailingslashit(wp_upload_dir(null, false)['baseurl']) . tegatai_data_dir_name() . '/server/include-check';
+    }
+
+    /**
+     * Exact-match location that answers the include check. Exact locations ("=") are matched
+     * before the "^~" block that denies the data folder.
+     */
+    private static function include_check_line() {
+        $path = self::url_path(self::include_check_url());
+        return 'location = "' . $path . '" { access_log off; default_type text/plain; return 200 "tegatai-include-ok"; }';
+    }
+
+    /**
+     * Whether the running nginx uses the current rules file, checked over HTTP:
+     * 'yes' = the include check is answered, 'no' = it is not (include points elsewhere or nginx
+     * was not reloaded), 'unknown' = the site cannot reach itself or the server is not nginx.
+     * Cached 12 hours ('no' and 'unknown' one hour), cleared when the rules are written.
+     */
+    public static function include_state() {
+        if (self::detect_server() !== 'nginx' || !file_exists(self::get_rules_file_path())) return 'unknown';
+        $cached = get_transient('tegatai_include_check');
+        if (is_array($cached) && isset($cached['state'])) return (string) $cached['state'];
+        $r = wp_remote_get(self::include_check_url(), ['timeout' => 5, 'redirection' => 0, 'sslverify' => false]);
+        if (is_wp_error($r)) {
+            $state = 'unknown';
+        } else {
+            $state = ((int) wp_remote_retrieve_response_code($r) === 200 && trim((string) wp_remote_retrieve_body($r)) === 'tegatai-include-ok') ? 'yes' : 'no';
+        }
+        set_transient('tegatai_include_check', ['state' => $state, 'time' => time()], $state === 'yes' ? 12 * HOUR_IN_SECONDS : HOUR_IN_SECONDS);
+        return $state;
+    }
+
+    // Time of the last include check (0 = none).
+    public static function include_check_time() {
+        $cached = get_transient('tegatai_include_check');
+        return is_array($cached) ? (int) ($cached['time'] ?? 0) : 0;
+    }
+
+    /**
+     * Removes uploads/tegatai-server/ (nginx file of 2.2.1). Only on request of the admin (Server
+     * tab), never on its own: PHP cannot see whether another server block still includes the
+     * old file, and nginx does not start or reload when an included file is missing. On nginx
+     * a fresh include check must show that nginx uses the new file. Only Tegatai's own files are
+     * deleted. Returns '' on success, otherwise the reason.
+     */
+    public static function remove_old_server_dir() {
+        $old = self::old_server_dir();
+        if (!is_dir($old) || is_link($old)) return '';
+        if (self::detect_server() === 'nginx') {
+            delete_transient('tegatai_include_check');
+            if (self::include_state() !== 'yes') return 'nginx does not use the new file yet';
+        }
+        foreach (['tegatai-nginx.conf', '.htaccess', 'index.php', 'index.html', 'web.config'] as $f) {
+            if (is_file($old . '/' . $f)) wp_delete_file($old . '/' . $f);
+        }
+        @rmdir($old); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- only succeeds when the folder is empty
+        if (is_dir($old)) {
+            return 'folder not empty or not writable: ' . implode(', ', array_slice(array_diff((array) @scandir($old), ['.', '..']), 0, 5));
+        }
+        if (class_exists('Tegatai_Logger')) Tegatai_Logger::log('INFO', 'Old nginx folder removed: ' . $old);
+        return '';
+    }
+
     private static function write_nginx_rules() {
         $file_path = self::get_rules_file_path();
         // Own folder below uploads, protected for Apache/IIS; nginx denies it via the rules themselves.
+        tegatai_protect_directory(tegatai_data_dir());
         tegatai_protect_directory(tegatai_server_dir());
         delete_transient('tegatai_dir_check'); // re-check the web access to the data folder
+        delete_transient('tegatai_include_check'); // re-check which file nginx uses
         $rules = self::generate_nginx_content();
         
         $end_marker = "# --- END TEGATAI RULES ---";
@@ -406,20 +491,22 @@ class Tegatai_Server {
         // Same target and write call as before (no extra locations); only the result is reported now.
         if (function_exists('error_clear_last')) error_clear_last();
         $bytes = @file_put_contents($file_path, $rules);
-        // Tegatai 2.2.1 wrote the file to uploads/tegatai-server/. If it still exists, it is kept up
-        // to date as well (same content, also inside uploads), so an nginx include that still
-        // points there gets the current rules too until the admin switches the include line.
-        $old_up = trailingslashit(wp_upload_dir(null, false)['basedir']) . 'tegatai-server/tegatai-nginx.conf';
-        if ($bytes !== false && is_file($old_up) && wp_is_writable($old_up)) {
-            @file_put_contents($old_up, $rules);
+        $write_error = error_get_last();
+        // Tegatai 2.2.1 wrote the file to uploads/tegatai-server/. As long as that folder exists
+        // (removed with the button in the Server tab), the file is kept up to date with the same
+        // rules, also when the new file could not be written, so an include that still points
+        // there keeps working. The include check location is left
+        // out there: only the new file answers it.
+        $old_up = self::old_server_dir() . '/tegatai-nginx.conf';
+        if (is_file($old_up) && wp_is_writable($old_up)) {
+            @file_put_contents($old_up, str_replace(self::include_check_line() . "\n", '', $rules));
         }
         if ($bytes !== false && $bytes === strlen($rules)) {
             $status = ['ok' => true, 'path' => $file_path, 'error' => '', 'bytes' => (int) $bytes, 'time' => time()];
             update_option('tegatai_rules_status', $status, false);
             return $status;
         }
-        $last = error_get_last();
-        $reason = $last['message'] ?? '';
+        $reason = $write_error['message'] ?? '';
         if ($reason === '') {
             $dir = dirname($file_path);
             if (!is_dir($dir)) $reason = 'directory does not exist';
@@ -483,10 +570,12 @@ class Tegatai_Server {
         $ct_path = untrailingslashit(self::url_path(content_url()));
         $deny = ' { deny all; access_log off; log_not_found off; return 403; }';
         $lines[] = "# Tegatai data folder: never reachable from the web";
-        $lines[] = 'location ^~ "' . $up_path . '/tegatai-secure/"' . $deny;
-        foreach (['tegatai-backups', 'tegatai-logs', 'tegatai-quarantine', 'tegatai-server', 'tegatai-geoip'] as $old_dir) {
+        $lines[] = 'location ^~ "' . $up_path . '/' . tegatai_data_dir_name() . '/"' . $deny;
+        foreach (self::old_data_dir_names() as $old_dir) {
             $lines[] = 'location ^~ "' . $up_path . '/' . $old_dir . '/"' . $deny;
         }
+        $lines[] = "# Answers Tegatai's check whether nginx uses this file";
+        $lines[] = self::include_check_line();
         $lines[] = 'location ^~ "' . $ct_path . '/tegatai-quarantine/"' . $deny;
         $lines[] = "";
 

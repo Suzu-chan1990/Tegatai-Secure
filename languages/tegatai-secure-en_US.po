@@ -1,9 +1,9 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Tegatai Secure 2.2.6\n"
+"Project-Id-Version: Tegatai Secure 2.2.7\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/tegatai-secure\n"
-"POT-Creation-Date: 2026-11-23T11:47:15+00:00\n"
+"POT-Creation-Date: 2026-11-23T20:53:21+00:00\n"
 "PO-Revision-Date: 2026-11-23 12:55+0100\n"
 "Language: en_US\n"
 "MIME-Version: 1.0\n"
@@ -36,19 +36,19 @@ msgstr ""
 msgid "Saguya"
 msgstr "Saguya"
 
-#: includes/admin.php:113 includes/admin.php:511
+#: includes/admin.php:114 includes/admin.php:572
 msgid "Saved successfully"
 msgstr "Saved successfully"
 
-#: includes/admin.php:114 includes/admin.php:530
+#: includes/admin.php:115 includes/admin.php:591
 msgid "Data saved!"
 msgstr "Data saved!"
 
-#: includes/admin.php:115 includes/twofa.php:505 includes/twofa.php:549
+#: includes/admin.php:116 includes/twofa.php:505 includes/twofa.php:549
 msgid "Error"
 msgstr "Error"
 
-#: includes/admin.php:116
+#: includes/admin.php:117
 msgid ""
 "Do you want to clean the database now? (This may take a few seconds on large"
 " sites)"
@@ -56,97 +56,97 @@ msgstr ""
 "Do you want to clean the database now? (This may take a few seconds on large"
 " sites)"
 
-#: includes/admin.php:117
+#: includes/admin.php:118
 msgid "Cleaning..."
 msgstr "Cleaning..."
 
-#: includes/admin.php:118
+#: includes/admin.php:119
 msgid "Cleanup successful! Statistics:"
 msgstr "Cleanup successful! Statistics:"
 
-#: includes/admin.php:119
+#: includes/admin.php:120
 msgid "Error during cleanup."
 msgstr "Error during cleanup."
 
-#: includes/admin.php:120
+#: includes/admin.php:121
 msgid "Please select a .json file first!"
 msgstr "Please select a .json file first!"
 
-#: includes/admin.php:121
+#: includes/admin.php:122
 msgid "WARNING: This will overwrite all settings. Continue?"
 msgstr "WARNING: This will overwrite all settings. Continue?"
 
-#: includes/admin.php:122
+#: includes/admin.php:123
 msgid "Importing..."
 msgstr "Importing..."
 
-#: includes/admin.php:123
+#: includes/admin.php:124
 msgid "Successfully imported! Reloading."
 msgstr "Successfully imported! Reloading."
 
-#: includes/admin.php:124
+#: includes/admin.php:125
 msgid "Import error: "
 msgstr "Import error: "
 
-#: includes/admin.php:125
+#: includes/admin.php:126
 msgid "Warning: Deleting a WP cron can affect plugin functionality. Proceed?"
 msgstr "Warning: Deleting a WP cron can affect plugin functionality. Proceed?"
 
-#: includes/admin.php:126
+#: includes/admin.php:127
 msgid "Deleting..."
 msgstr "Deleting..."
 
-#: includes/admin.php:127 includes/quarantine.php:221
+#: includes/admin.php:128 includes/quarantine.php:221
 msgid "Delete"
 msgstr "Delete"
 
-#: includes/admin.php:139
+#: includes/admin.php:140
 msgid "Tegatai Sudo Vault: Please enter your TEGATAI_SUDO_PIN"
 msgstr "Tegatai Sudo Vault: Please enter your TEGATAI_SUDO_PIN"
 
-#: includes/admin.php:140
+#: includes/admin.php:141
 msgid ""
 "Error: TEGATAI_SUDO_PIN is not defined (secrets file or wp-config.php)."
 msgstr ""
 "Error: TEGATAI_SUDO_PIN is not defined (secrets file or wp-config.php)."
 
-#: includes/admin.php:141
+#: includes/admin.php:142
 msgid "Sudo Access Denied: Invalid PIN."
 msgstr "Sudo Access Denied: Invalid PIN."
 
-#: includes/admin.php:142
+#: includes/admin.php:143
 msgid "Request failed:"
 msgstr "Request failed:"
 
-#: includes/admin.php:143
+#: includes/admin.php:144
 msgid "Copied!"
 msgstr "Copied!"
 
-#: includes/admin.php:144
+#: includes/admin.php:145
 msgid "Signing payload and pinging nodes..."
 msgstr "Signing payload and pinging nodes..."
 
-#: includes/admin.php:145
+#: includes/admin.php:146
 msgid "Cryptographic Handshake Results:"
 msgstr "Cryptographic Handshake Results:"
 
-#: includes/admin.php:146
+#: includes/admin.php:147
 msgid "Unknown error"
 msgstr "Unknown error"
 
-#: includes/admin.php:147
+#: includes/admin.php:148
 msgid "Connection error or invalid server response:"
 msgstr "Connection error or invalid server response:"
 
-#: includes/admin.php:190
+#: includes/admin.php:191
 msgid "AbuseIPDB Reporting"
 msgstr "AbuseIPDB Reporting"
 
-#: includes/admin.php:191
+#: includes/admin.php:192
 msgid "Report bans to AbuseIPDB"
 msgstr "Report bans to AbuseIPDB"
 
-#: includes/admin.php:191
+#: includes/admin.php:192
 msgid ""
 "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and "
 "the login traps (also bans received through The Hive) to AbuseIPDB in the "
@@ -156,15 +156,15 @@ msgstr ""
 "the login traps (also bans received through The Hive) to AbuseIPDB in the "
 "background."
 
-#: includes/admin.php:193
+#: includes/admin.php:194
 msgid "API key:"
 msgstr "API key:"
 
-#: includes/admin.php:194
+#: includes/admin.php:195
 msgid "found (TEGATAI_ABUSEIPDB_KEY)"
 msgstr "found (TEGATAI_ABUSEIPDB_KEY)"
 
-#: includes/admin.php:195
+#: includes/admin.php:196
 msgid ""
 "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → "
 "Secrets). Nothing is sent without a key."
@@ -172,31 +172,31 @@ msgstr ""
 "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → "
 "Secrets). Nothing is sent without a key."
 
-#: includes/admin.php:196
+#: includes/admin.php:197
 msgid "Sent today:"
 msgstr "Sent today:"
 
-#: includes/admin.php:197
+#: includes/admin.php:198
 msgid "Total:"
 msgstr "Total:"
 
-#: includes/admin.php:198
+#: includes/admin.php:199
 msgid "Waiting:"
 msgstr "Waiting:"
 
-#: includes/admin.php:199
+#: includes/admin.php:200
 msgid "Last report:"
 msgstr "Last report:"
 
-#: includes/admin.php:200
+#: includes/admin.php:201
 msgid "Paused until:"
 msgstr "Paused until:"
 
-#: includes/admin.php:201
+#: includes/admin.php:202
 msgid "Last error:"
 msgstr "Last error:"
 
-#: includes/admin.php:203
+#: includes/admin.php:204
 msgid ""
 "Reports contain only the IP, the category and the type of the ban - no URLs,"
 " usernames or other request data. Private and reserved IPs are never "
@@ -206,35 +206,35 @@ msgstr ""
 " usernames or other request data. Private and reserved IPs are never "
 "reported."
 
-#: includes/admin.php:211
+#: includes/admin.php:212
 msgid "Names saved, rules written and new paths checked."
 msgstr "Names saved, rules written and new paths checked."
 
-#: includes/admin.php:212
+#: includes/admin.php:213
 msgid "New paths checked."
 msgstr "New paths checked."
 
-#: includes/admin.php:226 includes/admin.php:293
+#: includes/admin.php:227 includes/admin.php:294
 msgid "Masked"
 msgstr "Masked"
 
-#: includes/admin.php:227
+#: includes/admin.php:228
 msgid "No files to hide"
 msgstr "No files to hide"
 
-#: includes/admin.php:228
+#: includes/admin.php:229
 msgid "Not reachable"
 msgstr "Not reachable"
 
-#: includes/admin.php:229
+#: includes/admin.php:230
 msgid "Waiting for check"
 msgstr "Waiting for check"
 
-#: includes/admin.php:233 includes/admin.php:624
+#: includes/admin.php:234 includes/admin.php:685
 msgid "WP Masking"
 msgstr "WP Masking"
 
-#: includes/admin.php:234
+#: includes/admin.php:235
 msgid ""
 "Hides the WordPress structure in the pages visitors receive. The web server "
 "maps the new paths back to the real files; the rules are part of tegatai-"
@@ -244,11 +244,11 @@ msgstr ""
 "maps the new paths back to the real files; the rules are part of tegatai-"
 "nginx.conf (nginx) or of the Tegatai block in .htaccess (Apache, LiteSpeed)."
 
-#: includes/admin.php:238
+#: includes/admin.php:239
 msgid "Hide plugin and theme paths"
 msgstr "Hide plugin and theme paths"
 
-#: includes/admin.php:238
+#: includes/admin.php:239
 msgid ""
 "Plugin and theme folders are shown under their own names, e.g. /assets/bar/ "
 "instead of the plugin folder."
@@ -256,11 +256,11 @@ msgstr ""
 "Plugin and theme folders are shown under their own names, e.g. /assets/bar/ "
 "instead of the plugin folder."
 
-#: includes/admin.php:239
+#: includes/admin.php:240
 msgid "Hide wp-includes, wp-json and admin-ajax"
 msgstr "Hide wp-includes, wp-json and admin-ajax"
 
-#: includes/admin.php:239
+#: includes/admin.php:240
 msgid ""
 "wp-includes, the REST API and admin-ajax.php get their own paths. /wp-json/ "
 "keeps working for The Hive and other sites."
@@ -268,11 +268,11 @@ msgstr ""
 "wp-includes, the REST API and admin-ajax.php get their own paths. /wp-json/ "
 "keeps working for The Hive and other sites."
 
-#: includes/admin.php:240
+#: includes/admin.php:241
 msgid "Remove versions and identifiers"
 msgstr "Remove versions and identifiers"
 
-#: includes/admin.php:240
+#: includes/admin.php:241
 msgid ""
 "Removes ?ver= parameters, script/style ids, generator tags, "
 "RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation "
@@ -282,11 +282,11 @@ msgstr ""
 "RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation "
 "rules (they list the WordPress paths) and the X-Pingback header."
 
-#: includes/admin.php:241
+#: includes/admin.php:242
 msgid "Hide file names"
 msgstr "Hide file names"
 
-#: includes/admin.php:241
+#: includes/admin.php:242
 msgid ""
 "File names of masked plugin, theme and wp-includes files are replaced by a "
 "neutral name per file, e.g. /assets/bar/css/t3f9a0c1d2e4. The folders stay, "
@@ -298,12 +298,12 @@ msgstr ""
 
 #. translators: 1: number of active file names, 2: number of waiting file
 #. names
-#: includes/admin.php:246
+#: includes/admin.php:247
 #, php-format
 msgid "File names: %1$d active, %2$d waiting."
 msgstr "File names: %1$d active, %2$d waiting."
 
-#: includes/admin.php:247
+#: includes/admin.php:248
 msgid ""
 "New files are found when pages are visited. Tegatai adds them to the rules "
 "and checks them every hour; they are used as soon as the web server knows "
@@ -315,11 +315,11 @@ msgstr ""
 "the rules (nginx: after a reload; Apache and LiteSpeed: at once). \"Check "
 "new paths\" does both right away."
 
-#: includes/admin.php:250
+#: includes/admin.php:251
 msgid "Block original paths"
 msgstr "Block original paths"
 
-#: includes/admin.php:250
+#: includes/admin.php:251
 msgid ""
 "Visitors get a 404 for the original paths of masked entries. Logged-in users"
 " keep access. /wp-json/tegatai/ (The Hive) stays reachable."
@@ -327,11 +327,11 @@ msgstr ""
 "Visitors get a 404 for the original paths of masked entries. Logged-in users"
 " keep access. /wp-json/tegatai/ (The Hive) stays reachable."
 
-#: includes/admin.php:253
+#: includes/admin.php:254
 msgid "How it is activated"
 msgstr "How it is activated"
 
-#: includes/admin.php:254
+#: includes/admin.php:255
 msgid ""
 "1. Switch on and save the names. 2. nginx: reload nginx so the new rules are"
 " active (Apache and LiteSpeed read the .htaccess at once). 3. Click \"Check "
@@ -344,20 +344,20 @@ msgstr ""
 "blocked, so a missing reload never breaks the site."
 
 #. translators: %s: date and time
-#: includes/admin.php:259
+#: includes/admin.php:260
 #, php-format
 msgid "Last check: %s"
 msgstr "Last check: %s"
 
-#: includes/admin.php:261
+#: includes/admin.php:262
 msgid "Check new paths"
 msgstr "Check new paths"
 
-#: includes/admin.php:266
+#: includes/admin.php:267
 msgid "Names"
 msgstr "Names"
 
-#: includes/admin.php:268
+#: includes/admin.php:269
 msgid ""
 "Lowercase letters, digits and hyphens. Names starting with \"wp-\" are not "
 "allowed. Empty fields get an automatic short name."
@@ -366,68 +366,68 @@ msgstr ""
 "allowed. Empty fields get an automatic short name."
 
 #. translators: %s: example path
-#: includes/admin.php:276
+#: includes/admin.php:277
 msgid "Folder for plugins and themes"
 msgstr "Folder for plugins and themes"
 
 #. translators: %s: example path
-#: includes/admin.php:276
+#: includes/admin.php:277
 #, php-format
 msgid "Plugins and themes are shown under %s"
 msgstr "Plugins and themes are shown under %s"
 
-#: includes/admin.php:278
+#: includes/admin.php:279
 msgid "Folder"
 msgstr "Folder"
 
-#: includes/admin.php:278
+#: includes/admin.php:279
 msgid "Name"
 msgstr "Name"
 
-#: includes/admin.php:278
+#: includes/admin.php:279
 msgid "Status"
 msgstr "Status"
 
 #. translators: %s: path that is in use until the new name was checked
-#: includes/admin.php:285
+#: includes/admin.php:286
 #, php-format
 msgid "in use: %s"
 msgstr "in use: %s"
 
-#: includes/admin.php:287 includes/admin.php:292 includes/admin.php:293
-#: includes/admin.php:294 includes/admin.php:826
+#: includes/admin.php:288 includes/admin.php:293 includes/admin.php:294
+#: includes/admin.php:295 includes/admin.php:887
 msgid "Off"
 msgstr "Off"
 
-#: includes/admin.php:291
+#: includes/admin.php:292
 msgid "WordPress core"
 msgstr "WordPress core"
 
-#: includes/admin.php:296 includes/admin.php:424 includes/admin.php:438
-#: includes/admin.php:976 includes/admin.php:991 includes/admin.php:1000
-#: includes/admin.php:1002 includes/admin.php:1003 includes/admin.php:1061
-#: includes/admin.php:1148 includes/admin.php:1149 includes/admin.php:1522
-#: includes/admin.php:1539
+#: includes/admin.php:297 includes/admin.php:425 includes/admin.php:439
+#: includes/admin.php:1037 includes/admin.php:1052 includes/admin.php:1061
+#: includes/admin.php:1063 includes/admin.php:1064 includes/admin.php:1122
+#: includes/admin.php:1211 includes/admin.php:1212 includes/admin.php:1585
+#: includes/admin.php:1602
 msgid "Save"
 msgstr "Save"
 
-#: includes/admin.php:305
+#: includes/admin.php:306
 msgid "Secrets file"
 msgstr "Secrets file"
 
-#: includes/admin.php:307
+#: includes/admin.php:308
 msgid "Database (older version, read only)"
 msgstr "Database (older version, read only)"
 
-#: includes/admin.php:308
+#: includes/admin.php:309
 msgid "Not set"
 msgstr "Not set"
 
-#: includes/admin.php:312
+#: includes/admin.php:313
 msgid "Secrets File"
 msgstr "Secrets File"
 
-#: includes/admin.php:313
+#: includes/admin.php:314
 msgid ""
 "Tegatai keeps keys, API secrets and webhook URLs only in a PHP file outside "
 "the web root (or as constants in wp-config.php), never in the database. "
@@ -437,42 +437,42 @@ msgstr ""
 "the web root (or as constants in wp-config.php), never in the database. "
 "Tegatai only reads this file; you create it with the command below."
 
-#: includes/admin.php:315
+#: includes/admin.php:316
 msgid "Path:"
 msgstr "Path:"
 
 #. translators: %s: file permissions, e.g. 0600
-#: includes/admin.php:319
+#: includes/admin.php:320
 #, php-format
 msgid "found (permissions %s)"
 msgstr "found (permissions %s)"
 
-#: includes/admin.php:320
+#: includes/admin.php:321
 msgid "Recommended: 0600"
 msgstr "Recommended: 0600"
 
-#: includes/admin.php:322
+#: includes/admin.php:323
 msgid "not found"
 msgstr "not found"
 
-#: includes/admin.php:326
+#: includes/admin.php:327
 msgid "Secret"
 msgstr "Secret"
 
-#: includes/admin.php:326
+#: includes/admin.php:327
 msgid "Loaded from"
 msgstr "Loaded from"
 
-#: includes/admin.php:326
+#: includes/admin.php:327
 msgid "Note"
 msgstr "Note"
 
-#: includes/admin.php:329
+#: includes/admin.php:330
 msgid "Also in the secrets file: remove the define() line from wp-config.php."
 msgstr ""
 "Also in the secrets file: remove the define() line from wp-config.php."
 
-#: includes/admin.php:330
+#: includes/admin.php:331
 msgid ""
 "Move it into the secrets file (command below); the database copy is then "
 "deleted automatically."
@@ -480,11 +480,11 @@ msgstr ""
 "Move it into the secrets file (command below); the database copy is then "
 "deleted automatically."
 
-#: includes/admin.php:348
+#: includes/admin.php:349
 msgid "Create or update the secrets file"
 msgstr "Create or update the secrets file"
 
-#: includes/admin.php:349
+#: includes/admin.php:350
 msgid ""
 "Run this command on the server as the site's PHP-FPM user (not as root), "
 "e.g. via SSH. It writes the complete file with all values Tegatai knows "
@@ -498,11 +498,11 @@ msgstr ""
 "version; those database copies are deleted automatically afterwards. Edit "
 "the commented lines in the file to add more secrets."
 
-#: includes/admin.php:350
+#: includes/admin.php:351
 msgid "Show command (contains secrets)"
 msgstr "Show command (contains secrets)"
 
-#: includes/admin.php:356
+#: includes/admin.php:357
 msgid ""
 "Signs the messages between your Hive sites (HMAC). Must be the same on every"
 " Hive site, unless you use per-peer keys."
@@ -510,7 +510,7 @@ msgstr ""
 "Signs the messages between your Hive sites (HMAC). Must be the same on every"
 " Hive site, unless you use per-peer keys."
 
-#: includes/admin.php:360
+#: includes/admin.php:361
 msgid ""
 "Signs the requests of your API clients for the API Guard. Clients must use "
 "the same value."
@@ -518,7 +518,7 @@ msgstr ""
 "Signs the requests of your API clients for the API Guard. Clients must use "
 "the same value."
 
-#: includes/admin.php:364
+#: includes/admin.php:365
 msgid ""
 "Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display"
 " of secrets. Only the hash goes into the file, never the PIN itself."
@@ -526,7 +526,7 @@ msgstr ""
 "Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display"
 " of secrets. Only the hash goes into the file, never the PIN itself."
 
-#: includes/admin.php:368
+#: includes/admin.php:369
 msgid ""
 "Key for encrypting backups when no backup key pair is used. Never change it "
 "once backups exist, otherwise they can no longer be decrypted."
@@ -534,7 +534,7 @@ msgstr ""
 "Key for encrypting backups when no backup key pair is used. Never change it "
 "once backups exist, otherwise they can no longer be decrypted."
 
-#: includes/admin.php:372
+#: includes/admin.php:373
 msgid ""
 "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). "
 "Create it in your AbuseIPDB account under API."
@@ -542,7 +542,7 @@ msgstr ""
 "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). "
 "Create it in your AbuseIPDB account under API."
 
-#: includes/admin.php:376
+#: includes/admin.php:377
 msgid ""
 "Optional. Secret key of Google reCAPTCHA (the site key stays in the "
 "settings)."
@@ -550,7 +550,7 @@ msgstr ""
 "Optional. Secret key of Google reCAPTCHA (the site key stays in the "
 "settings)."
 
-#: includes/admin.php:380
+#: includes/admin.php:381
 msgid ""
 "Optional. Secret key of Cloudflare Turnstile (the site key stays in the "
 "settings)."
@@ -558,7 +558,7 @@ msgstr ""
 "Optional. Secret key of Cloudflare Turnstile (the site key stays in the "
 "settings)."
 
-#: includes/admin.php:384
+#: includes/admin.php:385
 msgid ""
 "Optional. Webhook URL for security alerts (e.g. Discord). It contains an "
 "access token, so it is treated as a secret."
@@ -566,11 +566,11 @@ msgstr ""
 "Optional. Webhook URL for security alerts (e.g. Discord). It contains an "
 "access token, so it is treated as a secret."
 
-#: includes/admin.php:388
+#: includes/admin.php:389
 msgid "How to create the keys"
 msgstr "How to create the keys"
 
-#: includes/admin.php:395
+#: includes/admin.php:396
 msgid ""
 "Instead of the file, the same names can be defined as constants in wp-"
 "config.php. Another location for the file can be set in wp-config.php with "
@@ -581,13 +581,13 @@ msgstr ""
 "the path only:"
 
 #. translators: %s: constant name
-#: includes/admin.php:406
+#: includes/admin.php:407
 #, php-format
 msgid "%s is set (secrets file / wp-config.php)."
 msgstr "%s is set (secrets file / wp-config.php)."
 
 #. translators: %s: constant name
-#: includes/admin.php:410
+#: includes/admin.php:411
 #, php-format
 msgid ""
 "Still stored in the database by an older version. Move it into the secrets "
@@ -599,7 +599,7 @@ msgstr ""
 "database."
 
 #. translators: %s: constant name
-#: includes/admin.php:413
+#: includes/admin.php:414
 #, php-format
 msgid ""
 "Not set. Secrets are never stored in the database: add %s to the secrets "
@@ -608,55 +608,65 @@ msgstr ""
 "Not set. Secrets are never stored in the database: add %s to the secrets "
 "file (Secrets tab)."
 
-#: includes/admin.php:419
+#: includes/admin.php:420
 msgid "Notifications"
 msgstr "Notifications"
 
-#: includes/admin.php:419
+#: includes/admin.php:420
 msgid "Enable Email Alerts"
 msgstr "Enable Email Alerts"
 
-#: includes/admin.php:419
+#: includes/admin.php:420
 msgid "Receive notifications for critical security events."
 msgstr "Receive notifications for critical security events."
 
-#: includes/admin.php:420
+#: includes/admin.php:421
 msgid "Recipient Email"
 msgstr "Recipient Email"
 
-#: includes/admin.php:422
+#: includes/admin.php:423
 msgid "Webhook URL"
 msgstr "Webhook URL"
 
-#: includes/admin.php:430
+#: includes/admin.php:431
 msgid "2FA"
 msgstr "2FA"
 
-#: includes/admin.php:430
+#: includes/admin.php:431
 msgid "Enable 2FA"
 msgstr "Enable 2FA"
 
-#: includes/admin.php:430
+#: includes/admin.php:431
 msgid "Enforces Two-Factor Authentication for administrators."
 msgstr "Enforces Two-Factor Authentication for administrators."
 
-#: includes/admin.php:432
+#: includes/admin.php:433
 msgid "Preferred Method"
 msgstr "Preferred Method"
 
-#: includes/admin.php:434
+#: includes/admin.php:435
 msgid "Email Code Only"
 msgstr "Email Code Only"
 
-#: includes/admin.php:435
+#: includes/admin.php:436
 msgid "App Only"
 msgstr "App Only"
 
-#: includes/admin.php:436
+#: includes/admin.php:437
 msgid "Both"
 msgstr "Both"
 
-#: includes/admin.php:454
+#: includes/admin.php:449
+msgid "Old folder removed."
+msgstr "Old folder removed."
+
+#. translators: %s: reason
+#: includes/admin.php:453
+#, php-format
+msgid "The old folder was not removed: %s"
+msgstr "The old folder was not removed: %s"
+
+#: includes/admin.php:465
 msgid ""
 "The rules file has not been written by this version yet. Click \"Write rules"
 " to config\"."
@@ -665,12 +675,12 @@ msgstr ""
 " to config\"."
 
 #. translators: 1: file path, 2: date and time
-#: includes/admin.php:457
+#: includes/admin.php:468
 #, php-format
 msgid "Rules written to %1$s (%2$s)."
 msgstr "Rules written to %1$s (%2$s)."
 
-#: includes/admin.php:459
+#: includes/admin.php:470
 msgid ""
 "Apache / LiteSpeed reads the rules from this file directly (block \"Tegatai-"
 "Secure\", needs mod_rewrite)."
@@ -678,12 +688,22 @@ msgstr ""
 "Apache / LiteSpeed reads the rules from this file directly (block \"Tegatai-"
 "Secure\", needs mod_rewrite)."
 
-#: includes/admin.php:461
+#. translators: %s: folder path
+#: includes/admin.php:473 includes/admin.php:512
+#, php-format
+msgid ""
+"Old folder of version 2.2.1: %s. Its file is kept up to date as long as the "
+"folder exists, so an include that still points there keeps working."
+msgstr ""
+"Old folder of version 2.2.1: %s. Its file is kept up to date as long as the "
+"folder exists, so an include that still points there keeps working."
+
+#: includes/admin.php:477
 msgid "Include line for your nginx server block:"
 msgstr "Include line for your nginx server block:"
 
 #. translators: %s: file path
-#: includes/admin.php:465
+#: includes/admin.php:482
 #, php-format
 msgid ""
 "The rules file %s was written but no longer exists. Click \"Write rules to "
@@ -693,188 +713,236 @@ msgstr ""
 "config\"."
 
 #. translators: %s: error details (paths and reasons)
-#: includes/admin.php:468
+#: includes/admin.php:485
 #, php-format
 msgid "The rules file could not be written: %s"
 msgstr "The rules file could not be written: %s"
 
-#: includes/admin.php:527 includes/admin.php:531
+#. translators: %s: file path
+#: includes/admin.php:489
+#, php-format
+msgid ""
+"Until this is fixed, keep the include line on %s (it is kept up to date)."
+msgstr ""
+"Until this is fixed, keep the include line on %s (it is kept up to date)."
+
+#. translators: %s: date and time
+#: includes/admin.php:503
+#, php-format
+msgid "nginx uses this file (checked %s)."
+msgstr "nginx uses this file (checked %s)."
+
+#: includes/admin.php:505
+msgid ""
+"nginx does not use this file yet: point the include line to it, test with "
+"nginx -t and reload nginx."
+msgstr ""
+"nginx does not use this file yet: point the include line to it, test with "
+"nginx -t and reload nginx."
+
+#: includes/admin.php:507
+msgid ""
+"Whether nginx uses this file could not be checked (the site cannot reach "
+"itself over HTTP)."
+msgstr ""
+"Whether nginx uses this file could not be checked (the site cannot reach "
+"itself over HTTP)."
+
+#: includes/admin.php:509 tegatai-secure.php:531
+msgid "Check again"
+msgstr "Check again"
+
+#: includes/admin.php:521
+msgid ""
+"Before removing it, make sure that no include line of any server block "
+"points to it any more (for example: grep -r tegatai-server /etc/nginx), "
+"otherwise nginx no longer starts."
+msgstr ""
+"Before removing it, make sure that no include line of any server block "
+"points to it any more (for example: grep -r tegatai-server /etc/nginx), "
+"otherwise nginx no longer starts."
+
+#: includes/admin.php:522
+msgid "Remove old folder"
+msgstr "Remove old folder"
+
+#: includes/admin.php:588 includes/admin.php:592
 msgid "No data provided."
 msgstr "No data provided."
 
-#: includes/admin.php:607
+#: includes/admin.php:668
 msgid "Protection & Firewall"
 msgstr "Protection & Firewall"
 
-#: includes/admin.php:609
+#: includes/admin.php:670
 msgid "WAF, Login Guard, Anti-Spam, GeoIP Block"
 msgstr "WAF, Login Guard, Anti-Spam, GeoIP Block"
 
-#: includes/admin.php:611 includes/admin.php:704
+#: includes/admin.php:672 includes/admin.php:765
 msgid "WAF Firewall"
 msgstr "WAF Firewall"
 
-#: includes/admin.php:612 includes/admin.php:1001
+#: includes/admin.php:673 includes/admin.php:1062
 msgid "Login Protection"
 msgstr "Login Protection"
 
-#: includes/admin.php:613
+#: includes/admin.php:674
 msgid "Anti-Spam"
 msgstr "Anti-Spam"
 
-#: includes/admin.php:614
+#: includes/admin.php:675
 msgid "GeoIP Block"
 msgstr "GeoIP Block"
 
-#: includes/admin.php:618
+#: includes/admin.php:679
 msgid "Server & System"
 msgstr "Server & System"
 
-#: includes/admin.php:620
+#: includes/admin.php:681
 msgid "Server Rules, HTTP Headers, WP Masking, System Hardening"
 msgstr "Server Rules, HTTP Headers, WP Masking, System Hardening"
 
-#: includes/admin.php:622 includes/admin.php:993
+#: includes/admin.php:683 includes/admin.php:1054
 msgid "Server Rules"
 msgstr "Server Rules"
 
-#: includes/admin.php:623
+#: includes/admin.php:684
 msgid "HTTP Headers"
 msgstr "HTTP Headers"
 
-#: includes/admin.php:625
+#: includes/admin.php:686
 msgid "Hardening"
 msgstr "Hardening"
 
-#: includes/admin.php:629
+#: includes/admin.php:690
 msgid "Scanner & Checks"
 msgstr "Scanner & Checks"
 
-#: includes/admin.php:631
+#: includes/admin.php:692
 msgid "Malware, WP Core, FIM, Database, Uploads"
 msgstr "Malware, WP Core, FIM, Database, Uploads"
 
-#: includes/admin.php:633
+#: includes/admin.php:694
 msgid "Main Scanner"
 msgstr "Main Scanner"
 
-#: includes/admin.php:634
+#: includes/admin.php:695
 msgid "Malware"
 msgstr "Malware"
 
-#: includes/admin.php:635
+#: includes/admin.php:696
 msgid "Core"
 msgstr "Core"
 
-#: includes/admin.php:636
+#: includes/admin.php:697
 msgid "FIM"
 msgstr "FIM"
 
-#: includes/admin.php:637
+#: includes/admin.php:698
 msgid "DB XSS"
 msgstr "DB XSS"
 
-#: includes/admin.php:638
+#: includes/admin.php:699
 msgid "Options"
 msgstr "Options"
 
-#: includes/admin.php:639
+#: includes/admin.php:700
 msgid "Cron"
 msgstr "Cron"
 
-#: includes/admin.php:640
+#: includes/admin.php:701
 msgid "Uploads"
 msgstr "Uploads"
 
-#: includes/admin.php:641
+#: includes/admin.php:702
 msgid "Perms"
 msgstr "Perms"
 
-#: includes/admin.php:645
+#: includes/admin.php:706
 msgid "Management"
 msgstr "Management"
 
-#: includes/admin.php:647
+#: includes/admin.php:708
 msgid "IP Prison, Sessions, Backups, Extras & API"
 msgstr "IP Prison, Sessions, Backups, Extras & API"
 
-#: includes/admin.php:649 includes/admin.php:894
+#: includes/admin.php:710 includes/admin.php:955
 msgid "IP Prison"
 msgstr "IP Prison"
 
-#: includes/admin.php:650
+#: includes/admin.php:711
 msgid "Sessions"
 msgstr "Sessions"
 
-#: includes/admin.php:651 includes/admin.php:753
+#: includes/admin.php:712 includes/admin.php:814
 msgid "Backups"
 msgstr "Backups"
 
-#: includes/admin.php:652 includes/admin.php:1156
+#: includes/admin.php:713 includes/admin.php:1219
 msgid "Extras & API"
 msgstr "Extras & API"
 
-#: includes/admin.php:653
+#: includes/admin.php:714
 msgid "Secrets"
 msgstr "Secrets"
 
-#: includes/admin.php:657
+#: includes/admin.php:718
 msgid "Logs & Events"
 msgstr "Logs & Events"
 
-#: includes/admin.php:659
+#: includes/admin.php:720
 msgid "Live Traffic, Block Events, Security Timeline"
 msgstr "Live Traffic, Block Events, Security Timeline"
 
-#: includes/admin.php:661
+#: includes/admin.php:722
 msgid "Live Traffic"
 msgstr "Live Traffic"
 
-#: includes/admin.php:662
+#: includes/admin.php:723
 msgid "Timeline"
 msgstr "Timeline"
 
-#: includes/admin.php:704
+#: includes/admin.php:765
 msgid "Login Guard"
 msgstr "Login Guard"
 
-#: includes/admin.php:705
+#: includes/admin.php:766
 msgid "Two-Factor Auth"
 msgstr "Two-Factor Auth"
 
-#: includes/admin.php:705 includes/admin.php:991
+#: includes/admin.php:766 includes/admin.php:1052
 msgid "Upload Guard"
 msgstr "Upload Guard"
 
-#: includes/admin.php:706
+#: includes/admin.php:767
 msgid "Honeypot"
 msgstr "Honeypot"
 
-#: includes/admin.php:706
+#: includes/admin.php:767
 msgid "Rate Limiting"
 msgstr "Rate Limiting"
 
-#: includes/admin.php:707
+#: includes/admin.php:768
 msgid "Auto Quarantine"
 msgstr "Auto Quarantine"
 
-#: includes/admin.php:707 includes/admin.php:1002
+#: includes/admin.php:768 includes/admin.php:1063
 msgid "Trusted Devices"
 msgstr "Trusted Devices"
 
-#: includes/admin.php:717
+#: includes/admin.php:778
 msgid "PROTECTED"
 msgstr "PROTECTED"
 
-#: includes/admin.php:717
+#: includes/admin.php:778
 msgid "ATTENTION"
 msgstr "ATTENTION"
 
-#: includes/admin.php:717
+#: includes/admin.php:778
 msgid "CRITICAL"
 msgstr "CRITICAL"
 
-#: includes/admin.php:718
+#: includes/admin.php:779
 msgid ""
 "Core protections are active and no critical dashboard condition was "
 "detected."
@@ -882,21 +950,21 @@ msgstr ""
 "Core protections are active and no critical dashboard condition was "
 "detected."
 
-#: includes/admin.php:718
+#: includes/admin.php:779
 msgid ""
 "Some protections are disabled or recent security activity needs review."
 msgstr ""
 "Some protections are disabled or recent security activity needs review."
 
-#: includes/admin.php:718
+#: includes/admin.php:779
 msgid "Important protections are missing. Review the security modules below."
 msgstr "Important protections are missing. Review the security modules below."
 
-#: includes/admin.php:726
+#: includes/admin.php:787
 msgid "Enable WAF Firewall"
 msgstr "Enable WAF Firewall"
 
-#: includes/admin.php:726
+#: includes/admin.php:787
 msgid ""
 "Recommended as the primary request-level protection against common malicious"
 " traffic."
@@ -904,15 +972,15 @@ msgstr ""
 "Recommended as the primary request-level protection against common malicious"
 " traffic."
 
-#: includes/admin.php:726
+#: includes/admin.php:787
 msgid "Review WAF"
 msgstr "Review WAF"
 
-#: includes/admin.php:729
+#: includes/admin.php:790
 msgid "Enable Two-Factor Authentication"
 msgstr "Enable Two-Factor Authentication"
 
-#: includes/admin.php:729
+#: includes/admin.php:790
 msgid ""
 "Strongly recommended for administrator accounts to reduce the impact of "
 "stolen passwords."
@@ -920,61 +988,61 @@ msgstr ""
 "Strongly recommended for administrator accounts to reduce the impact of "
 "stolen passwords."
 
-#: includes/admin.php:729
+#: includes/admin.php:790
 msgid "Review 2FA"
 msgstr "Review 2FA"
 
-#: includes/admin.php:732
+#: includes/admin.php:793
 msgid "Enable Login Guard"
 msgstr "Enable Login Guard"
 
-#: includes/admin.php:732
+#: includes/admin.php:793
 msgid "Helps slow down repeated login attempts and brute-force attacks."
 msgstr "Helps slow down repeated login attempts and brute-force attacks."
 
-#: includes/admin.php:732
+#: includes/admin.php:793
 msgid "Review Login Guard"
 msgstr "Review Login Guard"
 
-#: includes/admin.php:735
+#: includes/admin.php:796
 msgid "Review Upload Guard"
 msgstr "Review Upload Guard"
 
-#: includes/admin.php:735
+#: includes/admin.php:796
 msgid "Especially useful when the website accepts user-uploaded files."
 msgstr "Especially useful when the website accepts user-uploaded files."
 
-#: includes/admin.php:738
+#: includes/admin.php:799
 msgid "Review Rate Limiting"
 msgstr "Review Rate Limiting"
 
-#: includes/admin.php:738
+#: includes/admin.php:799
 msgid ""
 "Useful for limiting abusive request bursts without blocking normal visitors."
 msgstr ""
 "Useful for limiting abusive request bursts without blocking normal visitors."
 
-#: includes/admin.php:738
+#: includes/admin.php:799
 msgid "Review limits"
 msgstr "Review limits"
 
-#: includes/admin.php:741
+#: includes/admin.php:802
 msgid "Enable protected server files"
 msgstr "Enable protected server files"
 
-#: includes/admin.php:741
+#: includes/admin.php:802
 msgid "Adds an extra server-level barrier around sensitive files and paths."
 msgstr "Adds an extra server-level barrier around sensitive files and paths."
 
-#: includes/admin.php:741
+#: includes/admin.php:802
 msgid "Review Server Rules"
 msgstr "Review Server Rules"
 
-#: includes/admin.php:744
+#: includes/admin.php:805
 msgid "Review automated backups"
 msgstr "Review automated backups"
 
-#: includes/admin.php:744
+#: includes/admin.php:805
 msgid ""
 "A recent recoverable backup is an important part of a complete security "
 "strategy."
@@ -982,15 +1050,15 @@ msgstr ""
 "A recent recoverable backup is an important part of a complete security "
 "strategy."
 
-#: includes/admin.php:744
+#: includes/admin.php:805
 msgid "Review Backups"
 msgstr "Review Backups"
 
-#: includes/admin.php:747
+#: includes/admin.php:808
 msgid "Automatic Quarantine is disabled"
 msgstr "Automatic Quarantine is disabled"
 
-#: includes/admin.php:747
+#: includes/admin.php:808
 msgid ""
 "Optional: enable it if you want high-confidence detections to be isolated "
 "automatically."
@@ -998,46 +1066,46 @@ msgstr ""
 "Optional: enable it if you want high-confidence detections to be isolated "
 "automatically."
 
-#: includes/admin.php:747
+#: includes/admin.php:808
 msgid "Configure"
 msgstr "Configure"
 
-#: includes/admin.php:751 includes/admin.php:818
+#: includes/admin.php:812 includes/admin.php:879
 msgid "Core protection modules"
 msgstr "Core protection modules"
 
-#: includes/admin.php:752
+#: includes/admin.php:813
 msgid "Server hardening"
 msgstr "Server hardening"
 
-#: includes/admin.php:754
+#: includes/admin.php:815
 msgid "Recent activity"
 msgstr "Recent activity"
 
-#: includes/admin.php:760
+#: includes/admin.php:821
 msgid "Security Status"
 msgstr "Security Status"
 
-#: includes/admin.php:763
+#: includes/admin.php:824
 msgid "score"
 msgstr "score"
 
-#: includes/admin.php:771
+#: includes/admin.php:832
 msgid "Protection active"
 msgstr "Protection active"
 
 #. translators: 1: number of enabled modules, 2: number of all modules
-#: includes/admin.php:772
+#: includes/admin.php:833
 #, php-format
 msgid "%1$d / %2$d modules"
 msgstr "%1$d / %2$d modules"
 
-#: includes/admin.php:776
+#: includes/admin.php:837
 msgid "Recommended actions"
 msgstr "Recommended actions"
 
 #. translators: %d: number of recommended actions
-#: includes/admin.php:777
+#: includes/admin.php:838
 #, php-format
 msgid "%d item"
 msgid_plural "%d items"
@@ -1045,162 +1113,162 @@ msgstr[0] "%d item"
 msgstr[1] "%d items"
 
 #. translators: %d: number of recommended actions
-#: includes/admin.php:777
+#: includes/admin.php:838
 msgid "No action required"
 msgstr "No action required"
 
-#: includes/admin.php:780
+#: includes/admin.php:841
 msgid "Tegatai has not detected a configuration issue requiring attention."
 msgstr "Tegatai has not detected a configuration issue requiring attention."
 
-#: includes/admin.php:787
+#: includes/admin.php:848
 msgid "Important"
 msgstr "Important"
 
-#: includes/admin.php:787
+#: includes/admin.php:848
 msgid "Optional"
 msgstr "Optional"
 
-#: includes/admin.php:787
+#: includes/admin.php:848
 msgid "Recommended"
 msgstr "Recommended"
 
-#: includes/admin.php:796
+#: includes/admin.php:857
 msgid "Why this score?"
 msgstr "Why this score?"
 
-#: includes/admin.php:806
+#: includes/admin.php:867
 msgid "While you were away"
 msgstr "While you were away"
 
-#: includes/admin.php:806
+#: includes/admin.php:867
 msgid "Recent security activity from the Tegatai event log."
 msgstr "Recent security activity from the Tegatai event log."
 
-#: includes/admin.php:806
+#: includes/admin.php:867
 msgid "View all"
 msgstr "View all"
 
-#: includes/admin.php:808
+#: includes/admin.php:869
 msgid "No recent security events."
 msgstr "No recent security events."
 
-#: includes/admin.php:809
+#: includes/admin.php:870
 msgid "Security event"
 msgstr "Security event"
 
-#: includes/admin.php:815
+#: includes/admin.php:876
 msgid "Blocked total"
 msgstr "Blocked total"
 
-#: includes/admin.php:815
+#: includes/admin.php:876
 msgid "All recorded blocks"
 msgstr "All recorded blocks"
 
-#: includes/admin.php:816
+#: includes/admin.php:877
 msgid "Blocks / 24h"
 msgstr "Blocks / 24h"
 
-#: includes/admin.php:816
+#: includes/admin.php:877
 msgid "Firewall and WAF activity"
 msgstr "Firewall and WAF activity"
 
-#: includes/admin.php:817
+#: includes/admin.php:878
 msgid "Failed logins / 24h"
 msgstr "Failed logins / 24h"
 
-#: includes/admin.php:817
+#: includes/admin.php:878
 msgid "Authentication failures"
 msgstr "Authentication failures"
 
-#: includes/admin.php:818
+#: includes/admin.php:879
 msgid "Modules active"
 msgstr "Modules active"
 
-#: includes/admin.php:823
+#: includes/admin.php:884
 msgid "Protection cockpit"
 msgstr "Protection cockpit"
 
-#: includes/admin.php:824
+#: includes/admin.php:885
 msgid "The protections that matter most on every request."
 msgstr "The protections that matter most on every request."
 
-#: includes/admin.php:826
+#: includes/admin.php:887
 msgid "Active"
 msgstr "Active"
 
-#: includes/admin.php:830
+#: includes/admin.php:891
 msgid "Top sources / 24h"
 msgstr "Top sources / 24h"
 
-#: includes/admin.php:831
+#: includes/admin.php:892
 msgid "IPs generating the most security events."
 msgstr "IPs generating the most security events."
 
-#: includes/admin.php:832
+#: includes/admin.php:893
 msgid "No data yet."
 msgstr "No data yet."
 
-#: includes/admin.php:850 includes/api_guard.php:236 includes/hive.php:690
+#: includes/admin.php:911 includes/api_guard.php:236 includes/hive.php:690
 msgid "Dashboard"
 msgstr "Dashboard"
 
 #. translators: %d: number of active bans
-#: includes/admin.php:894
+#: includes/admin.php:955
 #, php-format
 msgid "%d active ban"
 msgid_plural "%d active bans"
 msgstr[0] "%d active ban"
 msgstr[1] "%d active bans"
 
-#: includes/admin.php:896
+#: includes/admin.php:957
 msgid "IP released. Bans from The Hive stay active on the other sites."
 msgstr "IP released. Bans from The Hive stay active on the other sites."
 
-#: includes/admin.php:899
+#: includes/admin.php:960
 msgid "No active bans."
 msgstr "No active bans."
 
-#: includes/admin.php:903
+#: includes/admin.php:964
 msgid "Reason"
 msgstr "Reason"
 
-#: includes/admin.php:903
+#: includes/admin.php:964
 msgid "Source"
 msgstr "Source"
 
-#: includes/admin.php:903
+#: includes/admin.php:964
 msgid "Level"
 msgstr "Level"
 
-#: includes/admin.php:903
+#: includes/admin.php:964
 msgid "Until"
 msgstr "Until"
 
-#: includes/admin.php:903 includes/admin.php:1090 includes/admin.php:1149
-#: includes/admin.php:1608
+#: includes/admin.php:964 includes/admin.php:1153 includes/admin.php:1212
+#: includes/admin.php:1671
 msgid "Action"
 msgstr "Action"
 
-#: includes/admin.php:907
+#: includes/admin.php:968
 msgid "This site"
 msgstr "This site"
 
-#: includes/admin.php:918
+#: includes/admin.php:979
 msgid "Release"
 msgstr "Release"
 
 #. translators: 1: shown, 2: total
-#: includes/admin.php:923
+#: includes/admin.php:984
 #, php-format
 msgid "Showing the newest %1$d of %2$d bans."
 msgstr "Showing the newest %1$d of %2$d bans."
 
-#: includes/admin.php:933
+#: includes/admin.php:994
 msgid "Country Database"
 msgstr "Country Database"
 
-#: includes/admin.php:934
+#: includes/admin.php:995
 msgid ""
 "Countries are looked up locally in the free \"IP to Country Lite\" database "
 "by DB-IP (CC BY 4.0). Visitor IPs never leave the server. The database is "
@@ -1210,51 +1278,51 @@ msgstr ""
 "by DB-IP (CC BY 4.0). Visitor IPs never leave the server. The database is "
 "only downloaded while the GeoIP block is on, and renewed monthly."
 
-#: includes/admin.php:936
+#: includes/admin.php:997
 msgid "Database downloaded."
 msgstr "Database downloaded."
 
-#: includes/admin.php:938
+#: includes/admin.php:999
 msgid "Download failed:"
 msgstr "Download failed:"
 
-#: includes/admin.php:942
+#: includes/admin.php:1003
 msgid "Edition"
 msgstr "Edition"
 
-#: includes/admin.php:943
+#: includes/admin.php:1004
 msgid "Downloaded"
 msgstr "Downloaded"
 
-#: includes/admin.php:944 includes/admin.php:1088 includes/quarantine.php:212
+#: includes/admin.php:1005 includes/admin.php:1151 includes/quarantine.php:212
 msgid "Size"
 msgstr "Size"
 
-#: includes/admin.php:948
+#: includes/admin.php:1009
 msgid "No database yet. Until it is downloaded, no country is blocked."
 msgstr "No database yet. Until it is downloaded, no country is blocked."
 
-#: includes/admin.php:951
+#: includes/admin.php:1012
 msgid "Last download failed:"
 msgstr "Last download failed:"
 
-#: includes/admin.php:956
+#: includes/admin.php:1017
 msgid "Update now"
 msgstr "Update now"
 
-#: includes/admin.php:956
+#: includes/admin.php:1017
 msgid "Download database"
 msgstr "Download database"
 
-#: includes/admin.php:965
+#: includes/admin.php:1026
 msgid "Google reCAPTCHA"
 msgstr "Google reCAPTCHA"
 
-#: includes/admin.php:966
+#: includes/admin.php:1027
 msgid "Enable reCAPTCHA"
 msgstr "Enable reCAPTCHA"
 
-#: includes/admin.php:966
+#: includes/admin.php:1027
 msgid ""
 "Google CAPTCHA for login and comments. Switching it on switches Cloudflare "
 "Turnstile off."
@@ -1262,35 +1330,35 @@ msgstr ""
 "Google CAPTCHA for login and comments. Switching it on switches Cloudflare "
 "Turnstile off."
 
-#: includes/admin.php:967
+#: includes/admin.php:1028
 msgid "Only one captcha can be active: reCAPTCHA or Turnstile."
 msgstr "Only one captcha can be active: reCAPTCHA or Turnstile."
 
-#: includes/admin.php:969 includes/admin.php:1187 includes/admin.php:1444
+#: includes/admin.php:1030 includes/admin.php:1250 includes/admin.php:1507
 msgid "Type"
 msgstr "Type"
 
-#: includes/admin.php:970
+#: includes/admin.php:1031
 msgid "v2 – \"I'm not a robot\" checkbox"
 msgstr "v2 – \"I'm not a robot\" checkbox"
 
-#: includes/admin.php:971
+#: includes/admin.php:1032
 msgid "v3 – invisible, score based"
 msgstr "v3 – invisible, score based"
 
-#: includes/admin.php:972 includes/admin.php:1003
+#: includes/admin.php:1033 includes/admin.php:1064
 msgid "Site Key"
 msgstr "Site Key"
 
-#: includes/admin.php:973 includes/admin.php:1003
+#: includes/admin.php:1034 includes/admin.php:1064
 msgid "Secret Key"
 msgstr "Secret Key"
 
-#: includes/admin.php:974
+#: includes/admin.php:1035
 msgid "Minimum score (v3 only)"
 msgstr "Minimum score (v3 only)"
 
-#: includes/admin.php:975
+#: includes/admin.php:1036
 msgid ""
 "0.1 lets almost everyone through, 0.9 is very strict. Google recommends 0.5."
 " The key type (v2 or v3) must match the type selected above."
@@ -1298,149 +1366,149 @@ msgstr ""
 "0.1 lets almost everyone through, 0.9 is very strict. Google recommends 0.5."
 " The key type (v2 or v3) must match the type selected above."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "WAF Settings"
 msgstr "WAF Settings"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Enable WAF"
 msgstr "Enable WAF"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Activates the Web Application Firewall to block malicious requests."
 msgstr "Activates the Web Application Firewall to block malicious requests."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Block Bad Bots"
 msgstr "Block Bad Bots"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Blocks known malicious bots, scrapers, and automated attack tools."
 msgstr "Blocks known malicious bots, scrapers, and automated attack tools."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Rate Limit"
 msgstr "Rate Limit"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Prevents brute-force attacks by limiting requests per minute."
 msgstr "Prevents brute-force attacks by limiting requests per minute."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "404 Trap"
 msgstr "404 Trap"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Bans IPs that generate too many 404 Not Found errors."
 msgstr "Bans IPs that generate too many 404 Not Found errors."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Blocks uploads of executable or disguised script files."
 msgstr "Blocks uploads of executable or disguised script files."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Block AI Bots"
 msgstr "Block AI Bots"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid ""
 "Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content."
 msgstr ""
 "Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Block SEO Bots"
 msgstr "Block SEO Bots"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Blocks aggressive SEO crawlers like Ahrefs or Semrush."
 msgstr "Blocks aggressive SEO crawlers like Ahrefs or Semrush."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "WAF Whitelist"
 msgstr "WAF Whitelist"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Allowed URLs"
 msgstr "Allowed URLs"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Custom Rules"
 msgstr "Custom Rules"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Custom Regex Filters"
 msgstr "Custom Regex Filters"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "One regex per line (e.g., <code>/bad-bot/i</code>)."
 msgstr "One regex per line (e.g., <code>/bad-bot/i</code>)."
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "IP Lists"
 msgstr "IP Lists"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Whitelist IPs"
 msgstr "Whitelist IPs"
 
-#: includes/admin.php:991
+#: includes/admin.php:1052
 msgid "Blacklist IPs"
 msgstr "Blacklist IPs"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Disable Directory Browsing"
 msgstr "Disable Directory Browsing"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Prevents attackers from seeing lists of your files."
 msgstr "Prevents attackers from seeing lists of your files."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Protect Sensitive Files"
 msgstr "Protect Sensitive Files"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Blocks access to .env, .sql, .bak, .log, and .git files."
 msgstr "Blocks access to .env, .sql, .bak, .log, and .git files."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Block System Files"
 msgstr "Block System Files"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Hides readme.html, license.txt, and wp-config.php from the web."
 msgstr "Hides readme.html, license.txt, and wp-config.php from the web."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Block Dotfiles"
 msgstr "Block Dotfiles"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Denies access to hidden files (e.g., .htaccess)."
 msgstr "Denies access to hidden files (e.g., .htaccess)."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Block XML-RPC"
 msgstr "Block XML-RPC"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Disables xmlrpc.php to prevent DDoS and brute-force attacks."
 msgstr "Disables xmlrpc.php to prevent DDoS and brute-force attacks."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Disable PHP in Uploads"
 msgstr "Disable PHP in Uploads"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Prevents execution of malicious backdoors in your media folder."
 msgstr "Prevents execution of malicious backdoors in your media folder."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Allow direct PHP in Plugins & Themes"
 msgstr "Allow direct PHP in Plugins & Themes"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid ""
 "Off (recommended): direct requests for PHP files in plugins and themes are "
 "blocked, except the files under \"PHP Exceptions\". Switch on only if a "
@@ -1450,11 +1518,11 @@ msgstr ""
 "blocked, except the files under \"PHP Exceptions\". Switch on only if a "
 "plugin still fails because of this."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Ultimate Bad Bot Filter"
 msgstr "Ultimate Bad Bot Filter"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid ""
 "Blocks hacking tools, AI scrapers and SEO crawlers on the web server (nginx "
 "file or .htaccess)."
@@ -1462,41 +1530,41 @@ msgstr ""
 "Blocks hacking tools, AI scrapers and SEO crawlers on the web server (nginx "
 "file or .htaccess)."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Hotlink Protection"
 msgstr "Hotlink Protection"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid ""
 "Prevents other sites from embedding your images and stealing bandwidth."
 msgstr ""
 "Prevents other sites from embedding your images and stealing bandwidth."
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Write rules to config"
 msgstr "Write rules to config"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Custom Protection"
 msgstr "Custom Protection"
 
-#: includes/admin.php:993
+#: includes/admin.php:1054
 msgid "Protected Directories"
 msgstr "Protected Directories"
 
-#: includes/admin.php:994
+#: includes/admin.php:1055
 msgid "Block Specific Files"
 msgstr "Block Specific Files"
 
-#: includes/admin.php:995
+#: includes/admin.php:1056
 msgid "Paths from root (e.g., <code>/secret.zip</code>)."
 msgstr "Paths from root (e.g., <code>/secret.zip</code>)."
 
-#: includes/admin.php:997
+#: includes/admin.php:1058
 msgid "PHP Exceptions (Plugins & Themes)"
 msgstr "PHP Exceptions (Plugins & Themes)"
 
-#: includes/admin.php:998
+#: includes/admin.php:1059
 msgid ""
 "Files that may still be requested directly, one per line, relative to the "
 "plugins or themes folder (e.g., <code>matomo/app/matomo.php</code>). A "
@@ -1508,143 +1576,143 @@ msgstr ""
 "trailing <code>/</code> allows a whole folder. An empty field allows "
 "nothing."
 
-#: includes/admin.php:1000
+#: includes/admin.php:1061
 msgid "Hotlink Whitelist"
 msgstr "Hotlink Whitelist"
 
-#: includes/admin.php:1001
+#: includes/admin.php:1062
 msgid "Login Limit"
 msgstr "Login Limit"
 
-#: includes/admin.php:1001
+#: includes/admin.php:1062
 msgid "Locks out IPs after multiple failed login attempts."
 msgstr "Locks out IPs after multiple failed login attempts."
 
-#: includes/admin.php:1001
+#: includes/admin.php:1062
 msgid "Disable App Passwords"
 msgstr "Disable App Passwords"
 
-#: includes/admin.php:1001
+#: includes/admin.php:1062
 msgid "Turns off the WordPress application passwords feature."
 msgstr "Turns off the WordPress application passwords feature."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Warns via email upon logins from unknown devices."
 msgstr "Warns via email upon logins from unknown devices."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Block wp-login.php"
 msgstr "Block wp-login.php"
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Disables the default login route (requires Custom Slug)."
 msgstr "Disables the default login route (requires Custom Slug)."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Hide /wp-admin/"
 msgstr "Hide /wp-admin/"
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Redirects unauthenticated users away from the admin area."
 msgstr "Redirects unauthenticated users away from the admin area."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Restrict Dashboard"
 msgstr "Restrict Dashboard"
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Only administrators and editors may access the WordPress dashboard."
 msgstr "Only administrators and editors may access the WordPress dashboard."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Idle Logout (60m)"
 msgstr "Idle Logout (60m)"
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Automatically logs out inactive administrators after 60 minutes."
 msgstr "Automatically logs out inactive administrators after 60 minutes."
 
-#: includes/admin.php:1002
+#: includes/admin.php:1063
 msgid "Custom Login Slug"
 msgstr "Custom Login Slug"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Spam & Bots"
 msgstr "Spam & Bots"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Enable Honeypot"
 msgstr "Enable Honeypot"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Adds an invisible field to catch automated spam bots."
 msgstr "Adds an invisible field to catch automated spam bots."
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Minimum Fill Time"
 msgstr "Minimum Fill Time"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Blocks forms submitted too quickly."
 msgstr "Blocks forms submitted too quickly."
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Referrer Check"
 msgstr "Referrer Check"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Ensures form submissions come from your own site."
 msgstr "Ensures form submissions come from your own site."
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Block Trash Mails"
 msgstr "Block Trash Mails"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Rejects disposable email addresses during registration."
 msgstr "Rejects disposable email addresses during registration."
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Max. Links"
 msgstr "Max. Links"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Cloudflare Turnstile"
 msgstr "Cloudflare Turnstile"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Enable Turnstile"
 msgstr "Enable Turnstile"
 
-#: includes/admin.php:1003
+#: includes/admin.php:1064
 msgid "Privacy-friendly Cloudflare CAPTCHA for login and comments."
 msgstr "Privacy-friendly Cloudflare CAPTCHA for login and comments."
 
-#: includes/admin.php:1006
+#: includes/admin.php:1067
 msgid "GeoIP Configuration"
 msgstr "GeoIP Configuration"
 
-#: includes/admin.php:1009
+#: includes/admin.php:1070
 msgid "Operation Mode"
 msgstr "Operation Mode"
 
-#: includes/admin.php:1011
+#: includes/admin.php:1072
 msgid "Disabled"
 msgstr "Disabled"
 
-#: includes/admin.php:1012
+#: includes/admin.php:1073
 msgid "Blacklist (Block listed countries)"
 msgstr "Blacklist (Block listed countries)"
 
-#: includes/admin.php:1013
+#: includes/admin.php:1074
 msgid "Whitelist (Allow ONLY listed countries)"
 msgstr "Whitelist (Allow ONLY listed countries)"
 
-#: includes/admin.php:1016
+#: includes/admin.php:1077
 msgid "Protect Login Only"
 msgstr "Protect Login Only"
 
-#: includes/admin.php:1016
+#: includes/admin.php:1077
 msgid ""
 "If enabled, the GeoIP filter only applies to wp-login.php and XML-RPC. If "
 "disabled, it blocks the entire website."
@@ -1652,67 +1720,67 @@ msgstr ""
 "If enabled, the GeoIP filter only applies to wp-login.php and XML-RPC. If "
 "disabled, it blocks the entire website."
 
-#: includes/admin.php:1018
+#: includes/admin.php:1079
 msgid "Save Settings"
 msgstr "Save Settings"
 
-#: includes/admin.php:1023
+#: includes/admin.php:1084
 msgid "Country Codes"
 msgstr "Country Codes"
 
-#: includes/admin.php:1025
+#: includes/admin.php:1086
 msgid "ISO Alpha-2 Codes"
 msgstr "ISO Alpha-2 Codes"
 
-#: includes/admin.php:1026
+#: includes/admin.php:1087
 msgid "One code per line (e.g. DE, AT)."
 msgstr "One code per line (e.g. DE, AT)."
 
-#: includes/admin.php:1028
+#: includes/admin.php:1089
 msgid "Save Codes"
 msgstr "Save Codes"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "System"
 msgstr "System"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Hide WP Version"
 msgstr "Hide WP Version"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Removes the WordPress version number from your source code."
 msgstr "Removes the WordPress version number from your source code."
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Disable XML-RPC"
 msgstr "Disable XML-RPC"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Turns off the XML-RPC API internally."
 msgstr "Turns off the XML-RPC API internally."
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Disable File Editor"
 msgstr "Disable File Editor"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Prevents editing plugins and themes via the WP dashboard."
 msgstr "Prevents editing plugins and themes via the WP dashboard."
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Block Enumeration"
 msgstr "Block Enumeration"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Stops attackers from discovering your usernames."
 msgstr "Stops attackers from discovering your usernames."
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid "Hide Login Errors"
 msgstr "Hide Login Errors"
 
-#: includes/admin.php:1034
+#: includes/admin.php:1095
 msgid ""
 "Shows a generic message instead of revealing whether the username or "
 "password was wrong."
@@ -1720,27 +1788,27 @@ msgstr ""
 "Shows a generic message instead of revealing whether the username or "
 "password was wrong."
 
-#: includes/admin.php:1036
+#: includes/admin.php:1097
 msgid "Admin Honeypot"
 msgstr "Admin Honeypot"
 
-#: includes/admin.php:1036
+#: includes/admin.php:1097
 msgid "Permanently bans anyone trying to log in as admin."
 msgstr "Permanently bans anyone trying to log in as admin."
 
-#: includes/admin.php:1037
+#: includes/admin.php:1098
 msgid "Privilege Guard"
 msgstr "Privilege Guard"
 
-#: includes/admin.php:1037
+#: includes/admin.php:1098
 msgid "Prevents unauthorized users from upgrading to Administrator."
 msgstr "Prevents unauthorized users from upgrading to Administrator."
 
-#: includes/admin.php:1041
+#: includes/admin.php:1102
 msgid "System Deep Clean"
 msgstr "System Deep Clean"
 
-#: includes/admin.php:1042
+#: includes/admin.php:1103
 msgid ""
 "Manual database cleanup. Deletes expired transients, spam comments, old post"
 " revisions, and optimizes table overhead."
@@ -1748,35 +1816,35 @@ msgstr ""
 "Manual database cleanup. Deletes expired transients, spam comments, old post"
 " revisions, and optimizes table overhead."
 
-#: includes/admin.php:1043
+#: includes/admin.php:1104
 msgid "Run Deep Clean"
 msgstr "Run Deep Clean"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "HTTP Security Headers"
 msgstr "HTTP Security Headers"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "X-Frame-Options"
 msgstr "X-Frame-Options"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Clickjacking protection."
 msgstr "Clickjacking protection."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "X-Content-Type-Options"
 msgstr "X-Content-Type-Options"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Stops browsers from MIME-sniffing."
 msgstr "Stops browsers from MIME-sniffing."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "X-XSS-Protection"
 msgstr "X-XSS-Protection"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid ""
 "Outdated: current browsers ignore it. Sends \"0\" (filter off) as "
 "recommended today; better leave it off and use the Content Security Policy."
@@ -1784,19 +1852,19 @@ msgstr ""
 "Outdated: current browsers ignore it. Sends \"0\" (filter off) as "
 "recommended today; better leave it off and use the Content Security Policy."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "HSTS (SSL)"
 msgstr "HSTS (SSL)"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Enforces strict HTTPS connections."
 msgstr "Enforces strict HTTPS connections."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "HSTS: include subdomains"
 msgstr "HSTS: include subdomains"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid ""
 "Only enable if ALL subdomains are reachable via HTTPS, otherwise they become"
 " unreachable for a year."
@@ -1804,27 +1872,27 @@ msgstr ""
 "Only enable if ALL subdomains are reachable via HTTPS, otherwise they become"
 " unreachable for a year."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Referrer Policy"
 msgstr "Referrer Policy"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Controls referrer information."
 msgstr "Controls referrer information."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Permissions-Policy"
 msgstr "Permissions-Policy"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Restricts access to browser features (camera, mic)."
 msgstr "Restricts access to browser features (camera, mic)."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Content Security Policy (basic)"
 msgstr "Content Security Policy (basic)"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid ""
 "Permissive baseline policy: restricts resources to HTTPS/same origin and "
 "blocks plain-HTTP content. It allows inline scripts and eval, so it does NOT"
@@ -1834,11 +1902,11 @@ msgstr ""
 "blocks plain-HTTP content. It allows inline scripts and eval, so it does NOT"
 " protect against XSS."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Cross-Origin-Opener-Policy"
 msgstr "Cross-Origin-Opener-Policy"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid ""
 "Separates this site from windows of other sites (same-origin-allow-popups: "
 "windows this site opens, e.g. share dialogs, keep working)."
@@ -1846,11 +1914,11 @@ msgstr ""
 "Separates this site from windows of other sites (same-origin-allow-popups: "
 "windows this site opens, e.g. share dialogs, keep working)."
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid "Cross-Origin-Resource-Policy"
 msgstr "Cross-Origin-Resource-Policy"
 
-#: includes/admin.php:1048
+#: includes/admin.php:1109
 msgid ""
 "Other sites may not load files of this site in the browser (same-site: "
 "subdomains are allowed). Leave it off if your other domains embed images or "
@@ -1860,39 +1928,39 @@ msgstr ""
 "subdomains are allowed). Leave it off if your other domains embed images or "
 "files from this site."
 
-#: includes/admin.php:1053
+#: includes/admin.php:1114
 msgid "Backup Config"
 msgstr "Backup Config"
 
-#: includes/admin.php:1054
+#: includes/admin.php:1115
 msgid "Auto backup"
 msgstr "Auto backup"
 
-#: includes/admin.php:1054
+#: includes/admin.php:1115
 msgid "Automatically creates backups based on frequency."
 msgstr "Automatically creates backups based on frequency."
 
-#: includes/admin.php:1056
+#: includes/admin.php:1117
 msgid "Frequency"
 msgstr "Frequency"
 
-#: includes/admin.php:1058
+#: includes/admin.php:1119
 msgid "Daily"
 msgstr "Daily"
 
-#: includes/admin.php:1059
+#: includes/admin.php:1120
 msgid "Weekly"
 msgstr "Weekly"
 
-#: includes/admin.php:1066
+#: includes/admin.php:1127
 msgid "Encryption"
 msgstr "Encryption"
 
-#: includes/admin.php:1068
+#: includes/admin.php:1129
 msgid "Backup key loaded: X25519 + XChaCha20-Poly1305."
 msgstr "Backup key loaded: X25519 + XChaCha20-Poly1305."
 
-#: includes/admin.php:1068
+#: includes/admin.php:1129
 msgid ""
 "Only the public key is on this server: new backups are encrypted, but can "
 "only be downloaded decrypted with the private key."
@@ -1900,7 +1968,7 @@ msgstr ""
 "Only the public key is on this server: new backups are encrypted, but can "
 "only be downloaded decrypted with the private key."
 
-#: includes/admin.php:1070
+#: includes/admin.php:1131
 msgid ""
 "No backup key pair: backups use XChaCha20-Poly1305 with a key derived from "
 "TEGATAI_BACKUP_SECRET (secrets file). For a key pair (recommended), run this"
@@ -1912,7 +1980,7 @@ msgstr ""
 " on the server as the site's PHP-FPM user (not as root). Tegatai never "
 "writes key files itself:"
 
-#: includes/admin.php:1070
+#: includes/admin.php:1131
 msgid ""
 "Neither a key pair nor TEGATAI_BACKUP_SECRET is set: backups cannot be "
 "created yet."
@@ -1920,47 +1988,53 @@ msgstr ""
 "Neither a key pair nor TEGATAI_BACKUP_SECRET is set: backups cannot be "
 "created yet."
 
-#: includes/admin.php:1075
+#: includes/admin.php:1136
 msgid "Local Backups"
 msgstr "Local Backups"
 
-#: includes/admin.php:1079
+#. translators: %s: folder path
+#: includes/admin.php:1138
+#, php-format
+msgid "Storage folder: %s"
+msgstr "Storage folder: %s"
+
+#: includes/admin.php:1142
 msgid "Create Backup Now"
 msgstr "Create Backup Now"
 
-#: includes/admin.php:1087 includes/admin.php:1395
+#: includes/admin.php:1150 includes/admin.php:1458
 msgid "File"
 msgstr "File"
 
-#: includes/admin.php:1089 includes/quarantine.php:212
+#: includes/admin.php:1152 includes/quarantine.php:212
 msgid "Date"
 msgstr "Date"
 
-#: includes/admin.php:1097
+#: includes/admin.php:1160
 msgid "No backups available."
 msgstr "No backups available."
 
-#: includes/admin.php:1110
+#: includes/admin.php:1173
 msgid "DL"
 msgstr "DL"
 
-#: includes/admin.php:1133
+#: includes/admin.php:1196
 msgid "Malware & Integrity Scanner"
 msgstr "Malware & Integrity Scanner"
 
-#: includes/admin.php:1134
+#: includes/admin.php:1197
 msgid "Auto-Quarantine (IPS)"
 msgstr "Auto-Quarantine (IPS)"
 
-#: includes/admin.php:1134
+#: includes/admin.php:1197
 msgid "Automatically moves detected malware to a safe location."
 msgstr "Automatically moves detected malware to a safe location."
 
-#: includes/admin.php:1136
+#: includes/admin.php:1199
 msgid "Daily vulnerability check (WPVulnerability)"
 msgstr "Daily vulnerability check (WPVulnerability)"
 
-#: includes/admin.php:1136
+#: includes/admin.php:1199
 msgid ""
 "Off by default. When enabled, the slugs of your installed plugins are sent "
 "once a day to wpvulnerability.net to look up known vulnerabilities. No other"
@@ -1970,323 +2044,323 @@ msgstr ""
 "once a day to wpvulnerability.net to look up known vulnerabilities. No other"
 " data is sent."
 
-#: includes/admin.php:1137
+#: includes/admin.php:1200
 msgid "Scan running..."
 msgstr "Scan running..."
 
-#: includes/admin.php:1137
+#: includes/admin.php:1200
 msgid "Abort / reset scan"
 msgstr "Abort / reset scan"
 
-#: includes/admin.php:1137
+#: includes/admin.php:1200
 msgid "Abort the running scan and reset its state?"
 msgstr "Abort the running scan and reset its state?"
 
-#: includes/admin.php:1137
+#: includes/admin.php:1200
 msgid "Start New Scan"
 msgstr "Start New Scan"
 
-#: includes/admin.php:1144
+#: includes/admin.php:1207
 msgid "Create File Snapshot"
 msgstr "Create File Snapshot"
 
-#: includes/admin.php:1146
+#: includes/admin.php:1209
 msgid "Save current state as a safe baseline?"
 msgstr "Save current state as a safe baseline?"
 
-#: includes/admin.php:1148
+#: includes/admin.php:1211
 msgid "Last Result:"
 msgstr "Last Result:"
 
-#: includes/admin.php:1148
+#: includes/admin.php:1211
 msgid "Files Checked:"
 msgstr "Files Checked:"
 
-#: includes/admin.php:1148
+#: includes/admin.php:1211
 msgid "Issue"
 msgstr "Issue"
 
-#: includes/admin.php:1148
+#: includes/admin.php:1211
 msgid "Scanner Configuration"
 msgstr "Scanner Configuration"
 
-#: includes/admin.php:1148
+#: includes/admin.php:1211
 msgid "Exclude from Scan"
 msgstr "Exclude from Scan"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Session Security"
 msgstr "Session Security"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "IP Guard"
 msgstr "IP Guard"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Invalidates the session if the users IP address changes."
 msgstr "Invalidates the session if the users IP address changes."
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Browser Guard"
 msgstr "Browser Guard"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Invalidates the session if the users browser changes."
 msgstr "Invalidates the session if the users browser changes."
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Single Session"
 msgstr "Single Session"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid ""
 "Allows only one active session per user; older sessions are logged out."
 msgstr ""
 "Allows only one active session per user; older sessions are logged out."
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Max Session (Min)"
 msgstr "Max Session (Min)"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Active Sessions"
 msgstr "Active Sessions"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "User"
 msgstr "User"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Browser"
 msgstr "Browser"
 
-#: includes/admin.php:1149
+#: includes/admin.php:1212
 msgid "Kill"
 msgstr "Kill"
 
-#: includes/admin.php:1157
+#: includes/admin.php:1220
 msgid "Restrict REST API"
 msgstr "Restrict REST API"
 
-#: includes/admin.php:1157
+#: includes/admin.php:1220
 msgid "Requires authentication for REST endpoints."
 msgstr "Requires authentication for REST endpoints."
 
-#: includes/admin.php:1158
+#: includes/admin.php:1221
 msgid "Disable Right-Click"
 msgstr "Disable Right-Click"
 
-#: includes/admin.php:1158
+#: includes/admin.php:1221
 msgid "Prevents basic right-clicking."
 msgstr "Prevents basic right-clicking."
 
-#: includes/admin.php:1159
+#: includes/admin.php:1222
 msgid "Enable Copy Protection"
 msgstr "Enable Copy Protection"
 
-#: includes/admin.php:1159
+#: includes/admin.php:1222
 msgid "Stops users from copying text."
 msgstr "Stops users from copying text."
 
-#: includes/admin.php:1163
+#: includes/admin.php:1226
 msgid "Configuration Export & Import"
 msgstr "Configuration Export & Import"
 
-#: includes/admin.php:1168
+#: includes/admin.php:1231
 msgid "Export Settings"
 msgstr "Export Settings"
 
-#: includes/admin.php:1169
+#: includes/admin.php:1232
 msgid "Downloads a .json file with all settings."
 msgstr "Downloads a .json file with all settings."
 
-#: includes/admin.php:1170
+#: includes/admin.php:1233
 msgid "Download (.json)"
 msgstr "Download (.json)"
 
-#: includes/admin.php:1174
+#: includes/admin.php:1237
 msgid "Import Settings"
 msgstr "Import Settings"
 
-#: includes/admin.php:1175
+#: includes/admin.php:1238
 msgid "Select a .json file to apply instantly."
 msgstr "Select a .json file to apply instantly."
 
-#: includes/admin.php:1177
+#: includes/admin.php:1240
 msgid "Import"
 msgstr "Import"
 
-#: includes/admin.php:1187
+#: includes/admin.php:1250
 msgid "Live Traffic Log"
 msgstr "Live Traffic Log"
 
-#: includes/admin.php:1187
+#: includes/admin.php:1250
 msgid "Clear Logs"
 msgstr "Clear Logs"
 
-#: includes/admin.php:1187
+#: includes/admin.php:1250
 msgid "Are you sure?"
 msgstr "Are you sure?"
 
-#: includes/admin.php:1187 includes/admin.php:1443
+#: includes/admin.php:1250 includes/admin.php:1506
 msgid "Time"
 msgstr "Time"
 
-#: includes/admin.php:1187 includes/admin.php:1445
+#: includes/admin.php:1250 includes/admin.php:1508
 msgid "Message"
 msgstr "Message"
 
-#: includes/admin.php:1193
+#: includes/admin.php:1256
 msgid "Baseline snapshot created."
 msgstr "Baseline snapshot created."
 
-#: includes/admin.php:1209
+#: includes/admin.php:1272
 msgid "File Integrity Monitor (FIM)"
 msgstr "File Integrity Monitor (FIM)"
 
-#: includes/admin.php:1210
+#: includes/admin.php:1273
 msgid "Tracks file changes in Plugins, MU-Plugins and Themes."
 msgstr "Tracks file changes in Plugins, MU-Plugins and Themes."
 
-#: includes/admin.php:1215
+#: includes/admin.php:1278
 msgid "Create baseline"
 msgstr "Create baseline"
 
-#: includes/admin.php:1220
+#: includes/admin.php:1283
 msgid "Check now"
 msgstr "Check now"
 
 #. translators: %s: date and time of the last run
-#: includes/admin.php:1224
+#: includes/admin.php:1287
 #, php-format
 msgid "Last run: %s"
 msgstr "Last run: %s"
 
-#: includes/admin.php:1251
+#: includes/admin.php:1314
 msgid "Changed files"
 msgstr "Changed files"
 
-#: includes/admin.php:1252
+#: includes/admin.php:1315
 msgid "New files"
 msgstr "New files"
 
-#: includes/admin.php:1253
+#: includes/admin.php:1316
 msgid "Deleted files"
 msgstr "Deleted files"
 
-#: includes/admin.php:1255
+#: includes/admin.php:1318
 msgid "No baseline exists yet. Click “Create baseline” first."
 msgstr "No baseline exists yet. Click “Create baseline” first."
 
-#: includes/admin.php:1272
+#: includes/admin.php:1335
 msgid "Stored-XSS Database Scanner"
 msgstr "Stored-XSS Database Scanner"
 
-#: includes/admin.php:1273
+#: includes/admin.php:1336
 msgid "Read-only scan of common WP tables for suspicious HTML/JS patterns."
 msgstr "Read-only scan of common WP tables for suspicious HTML/JS patterns."
 
-#: includes/admin.php:1277
+#: includes/admin.php:1340
 msgid "Run scan"
 msgstr "Run scan"
 
-#: includes/admin.php:1290
+#: includes/admin.php:1353
 msgid "No suspicious patterns found."
 msgstr "No suspicious patterns found."
 
-#: includes/admin.php:1293
+#: includes/admin.php:1356
 msgid "Table"
 msgstr "Table"
 
-#: includes/admin.php:1294
+#: includes/admin.php:1357
 msgid "ID"
 msgstr "ID"
 
-#: includes/admin.php:1295
+#: includes/admin.php:1358
 msgid "Field"
 msgstr "Field"
 
-#: includes/admin.php:1296 includes/admin.php:1396
+#: includes/admin.php:1359 includes/admin.php:1459
 msgid "Snippet"
 msgstr "Snippet"
 
 #. translators: 1: number of quarantined files, 2: number of failures
-#: includes/admin.php:1343
+#: includes/admin.php:1406
 #, php-format
 msgid "Quarantine done: %1$d ok, %2$d failed (max 50 per click)."
 msgstr "Quarantine done: %1$d ok, %2$d failed (max 50 per click)."
 
-#: includes/admin.php:1347
+#: includes/admin.php:1410
 msgid "State reset."
 msgstr "State reset."
 
-#: includes/admin.php:1359
+#: includes/admin.php:1422
 msgid "Malware / Backdoor Scanner"
 msgstr "Malware / Backdoor Scanner"
 
-#: includes/admin.php:1360
+#: includes/admin.php:1423
 msgid "Signature-based scan for common malware/backdoor patterns."
 msgstr "Signature-based scan for common malware/backdoor patterns."
 
-#: includes/admin.php:1366
+#: includes/admin.php:1429
 msgid "Fresh scan"
 msgstr "Fresh scan"
 
-#: includes/admin.php:1367
+#: includes/admin.php:1430
 msgid "Run"
 msgstr "Run"
 
-#: includes/admin.php:1372
+#: includes/admin.php:1435
 msgid "Reset"
 msgstr "Reset"
 
-#: includes/admin.php:1390
+#: includes/admin.php:1453
 msgid "Clean."
 msgstr "Clean."
 
-#: includes/admin.php:1393
+#: includes/admin.php:1456
 msgid "Sev"
 msgstr "Sev"
 
-#: includes/admin.php:1394
+#: includes/admin.php:1457
 msgid "Rule"
 msgstr "Rule"
 
-#: includes/admin.php:1424
+#: includes/admin.php:1487
 msgid "Security Timeline"
 msgstr "Security Timeline"
 
-#: includes/admin.php:1432
+#: includes/admin.php:1495
 msgid "Clear?"
 msgstr "Clear?"
 
-#: includes/admin.php:1432
+#: includes/admin.php:1495
 msgid "Clear"
 msgstr "Clear"
 
-#: includes/admin.php:1440
+#: includes/admin.php:1503
 msgid "No events yet."
 msgstr "No events yet."
 
-#: includes/admin.php:1462
+#: includes/admin.php:1525
 msgid "WordPress Core Integrity"
 msgstr "WordPress Core Integrity"
 
-#: includes/admin.php:1463
+#: includes/admin.php:1526
 msgid ""
 "Compares wp-admin/wp-includes core files against official WP checksums."
 msgstr ""
 "Compares wp-admin/wp-includes core files against official WP checksums."
 
-#: includes/admin.php:1470
+#: includes/admin.php:1533
 msgid "Run check"
 msgstr "Run check"
 
-#: includes/admin.php:1485
+#: includes/admin.php:1548
 msgid "Corrupted Files"
 msgstr "Corrupted Files"
 
-#: includes/admin.php:1495
+#: includes/admin.php:1558
 msgid ""
 "To restore the original core files, use WordPress' own re-installation: "
 "Dashboard > Updates > \"Re-install version\". It replaces all core files "
@@ -2296,147 +2370,147 @@ msgstr ""
 "Dashboard > Updates > \"Re-install version\". It replaces all core files "
 "with the official package."
 
-#: includes/admin.php:1496
+#: includes/admin.php:1559
 msgid "Open Dashboard > Updates"
 msgstr "Open Dashboard > Updates"
 
 #. translators: %s: WordPress version
-#: includes/admin.php:1498
+#: includes/admin.php:1561
 #, php-format
 msgid "WordPress core %s is clean."
 msgstr "WordPress core %s is clean."
 
-#: includes/admin.php:1505
+#: includes/admin.php:1568
 msgid "Dangerous Options Scanner"
 msgstr "Dangerous Options Scanner"
 
-#: includes/admin.php:1512
+#: includes/admin.php:1575
 msgid "Scan options"
 msgstr "Scan options"
 
-#: includes/admin.php:1516
+#: includes/admin.php:1579
 msgid "Hits"
 msgstr "Hits"
 
-#: includes/admin.php:1519 includes/admin.php:1536
+#: includes/admin.php:1582 includes/admin.php:1599
 msgid "Whitelist (Exceptions)"
 msgstr "Whitelist (Exceptions)"
 
-#: includes/admin.php:1529
+#: includes/admin.php:1592
 msgid "Suspicious Cron Monitor"
 msgstr "Suspicious Cron Monitor"
 
-#: includes/admin.php:1533
+#: includes/admin.php:1596
 msgid "Total hooks"
 msgstr "Total hooks"
 
-#: includes/admin.php:1534
+#: includes/admin.php:1597
 msgid "Flagged"
 msgstr "Flagged"
 
-#: includes/admin.php:1548
+#: includes/admin.php:1611
 msgid "Uploads Monitor"
 msgstr "Uploads Monitor"
 
-#: includes/admin.php:1557
+#: includes/admin.php:1620
 msgid "Scan uploads"
 msgstr "Scan uploads"
 
-#: includes/admin.php:1561
+#: includes/admin.php:1624
 msgid "Quarantine flagged (max 50)"
 msgstr "Quarantine flagged (max 50)"
 
-#: includes/admin.php:1567
+#: includes/admin.php:1630
 msgid "Permission Monitor"
 msgstr "Permission Monitor"
 
-#: includes/admin.php:1570
+#: includes/admin.php:1633
 msgid "Checked"
 msgstr "Checked"
 
-#: includes/admin.php:1578
+#: includes/admin.php:1641
 msgid "🛡️ Tegatai Security Status"
 msgstr "🛡️ Tegatai Security Status"
 
-#: includes/admin.php:1584
+#: includes/admin.php:1647
 msgid "Never"
 msgstr "Never"
 
-#: includes/admin.php:1585
+#: includes/admin.php:1648
 msgid "Clean ✅"
 msgstr "Clean ✅"
 
-#: includes/admin.php:1585
+#: includes/admin.php:1648
 msgid "Scan required..."
 msgstr "Scan required..."
 
-#: includes/admin.php:1588
+#: includes/admin.php:1651
 msgid "Blocked"
 msgstr "Blocked"
 
-#: includes/admin.php:1589
+#: includes/admin.php:1652
 msgid "Traffic"
 msgstr "Traffic"
 
-#: includes/admin.php:1593
+#: includes/admin.php:1656
 msgid "Last Scan:"
 msgstr "Last Scan:"
 
-#: includes/admin.php:1594
+#: includes/admin.php:1657
 msgid "Result:"
 msgstr "Result:"
 
-#: includes/admin.php:1598
+#: includes/admin.php:1661
 msgid "Go to Dashboard"
 msgstr "Go to Dashboard"
 
-#: includes/admin.php:1606
+#: includes/admin.php:1669
 msgid "Active WP-Cron Jobs"
 msgstr "Active WP-Cron Jobs"
 
-#: includes/admin.php:1608
+#: includes/admin.php:1671
 msgid "Next Run"
 msgstr "Next Run"
 
-#: includes/admin.php:1608
+#: includes/admin.php:1671
 msgid "Hook"
 msgstr "Hook"
 
-#: includes/admin.php:1608
+#: includes/admin.php:1671
 msgid "Schedule"
 msgstr "Schedule"
 
-#: includes/admin.php:1633
+#: includes/admin.php:1696
 msgid "No cron jobs found."
 msgstr "No cron jobs found."
 
-#: includes/admin.php:1672 includes/admin.php:1674
+#: includes/admin.php:1735 includes/admin.php:1737
 msgid "Invalid JSON format."
 msgstr "Invalid JSON format."
 
 #. translators: %d: number of deleted transients
-#: includes/admin.php:1707
+#: includes/admin.php:1770
 #, php-format
 msgid "🗑️ <strong>%d</strong> expired transients deleted."
 msgstr "🗑️ <strong>%d</strong> expired transients deleted."
 
 #. translators: %d: number of removed comments
-#: includes/admin.php:1711
+#: includes/admin.php:1774
 #, php-format
 msgid "🗑️ <strong>%d</strong> spam/trash comments removed."
 msgstr "🗑️ <strong>%d</strong> spam/trash comments removed."
 
 #. translators: %d: number of removed revisions
-#: includes/admin.php:1715
+#: includes/admin.php:1778
 #, php-format
 msgid "🗑️ <strong>%d</strong> old post revisions cleaned."
 msgstr "🗑️ <strong>%d</strong> old post revisions cleaned."
 
-#: includes/admin.php:1723
+#: includes/admin.php:1786
 msgid "⚡ Database tables defragmented (overhead released)."
 msgstr "⚡ Database tables defragmented (overhead released)."
 
-#: includes/admin.php:1725
+#: includes/admin.php:1788
 msgid "Everything was already spotless! No cleanup needed."
 msgstr "Everything was already spotless! No cleanup needed."
 
@@ -2664,7 +2738,7 @@ msgid "The Hive"
 msgstr "The Hive"
 
 #: includes/hive.php:659 includes/quarantine.php:176
-#: includes/quarantine.php:195 tegatai-secure.php:509
+#: includes/quarantine.php:195 tegatai-secure.php:537
 msgid "Access Denied"
 msgstr "Access Denied"
 
@@ -3189,7 +3263,7 @@ msgid "Invalid code. Attempt %d of 3."
 msgstr "Invalid code. Attempt %d of 3."
 
 #. translators: %s: list of secret names
-#: tegatai-secure.php:401
+#: tegatai-secure.php:428
 #, php-format
 msgid ""
 "These secrets are still stored in the database by an older version: %s. Move"
@@ -3201,24 +3275,30 @@ msgstr ""
 "database copies are then deleted automatically."
 
 #. translators: %s: list of secret names
-#: tegatai-secure.php:402
+#: tegatai-secure.php:429
 msgid "Open Secrets tab"
 msgstr "Open Secrets tab"
 
-#: tegatai-secure.php:502
+#. translators: %s: URL path of the data folder
+#: tegatai-secure.php:530
+#, php-format
 msgid ""
-"The data folder uploads/tegatai-secure/ (logs, backups) can be reached from "
-"the web. The block is already part of the Tegatai nginx file: make sure the "
-"include line in the server block points to the file shown in the Server tab "
-"and reload nginx. On Apache, make sure .htaccess files are allowed "
-"(AllowOverride)."
+"The data folder %s (logs, backups) can be reached from the web. The block is"
+" already part of the Tegatai nginx file: make sure the include line in the "
+"server block points to the file shown in the Server tab and reload nginx. On"
+" Apache, make sure .htaccess files are allowed (AllowOverride)."
 msgstr ""
-"The data folder uploads/tegatai-secure/ (logs, backups) can be reached from "
-"the web. The block is already part of the Tegatai nginx file: make sure the "
-"include line in the server block points to the file shown in the Server tab "
-"and reload nginx. On Apache, make sure .htaccess files are allowed "
-"(AllowOverride)."
+"The data folder %s (logs, backups) can be reached from the web. The block is"
+" already part of the Tegatai nginx file: make sure the include line in the "
+"server block points to the file shown in the Server tab and reload nginx. On"
+" Apache, make sure .htaccess files are allowed (AllowOverride)."
 
-#: tegatai-secure.php:503
-msgid "Check again"
-msgstr "Check again"
+#. translators: %s: folder paths and reasons
+#: tegatai-secure.php:553
+#, php-format
+msgid ""
+"The data folder could not be set up: %s. Tegatai tries again every ten "
+"minutes."
+msgstr ""
+"The data folder could not be set up: %s. Tegatai tries again every ten "
+"minutes."

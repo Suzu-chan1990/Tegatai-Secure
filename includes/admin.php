@@ -87,6 +87,7 @@ class Tegatai_Admin {
         add_action('wp_ajax_tegatai_toggle_option', [$this, 'ajax_toggle_option']);
         add_action('wp_ajax_tegatai_save_form', [$this, 'ajax_save_form']);
         add_action('admin_post_tegatai_write_rules', [$this, 'handle_write_rules']);
+        add_action('admin_post_tegatai_remove_old_server_dir', [$this, 'handle_remove_old_server_dir']);
         add_action('admin_post_tegatai_unban', [$this, 'handle_unban']);
         add_action('admin_post_tegatai_scan_reset', [$this, 'handle_scan_reset']);
         add_action('admin_post_tegatai_mask_save', [$this, 'handle_mask_save']);
@@ -443,22 +444,41 @@ class Tegatai_Admin {
 
     // Shows where the nginx rules file is and whether the last write worked.
     private function render_rules_status() {
+        $msg = isset($_GET['msg']) ? sanitize_key(wp_unslash($_GET['msg'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only
+        if ($msg === 'old_dir_removed') {
+            echo '<div style="margin-top:16px; padding:10px 12px; border-radius:6px; font-size:12px; background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;">' . esc_html__('Old folder removed.', 'tegatai-secure') . '</div>';
+        } elseif ($msg === 'old_dir_failed') {
+            $why = (string) get_transient('tegatai_old_dir_error_' . get_current_user_id());
+            /* translators: %s: reason */
+            echo '<div style="margin-top:16px; padding:10px 12px; border-radius:6px; font-size:12px; background:#fee2e2;color:#b91c1c;border:1px solid #fecaca;">' . esc_html(sprintf(__('The old folder was not removed: %s', 'tegatai-secure'), $why)) . '</div>';
+        }
         $st = Tegatai_Server::rules_status();
         $is_apache = Tegatai_Server::detect_server() === 'apache';
         $ok = !empty($st['ok']);
         $path = (string) ($st['path'] ?? Tegatai_Server::get_rules_file_path());
+        // A status for another path (uploads folder moved) does not describe the current file
+        if (!$is_apache && $path !== Tegatai_Server::get_rules_file_path()) $st = [];
         $exists = $path !== '' && file_exists($path);
         $bg = $ok && $exists ? '#dcfce7;color:#15803d;border:1px solid #bbf7d0' : '#fee2e2;color:#b91c1c;border:1px solid #fecaca';
         echo '<div style="margin-top:16px; padding:10px 12px; border-radius:6px; font-size:12px; line-height:1.6; background:' . esc_attr($bg) . ';">';
         if (empty($st)) {
             echo esc_html__('The rules file has not been written by this version yet. Click "Write rules to config".', 'tegatai-secure');
+        } elseif ($ok && $exists && !$is_apache && Tegatai_Server::include_state() === 'yes') {
+            // Check passed: only the result line (plus the old 2.2.1 folder, if it still exists)
+            $this->render_include_state(false);
         } elseif ($ok && $exists) {
             /* translators: 1: file path, 2: date and time */
             echo esc_html(sprintf(__('Rules written to %1$s (%2$s).', 'tegatai-secure'), $path, wp_date('Y-m-d H:i:s', (int) $st['time'])));
             if ($is_apache) {
                 echo '<br>' . esc_html__('Apache / LiteSpeed reads the rules from this file directly (block "Tegatai-Secure", needs mod_rewrite).', 'tegatai-secure');
+                if (is_dir(Tegatai_Server::old_server_dir())) {
+                    /* translators: %s: folder path */
+                    echo '<br>' . esc_html(sprintf(__('Old folder of version 2.2.1: %s. Its file is kept up to date as long as the folder exists, so an include that still points there keeps working.', 'tegatai-secure'), Tegatai_Server::old_server_dir()));
+                    $this->render_remove_old_server_dir_button();
+                }
             } else {
                 echo '<br>' . esc_html__('Include line for your nginx server block:', 'tegatai-secure') . ' <code>include ' . esc_html($path) . ';</code>';
+                $this->render_include_state();
             }
         } elseif ($ok) {
             /* translators: %s: file path */
@@ -466,8 +486,52 @@ class Tegatai_Admin {
         } else {
             /* translators: %s: error details (paths and reasons) */
             echo esc_html(sprintf(__('The rules file could not be written: %s', 'tegatai-secure'), (string) $st['error']));
+            $old_file = Tegatai_Server::old_server_dir() . '/tegatai-nginx.conf';
+            if (!$is_apache && is_file($old_file)) {
+                /* translators: %s: file path */
+                echo '<br>' . esc_html(sprintf(__('Until this is fixed, keep the include line on %s (it is kept up to date).', 'tegatai-secure'), $old_file));
+            }
         }
         echo '</div>';
+    }
+
+    // nginx: whether the running nginx uses the rules file (include check over HTTP).
+    private function render_include_state($line_break = true) {
+        $state = Tegatai_Server::include_state();
+        $old = Tegatai_Server::old_server_dir();
+        $recheck = wp_nonce_url(admin_url('admin-post.php?action=tegatai_dir_recheck'), 'tegatai_dir_recheck');
+        if ($line_break) echo '<br>';
+        if ($state === 'yes') {
+            /* translators: %s: date and time */
+            echo '<strong>' . esc_html(sprintf(__('nginx uses this file (checked %s).', 'tegatai-secure'), wp_date('Y-m-d H:i:s', Tegatai_Server::include_check_time()))) . '</strong>';
+        } elseif ($state === 'no') {
+            echo '<strong>' . esc_html__('nginx does not use this file yet: point the include line to it, test with nginx -t and reload nginx.', 'tegatai-secure') . '</strong>';
+        } else {
+            echo esc_html__('Whether nginx uses this file could not be checked (the site cannot reach itself over HTTP).', 'tegatai-secure');
+        }
+        echo ' <a href="' . esc_url($recheck) . '">' . esc_html__('Check again', 'tegatai-secure') . '</a>';
+        if (is_dir($old)) {
+            /* translators: %s: folder path */
+            echo '<br>' . esc_html(sprintf(__('Old folder of version 2.2.1: %s. Its file is kept up to date as long as the folder exists, so an include that still points there keeps working.', 'tegatai-secure'), $old));
+            if ($state === 'yes') {
+                $this->render_remove_old_server_dir_button();
+            }
+        }
+    }
+
+    // Button that removes uploads/tegatai-server/ (see Tegatai_Server::remove_old_server_dir()).
+    private function render_remove_old_server_dir_button() {
+        echo '<br>' . esc_html__('Before removing it, make sure that no include line of any server block points to it any more (for example: grep -r tegatai-server /etc/nginx), otherwise nginx no longer starts.', 'tegatai-secure');
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:8px;"><input type="hidden" name="action" value="tegatai_remove_old_server_dir">' . wp_kses(wp_nonce_field('tegatai_remove_old_server_dir', '_wpnonce', true, false), TEGATAI_KSES_INPUT) . '<input type="submit" class="button button-secondary" value="' . esc_attr__('Remove old folder', 'tegatai-secure') . '"></form>';
+    }
+
+    public function handle_remove_old_server_dir() {
+        check_admin_referer('tegatai_remove_old_server_dir');
+        if (!current_user_can('manage_options')) wp_die('Forbidden');
+        $error = Tegatai_Server::remove_old_server_dir();
+        if ($error !== '') set_transient('tegatai_old_dir_error_' . get_current_user_id(), $error, 5 * MINUTE_IN_SECONDS);
+        wp_safe_redirect(admin_url('admin.php?page=tegatai-Secure&tab=server&msg=' . ($error === '' ? 'old_dir_removed' : 'old_dir_failed')));
+        exit;
     }
 
     public function handle_write_rules() {
@@ -1073,6 +1137,8 @@ class Tegatai_Admin {
         
         echo '<div class="teg-card" style="grid-column: span 2;">';
         echo '<h3>' . esc_html__('Local Backups', 'tegatai-secure') . '</h3>';
+        /* translators: %s: folder path */
+        echo '<p style="font-size:12px; color:#666; margin:0 0 12px;">' . esc_html(sprintf(__('Storage folder: %s', 'tegatai-secure'), tegatai_data_dir('backups'))) . '</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         echo '<input type="hidden" name="action" value="tegatai_create_backup">';
         wp_nonce_field('tegatai_backup_nonce', '_wpnonce', true, true);
