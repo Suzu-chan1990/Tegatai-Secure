@@ -1,3 +1,24 @@
+## [2.2.7] - Data folder is always set up, nginx file is never missing
+
+### Fixed
+
+* **The data folder could stay missing for good.** The folders `uploads/tegatai-secure/` (`logs`, `backups`, `server`, `geoip`) were only set up once after an update. When that attempt failed, it was still marked as done and never repeated, while the Server tab and the first line of the nginx file already named `uploads/tegatai-secure/server/tegatai-nginx.conf`. An include pointing there stopped nginx (missing file). The folder is now checked on every admin, cron and WP-CLI request (a few `is_dir` calls) and created again when it or a subfolder is missing; the nginx file is written again right away when it is missing or was last written to another path. A failure is stored with the reason (folder, owner, mode, PHP user), shown on the Tegatai screens and in the log, and retried every ten minutes.
+* **Moving the folders of older versions** (`tegatai-logs`, `tegatai-backups`, `tegatai-geoip`) is complete now: contents are merged into the existing subfolders (subfolders such as `logs/cache` included, identical files dropped, a different file with a taken name is kept as `<name>-old`), the protection files of the old folders are removed (also `index.html`, which used to block the removal), and the old folder is deleted.
+* When the new nginx file cannot be written, the file in `uploads/tegatai-server/` (2.2.1) is still kept up to date, and the Server tab says to keep the include line there.
+
+### Added
+
+* **Include check (nginx):** the rules file answers `<uploads>/tegatai-secure/server/include-check` (exact `location`, matched before the deny block of the data folder). The Server tab requests it over HTTP and shows whether nginx uses the file ("nginx uses this file" / "does not use this file yet" / could not be checked), with "Check again". The copy in `uploads/tegatai-server/` does not contain this location.
+* **Remove old folder:** once nginx uses the new file, the Server tab offers a button that deletes `uploads/tegatai-server/` (only Tegatai's own files). It is never removed on its own: PHP cannot see whether another server block still includes it, and nginx does not start when an included file is missing. The button runs a fresh include check first and refuses while nginx does not use the new file. On Apache / LiteSpeed the button is shown as well.
+* The Backups tab shows the storage folder.
+* Sites whose uploads folder is also the plugins folder: `uploads/tegatai-secure` would be the plugin folder itself (replaced on every update, and the deny rules would block the plugin's files). The data folder is named `tegatai-secure-data` there; the deny rules follow the name.
+
+### Upgrade notes
+
+* `ENV_VERSION` 11: folders are checked and the server rules are written again once after the update. nginx: reload nginx afterwards.
+* nginx: change the include line to the path shown in the Server tab only after that file exists; test with `nginx -t` before reloading.
+* New strings in the language files (de_DE, en_US).
+
 ## [2.2.6] - Cross-Origin headers, X-XSS-Protection "0"
 
 ### Added

@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.2.6
+Stable tag: 2.2.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -194,7 +194,7 @@ server {
 }
 ```
 
-Updating from 2.2.1 or older: earlier versions wrote the file into the WordPress folder or to uploads/tegatai-server/. Change the include line to the new path, reload nginx and delete the old file. The Server tab shows a notice while an old file exists.
+Updating from 2.2.1 or older: earlier versions wrote the file into the WordPress folder or to uploads/tegatai-server/. The file in uploads/tegatai-server/ is kept up to date as long as that folder exists, so an include that still points there keeps working. Change the include line to the new path (only once the file exists there), test with `nginx -t` and reload nginx. The Server tab checks over HTTP whether nginx uses the new file; then it offers a button that removes the old folder.
 
 After changing server rules or WP Masking in Tegatai, reload nginx again.
 
@@ -428,6 +428,12 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 
 == Changelog ==
 
+= 2.2.7 =
+* The data folder uploads/tegatai-secure/ (logs, backups, server, geoip) is now checked on every admin, cron and WP-CLI request and created again when it is missing; folders of older versions are moved in completely. Before, a failed first attempt was marked as done and never repeated, so the nginx file could be missing at the path the Server tab named. Failures are shown with the reason and retried every ten minutes.
+* A missing nginx rules file is written again right away.
+* The Server tab shows whether nginx actually uses the rules file (HTTP check) and offers a button that removes the old uploads/tegatai-server/ folder of 2.2.1 once nginx no longer needs it. The Backups tab shows the storage folder.
+* Sites whose uploads folder is also the plugins folder get the data folder uploads/tegatai-secure-data/ instead of writing into the plugin folder.
+
 = 2.2.6 =
 * New optional headers Cross-Origin-Opener-Policy (same-origin-allow-popups) and Cross-Origin-Resource-Policy (same-site). X-XSS-Protection now sends "0", as recommended today.
 
@@ -493,6 +499,9 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 Older versions: see the [full changelog](https://github.com/Suzu-chan1990/Tegatai-Secure).
 
 == Upgrade Notice ==
+
+= 2.2.7 =
+The data folder and the nginx file are created again when they are missing. nginx: point the include line to the path shown in the Server tab only once that file exists, test with nginx -t, then reload.
 
 = 2.2.6 =
 New Cross-Origin headers; X-XSS-Protection sends "0". nginx: reload nginx after the update.

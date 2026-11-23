@@ -249,7 +249,7 @@ server {
 }
 ```
 
-Updating from 2.2.1 or older: earlier versions wrote the file into the WordPress folder or to uploads/tegatai-server/. Change the include line to the new path, reload nginx and delete the old file. The Server tab shows a notice while an old file exists.
+Updating from 2.2.1 or older: earlier versions wrote the file into the WordPress folder or to uploads/tegatai-server/. The file in uploads/tegatai-server/ is kept up to date as long as that folder exists, so an include that still points there keeps working. Change the include line to the new path (only once the file exists there), test with `nginx -t` and reload nginx. The Server tab checks over HTTP whether nginx uses the new file; then it offers a button that removes the old folder.
 
 After changing server rules or WP Masking in Tegatai, reload nginx again.
 

@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Secure
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Firewall, login protection with 2FA, anti-spam, scanners, server rules, encrypted database backups and IP ban sharing between your own sites.
- * Version: 2.2.6
+ * Version: 2.2.7
  * Author: Saguya
  * License: GPLv2 or later
  * Text Domain: tegatai-secure
@@ -186,7 +186,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.2.6' );
+define( 'TEGATAI_VERSION', '2.2.7' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
@@ -238,14 +238,41 @@ function tegatai_plugins_url() {
 }
 
 /**
- * Tegatai's own data folder in the uploads directory, named after the plugin slug:
- * uploads/tegatai-secure/ with the subfolders logs, backups, server and geoip.
- * The whole folder is protected against web access (tegatai_protect_directory(), nginx rules).
+ * Name of Tegatai's data folder in the uploads directory: "tegatai-secure", like the plugin.
+ * Sites whose uploads folder is also the plugins folder would get the plugin folder itself,
+ * which WordPress replaces on every update (and the deny rules would block the plugin's
+ * assets); there the data folder is named "tegatai-secure-data".
+ */
+function tegatai_data_dir_name() {
+    static $name = null;
+    if ( $name !== null ) return $name;
+    $name = 'tegatai-secure';
+    $ud   = wp_upload_dir( null, false );
+    $data = untrailingslashit( wp_normalize_path( trailingslashit( $ud['basedir'] ) . $name ) );
+    $self = untrailingslashit( wp_normalize_path( TEGATAI_PATH ) );
+    $real_data = is_dir( $data ) ? realpath( $data ) : false;
+    $real_self = realpath( $self );
+    if ( $data === $self || ( $real_data && $real_self && $real_data === $real_self ) ) {
+        $name = 'tegatai-secure-data';
+    }
+    return $name;
+}
+
+/**
+ * Tegatai's only folder in the uploads directory: uploads/tegatai-secure/ with the subfolders
+ * logs, backups, server (nginx rules file) and geoip. Nothing else is written next to it.
+ * The whole folder is protected against web access (tegatai_protect_directory(), server rules).
  */
 function tegatai_data_dir( $sub = '' ) {
     $ud   = wp_upload_dir( null, false );
-    $base = trailingslashit( $ud['basedir'] ) . 'tegatai-secure';
+    $base = trailingslashit( $ud['basedir'] ) . tegatai_data_dir_name();
     return $sub === '' ? $base : $base . '/' . $sub;
+}
+
+// URL path of the data folder (e.g. /wp-content/uploads/tegatai-secure/), for messages.
+function tegatai_data_dir_url_path() {
+    $path = (string) wp_parse_url( wp_upload_dir( null, false )['baseurl'], PHP_URL_PATH );
+    return trailingslashit( untrailingslashit( $path ) . '/' . tegatai_data_dir_name() );
 }
 
 // Folder for the nginx include file.
@@ -480,7 +507,7 @@ function tegatai_protect_directory( $dir ) {
 function tegatai_data_dir_exposed() {
     $cached = get_transient( 'tegatai_dir_check' );
     if ( $cached !== false ) return $cached === 'exposed';
-    $url = trailingslashit( wp_upload_dir( null, false )['baseurl'] ) . 'tegatai-secure/index.html';
+    $url = trailingslashit( wp_upload_dir( null, false )['baseurl'] ) . tegatai_data_dir_name() . '/index.html';
     $r = wp_remote_head( $url, [ 'timeout' => 5, 'redirection' => 0, 'sslverify' => false ] );
     if ( is_wp_error( $r ) ) {
         // Loopback not possible (firewall, DNS): no result, try again in an hour
@@ -499,7 +526,8 @@ add_action( 'admin_notices', function () {
     if ( strpos( $page, 'tegatai' ) !== 0 || ! tegatai_data_dir_exposed() ) return;
     $recheck = wp_nonce_url( admin_url( 'admin-post.php?action=tegatai_dir_recheck' ), 'tegatai_dir_recheck' );
     echo '<div class="notice notice-error"><p><strong>Tegatai Secure:</strong> '
-        . esc_html__( 'The data folder uploads/tegatai-secure/ (logs, backups) can be reached from the web. The block is already part of the Tegatai nginx file: make sure the include line in the server block points to the file shown in the Server tab and reload nginx. On Apache, make sure .htaccess files are allowed (AllowOverride).', 'tegatai-secure' )
+        /* translators: %s: URL path of the data folder */
+        . esc_html( sprintf( __( 'The data folder %s (logs, backups) can be reached from the web. The block is already part of the Tegatai nginx file: make sure the include line in the server block points to the file shown in the Server tab and reload nginx. On Apache, make sure .htaccess files are allowed (AllowOverride).', 'tegatai-secure' ), tegatai_data_dir_url_path() ) )
         . ' <a href="' . esc_url( $recheck ) . '">' . esc_html__( 'Check again', 'tegatai-secure' ) . '</a></p></div>';
 } );
 
@@ -508,8 +536,22 @@ add_action( 'admin_post_tegatai_dir_recheck', function () {
     check_admin_referer( 'tegatai_dir_recheck' );
     if ( ! current_user_can( 'manage_options' ) ) wp_die( esc_html__( 'Access Denied', 'tegatai-secure' ) );
     delete_transient( 'tegatai_dir_check' );
+    delete_transient( 'tegatai_include_check' );
     wp_safe_redirect( wp_get_referer() ?: admin_url( 'admin.php?page=tegatai-Secure' ) );
     exit;
+} );
+
+// Error on the Tegatai screens when the data folder or one of its subfolders could not be set up.
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'manage_options' ) ) return;
+    $page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- display only
+    if ( strpos( $page, 'tegatai' ) !== 0 ) return;
+    $error = get_option( 'tegatai_data_dir_error', '' );
+    if ( ! is_string( $error ) || $error === '' ) return;
+    echo '<div class="notice notice-error"><p><strong>Tegatai Secure:</strong> '
+        /* translators: %s: folder paths and reasons */
+        . esc_html( sprintf( __( 'The data folder could not be set up: %s. Tegatai tries again every ten minutes.', 'tegatai-secure' ), $error ) )
+        . '</p></div>';
 } );
 
 /**
@@ -628,7 +670,7 @@ class Tegatai_Security_Core {
 
         // Existing installs never ran activate() (the hook used to be registered too late),
         // so directories and cron events are verified and repaired here as well.
-        if (is_admin() || wp_doing_cron()) {
+        if (is_admin() || wp_doing_cron() || (defined('WP_CLI') && WP_CLI)) {
             add_action('init', [__CLASS__, 'ensure_environment'], 20);
         }
         // The rename of the stored names must happen before the first login or 2FA check,
@@ -656,15 +698,42 @@ class Tegatai_Security_Core {
         flush_rewrite_rules();
     }
 
-    const ENV_VERSION = '10';
+    const ENV_VERSION = '11';
+
+    // Subfolders of the data folder.
+    const DATA_SUBDIRS = ['logs', 'backups', 'server', 'geoip'];
+
+    // Folders of 2.2.1 and older that move into the data folder. "tegatai-server" (nginx file of
+    // 2.2.1) is not moved: an nginx include may still point to it, and nginx does not start when
+    // an included file is missing. It is removed with a button in the Server tab
+    // (Tegatai_Server::remove_old_server_dir()) once nginx uses the new file.
+    const OLD_DATA_DIRS = ['tegatai-logs' => 'logs', 'tegatai-backups' => 'backups', 'tegatai-geoip' => 'geoip'];
 
     public static function ensure_environment() {
-        if (get_option('tegatai_env_version') !== self::ENV_VERSION) {
-            self::migrate_data_dirs();
-            tegatai_protect_directory(tegatai_data_dir());
-            foreach (['logs', 'backups', 'server', 'geoip'] as $sub) {
-                tegatai_protect_directory(tegatai_data_dir($sub));
-            }
+        $upgrade = get_option('tegatai_env_version') !== self::ENV_VERSION;
+
+        // The data folder is checked on every request (a few stat calls), not only once after an
+        // update: a missing folder is created again, folders of older versions are moved in. A
+        // failed attempt is reported on the Tegatai screens and retried after ten minutes.
+        $ready = self::data_dirs_ready();
+        if (!$ready && ($upgrade || !get_transient('tegatai_dirs_retry'))) {
+            $ready = self::setup_data_dirs();
+        } elseif ($ready && get_option('tegatai_data_dir_error', '') !== '') {
+            delete_option('tegatai_data_dir_error'); // fixed in the meantime (e.g. by the admin)
+        }
+        // nginx file missing at its place or last written somewhere else (folder just created,
+        // file deleted, uploads folder moved): written again right away, so an include pointing
+        // there finds it.
+        $nginx_status = get_option('tegatai_rules_status', []);
+        $rules_file = class_exists('Tegatai_Server') ? Tegatai_Server::get_rules_file_path() : '';
+        $rules_stale = $rules_file !== '' && (!file_exists($rules_file) || (is_array($nginx_status) && !empty($nginx_status['path']) && $nginx_status['path'] !== $rules_file));
+        if ($ready && !$upgrade && $rules_stale
+            && (Tegatai_Server::has_rules() || Tegatai_Server::detect_server() === 'nginx') && !get_transient('tegatai_rules_retry')) {
+            $status = Tegatai_Server::force_update();
+            if (empty($status['ok'])) set_transient('tegatai_rules_retry', 1, 10 * MINUTE_IN_SECONDS);
+        }
+
+        if ($upgrade) {
             // Leftover credentials of the never-implemented FTP feature.
             delete_option('tegatai_ftp_settings');
             // Bans now live in Tegatai_Bans. Old per-IP "permanent" transients from the admin
@@ -682,14 +751,88 @@ class Tegatai_Security_Core {
             // Regenerate existing server rules once (2.2.2: nginx file moved to uploads/tegatai-secure/server/;
             // 2.2.3: full .htaccess rule set for Apache / LiteSpeed, placed in front of the WordPress block;
             // 2.2.4: exception list for direct PHP requests in plugins and themes;
-            // 2.2.5: security headers in the server rules; 2.2.6: X-XSS-Protection "0", COOP, CORP).
+            // 2.2.5: security headers in the server rules; 2.2.6: X-XSS-Protection "0", COOP, CORP;
+            // 2.2.7: include check location, data folder name).
             // On nginx the rules file is always written: it carries the block for the data folder.
             if (class_exists('Tegatai_Server') && (Tegatai_Server::has_rules() || Tegatai_Server::detect_server() === 'nginx')) {
                 Tegatai_Server::force_update();
             }
             update_option('tegatai_env_version', self::ENV_VERSION, false);
         }
+
         self::ensure_cron_events();
+    }
+
+    // True when the data folder and all subfolders exist and no folder of an older version is left.
+    public static function data_dirs_ready() {
+        foreach (array_merge([''], self::DATA_SUBDIRS) as $sub) {
+            if (!is_dir(tegatai_data_dir($sub))) return false;
+        }
+        $base = trailingslashit(wp_upload_dir(null, false)['basedir']);
+        foreach (array_keys(self::OLD_DATA_DIRS) as $old) {
+            if (is_dir($base . $old)) return false;
+        }
+        return true;
+    }
+
+    /**
+     * Creates and protects the data folder and its subfolders, then moves the folders of older
+     * versions in. Every failure is stored with its reason (shown on the Tegatai screens and in
+     * the log); nothing is marked as done while a folder is missing.
+     */
+    public static function setup_data_dirs() {
+        $errors = [];
+        foreach (array_merge([''], self::DATA_SUBDIRS) as $sub) {
+            $dir = tegatai_data_dir($sub);
+            if (function_exists('error_clear_last')) error_clear_last();
+            tegatai_protect_directory($dir);
+            if (!is_dir($dir)) {
+                $errors[] = $dir . ': ' . self::dir_error_reason($dir);
+                if ($sub === '') break; // without the main folder the subfolders fail for the same reason
+            }
+        }
+        if (!$errors) {
+            self::migrate_data_dirs();
+            $base = trailingslashit(wp_upload_dir(null, false)['basedir']);
+            foreach (array_keys(self::OLD_DATA_DIRS) as $old) {
+                if (is_dir($base . $old)) {
+                    $errors[] = $base . $old . ': ' . self::dir_error_reason($base . $old, true);
+                }
+            }
+        }
+        if (!$errors) {
+            delete_option('tegatai_data_dir_error');
+            delete_transient('tegatai_dirs_retry');
+            return true;
+        }
+        $msg = implode(' | ', $errors);
+        if (get_option('tegatai_data_dir_error') !== $msg && class_exists('Tegatai_Logger')) {
+            Tegatai_Logger::log('ERROR', 'Data folder could not be set up: ' . $msg);
+        }
+        update_option('tegatai_data_dir_error', $msg, false);
+        set_transient('tegatai_dirs_retry', 1, 10 * MINUTE_IN_SECONDS);
+        return false;
+    }
+
+    // Why a folder could not be created ($is_old: why an old folder could not be moved/emptied).
+    private static function dir_error_reason($dir, $is_old = false) {
+        if ($is_old) {
+            $left = array_diff((array) @scandir($dir), ['.', '..']);
+            if (!wp_is_writable($dir) || !wp_is_writable(dirname($dir))) {
+                return 'old folder could not be moved (owner ' . @fileowner($dir) . ', mode ' . substr(sprintf('%o', @fileperms($dir)), -4) . ')';
+            }
+            return 'old folder could not be emptied, left: ' . implode(', ', array_slice($left, 0, 5));
+        }
+        $last = error_get_last();
+        $parent = dirname($dir);
+        while ($parent !== '' && $parent !== '.' && !is_dir($parent) && dirname($parent) !== $parent) {
+            $parent = dirname($parent);
+        }
+        if (is_dir($parent) && !wp_is_writable($parent)) {
+            return 'folder ' . $parent . ' is not writable for PHP (owner ' . @fileowner($parent) . ', mode ' . substr(sprintf('%o', @fileperms($parent)), -4) . ', PHP runs as ' . (function_exists('posix_geteuid') ? posix_geteuid() : '?') . ')';
+        }
+        if (file_exists($dir) && !is_dir($dir)) return 'a file with this name exists';
+        return ($last['message'] ?? '') !== '' ? (string) $last['message'] : 'could not be created';
     }
 
     /**
@@ -733,36 +876,58 @@ class Tegatai_Security_Core {
     }
 
     /**
-     * 2.2.2: the folders uploads/tegatai-logs, -backups and -geoip move into uploads/tegatai-secure/.
-     * The old nginx folder (uploads/tegatai-server) stays where it is, because the running nginx
-     * config may still include it; the Server tab asks the admin to switch the include line.
+     * Moves the folders of older versions (uploads/tegatai-logs, -backups, -geoip) into the data
+     * folder. The target subfolders exist already (setup_data_dirs()), so the contents are merged.
      */
     private static function migrate_data_dirs() {
         $base = trailingslashit(wp_upload_dir(null, false)['basedir']);
-        if (!is_dir(tegatai_data_dir()) && !wp_mkdir_p(tegatai_data_dir())) return;
-        foreach (['tegatai-logs' => 'logs', 'tegatai-backups' => 'backups', 'tegatai-geoip' => 'geoip'] as $old => $new) {
+        foreach (self::OLD_DATA_DIRS as $old => $new) {
             $from = $base . $old;
-            $to   = tegatai_data_dir($new);
-            if (!is_dir($from)) continue;
-            if (!file_exists($to)) {
-                @rename($from, $to); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- moves the plugin's own data folder inside uploads
-                continue;
-            }
-            // Target already created (e.g. by an early request): move the entries one by one
-            foreach ((array) scandir($from) as $entry) {
-                if ($entry === '.' || $entry === '..' || $entry === '.htaccess' || $entry === 'index.php' || $entry === 'web.config') continue;
-                if (!file_exists($to . '/' . $entry)) @rename($from . '/' . $entry, $to . '/' . $entry); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same as above
-            }
-            foreach (['.htaccess', 'index.php', 'web.config'] as $f) {
-                if (is_file($from . '/' . $f)) wp_delete_file($from . '/' . $f);
-            }
-            @rmdir($from); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- only succeeds when the old folder is empty
+            if (is_dir($from) && !is_link($from)) self::merge_dir($from, tegatai_data_dir($new));
         }
         // Private files get unguessable names
         foreach (['snapshot.json', 'scan_files.json', 'fim_snapshot.json'] as $f) {
             $old = tegatai_data_dir('logs') . '/' . $f;
             if (is_file($old)) @rename($old, tegatai_private_file($f)); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same folder, new name
         }
+    }
+
+    /**
+     * Moves everything from $from into $to and removes $from. Protection files of the old folder
+     * are dropped (the target has its own), subfolders are merged, identical files are dropped and
+     * a different file with a name that is taken keeps both (old one renamed to "<name>-old").
+     */
+    private static function merge_dir($from, $to) {
+        foreach ((array) @scandir($from) as $entry) {
+            if ($entry === '.' || $entry === '..' || $entry === false) continue;
+            $src = $from . '/' . $entry;
+            $dst = $to . '/' . $entry;
+            if (is_file($src) && in_array($entry, ['.htaccess', 'index.php', 'index.html', 'web.config'], true)) {
+                wp_delete_file($src);
+                continue;
+            }
+            if (!file_exists($dst)) {
+                @rename($src, $dst); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- moves the plugin's own data inside uploads
+                continue;
+            }
+            if (is_dir($src) && is_dir($dst) && !is_link($src)) {
+                self::merge_dir($src, $dst);
+                continue;
+            }
+            if (is_file($src) && is_file($dst) && md5_file($src) === md5_file($dst)) {
+                wp_delete_file($src);
+                continue;
+            }
+            $ext  = pathinfo($entry, PATHINFO_EXTENSION);
+            $stem = $ext === '' ? $entry : substr($entry, 0, -strlen($ext) - 1);
+            $i = 1;
+            do {
+                $alt = $to . '/' . $stem . '-old' . ($i > 1 ? $i : '') . ($ext === '' ? '' : '.' . $ext);
+                $i++;
+            } while (file_exists($alt) && $i < 100);
+            if (!file_exists($alt)) @rename($src, $alt); // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename -- same as above
+        }
+        @rmdir($from); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- only succeeds when the old folder is empty
     }
 
     public static function ensure_cron_events() {
