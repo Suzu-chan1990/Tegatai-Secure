@@ -215,6 +215,23 @@ class Tegatai_Server {
         }
 
         $r[] = '</IfModule>';
+
+        // Security headers also for responses without PHP (page caches, static files, error pages).
+        // Apache keeps two header tables: PHP-FPM (proxy_fcgi) puts its headers into the one that
+        // "Header always" works on, mod_php into the normal one. "Header unset" clears the normal
+        // copy and "Header always set" replaces the other, so every header is sent once - also
+        // on error pages, which only get the "always" table.
+        // Browsers ignore HSTS on plain HTTP responses, so it needs no HTTPS condition here.
+        $headers = class_exists('Tegatai_Headers') ? Tegatai_Headers::enabled($ops, true) : [];
+        if ($headers) {
+            $r[] = '<IfModule mod_headers.c>';
+            $r[] = '# Tegatai: security headers';
+            foreach ($headers as $name => $value) {
+                $r[] = 'Header unset ' . $name;
+                $r[] = 'Header always set ' . $name . ' "' . str_replace('"', '\"', $value) . '"';
+            }
+            $r[] = '</IfModule>';
+        }
         return $r;
     }
 
@@ -417,6 +434,30 @@ class Tegatai_Server {
         return $status;
     }
 
+    /**
+     * Security headers for nginx (server block level), so they also reach responses without
+     * PHP: pages from a page cache, static files, error pages.
+     * fastcgi_hide_header / proxy_hide_header drop the copy PHP sends, add_header sends the
+     * header once for every response ("always" includes error pages).
+     * nginx rule: a location with its own add_header does not inherit these lines.
+     */
+    private static function nginx_header_lines($ops) {
+        if (!class_exists('Tegatai_Headers')) return [];
+        // Browsers ignore HSTS on plain HTTP responses, so it needs no HTTPS condition here.
+        $headers = Tegatai_Headers::enabled($ops, true);
+        if (!$headers) return [];
+
+        $lines = [];
+        $lines[] = "# Security headers (also for cached pages and static files).";
+        $lines[] = "# A location with its own add_header does not inherit them (nginx rule).";
+        foreach ($headers as $name => $value) {
+            $lines[] = 'fastcgi_hide_header ' . $name . '; proxy_hide_header ' . $name . ';';
+            $lines[] = 'add_header ' . $name . ' "' . str_replace('"', '\"', $value) . '" always;';
+        }
+        $lines[] = "";
+        return $lines;
+    }
+
     private static function generate_nginx_content() {
         $ops = tegatai_get_setting('tegatai_options');
         $date = current_time('mysql');
@@ -448,6 +489,8 @@ class Tegatai_Server {
         }
         $lines[] = 'location ^~ "' . $ct_path . '/tegatai-quarantine/"' . $deny;
         $lines[] = "";
+
+        $lines = array_merge($lines, self::nginx_header_lines($ops));
 
         if (!empty($ops['server_disable_indexing'])) {
             $lines[] = "# Disable indexing for admin/login cleanly without breaking PHP routing";

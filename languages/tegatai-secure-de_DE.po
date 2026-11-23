@@ -1,8 +1,10 @@
+#
 msgid ""
 msgstr ""
-"Project-Id-Version: Tegatai Secure 2.2.1\n"
-"POT-Creation-Date: 2026-11-19 10:30+0100\n"
-"PO-Revision-Date: 2026-11-19 10:30+0100\n"
+"Project-Id-Version: Tegatai Secure 2.2.6\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/tegatai-secure\n"
+"POT-Creation-Date: 2026-11-23T11:47:15+00:00\n"
+"PO-Revision-Date: 2026-11-23 12:55+0100\n"
 "Language: de_DE\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -10,2109 +12,2629 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Domain: tegatai-secure\n"
 
-#: includes/admin.php:147
-msgid "AbuseIPDB Reporting"
-msgstr "AbuseIPDB-Meldungen"
-
-#: includes/admin.php:148
-msgid "Report bans to AbuseIPDB"
-msgstr "Sperren an AbuseIPDB melden"
-
-#: includes/admin.php:148
-msgid "Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and the login traps (also bans received through The Hive) to AbuseIPDB in the background."
-msgstr "Meldet IPs, die durch die Honeypot-URL, die 404-Sofortsperre, den 404-Scan und die Login-Fallen gesperrt wurden (auch über The Hive erhaltene Sperren), im Hintergrund an AbuseIPDB."
-
-#: includes/admin.php:150
-msgid "API key:"
-msgstr "API-Schlüssel:"
-
-#: includes/admin.php:151
-msgid "found (TEGATAI_ABUSEIPDB_KEY)"
-msgstr "gefunden (TEGATAI_ABUSEIPDB_KEY)"
-
-#: includes/admin.php:152
-msgid "missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → Secrets). Nothing is sent without a key."
-msgstr "fehlt – trage TEGATAI_ABUSEIPDB_KEY in die Schlüsseldatei ein (Management → Secrets). Ohne Schlüssel wird nichts gesendet."
-
-#: includes/admin.php:153
-msgid "Sent today:"
-msgstr "Heute gesendet:"
-
-#: includes/admin.php:154
-msgid "Total:"
-msgstr "Gesamt:"
-
-#: includes/admin.php:155
-msgid "Waiting:"
-msgstr "Wartend:"
-
-#: includes/admin.php:156
-msgid "Last report:"
-msgstr "Letzte Meldung:"
-
-#: includes/admin.php:157
-msgid "Paused until:"
-msgstr "Pausiert bis:"
-
-#: includes/admin.php:158
-msgid "Last error:"
-msgstr "Letzter Fehler:"
-
-#: includes/admin.php:160
-msgid "Reports contain only the IP, the category and the type of the ban - no URLs, usernames or other request data. Private and reserved IPs are never reported."
-msgstr "Meldungen enthalten nur die IP, die Kategorie und die Art der Sperre – keine URLs, Benutzernamen oder anderen Anfragedaten. Private und reservierte IPs werden nie gemeldet."
-
-#: includes/admin.php:168
-msgid "Names saved, rules written and new paths checked."
-msgstr "Namen gespeichert, Regeln geschrieben und neue Pfade geprüft."
-
-#: includes/admin.php:169
-msgid "New paths checked."
-msgstr "Neue Pfade geprüft."
-
-#: includes/admin.php:250
-msgid "Masked"
-msgstr "Maskiert"
-
-#: includes/admin.php:184
-msgid "No files to hide"
-msgstr "Keine Dateien zu verstecken"
-
-#: includes/admin.php:185
-msgid "Not reachable"
-msgstr "Nicht erreichbar"
-
-#: includes/admin.php:186
-msgid "Waiting for check"
-msgstr "Wartet auf Prüfung"
-
-#: includes/admin.php:570
-msgid "WP Masking"
-msgstr "WP Masking"
-
-#: includes/admin.php:191
-msgid "Hides the WordPress structure in the pages visitors receive. nginx maps the new paths back to the real files; the rules are part of tegatai-nginx.conf."
-msgstr "Versteckt die WordPress-Struktur in den Seiten, die Besucher erhalten. nginx leitet die neuen Pfade auf die echten Dateien zurück; die Regeln sind Teil von tegatai-nginx.conf."
-
-#: includes/admin.php:195
-msgid "Hide plugin and theme paths"
-msgstr "Plugin- und Theme-Pfade verstecken"
-
-#: includes/admin.php:195
-msgid "Plugin and theme folders are shown under their own names, e.g. /assets/bar/ instead of the plugin folder."
-msgstr "Plugin- und Theme-Ordner erscheinen unter eigenen Namen, z. B. /assets/bar/ statt des Plugin-Ordners."
-
-#: includes/admin.php:196
-msgid "Hide wp-includes, wp-json and admin-ajax"
-msgstr "wp-includes, wp-json und admin-ajax verstecken"
-
-#: includes/admin.php:196
-msgid "wp-includes, the REST API and admin-ajax.php get their own paths. /wp-json/ keeps working for The Hive and other sites."
-msgstr "wp-includes, die REST-API und admin-ajax.php bekommen eigene Pfade. /wp-json/ funktioniert weiter für The Hive und andere Seiten."
-
-#: includes/admin.php:197
-msgid "Remove versions and identifiers"
-msgstr "Versionen und Kennungen entfernen"
-
-#: includes/admin.php:197
-msgid "Removes ?ver= parameters, script/style ids, generator tags, RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation rules (they list the WordPress paths) and the X-Pingback header."
-msgstr "Entfernt ?ver=-Parameter, Script-/Style-IDs, Generator-Tags, RSD-/wlwmanifest-/Shortlink-/REST-Links, das Emoji-Skript, die Speculation Rules (sie enthalten die WordPress-Pfade) und den X-Pingback-Header."
-
-#: includes/admin.php:198
-msgid "Hide file names"
-msgstr "Dateinamen verstecken"
-
-#: includes/admin.php:198
-msgid "File names of masked plugin, theme and wp-includes files are replaced by a neutral name per file, e.g. /assets/bar/css/t3f9a0c1d2e4. The folders stay, so relative URLs in CSS and JS keep working. A changed file gets a new name."
-msgstr "Dateinamen maskierter Plugin-, Theme- und wp-includes-Dateien werden durch einen neutralen Namen pro Datei ersetzt, z. B. /assets/bar/css/t3f9a0c1d2e4. Die Ordner bleiben, damit relative URLs in CSS und JS weiter funktionieren. Eine geänderte Datei bekommt einen neuen Namen."
-
-#: includes/admin.php:203
-msgid "File names: %1$d active, %2$d waiting."
-msgstr "Dateinamen: %1$d aktiv, %2$d wartend."
-
-#: includes/admin.php:204
-msgid "New files are found when pages are visited. Tegatai adds them to the rules and checks them every hour; they are used as soon as nginx was reloaded. \"Check new paths\" does both right away."
-msgstr "Neue Dateien werden beim Aufruf von Seiten gefunden. Tegatai nimmt sie in die Regeln auf und prüft sie stündlich; sie werden verwendet, sobald nginx neu geladen wurde. „Neue Pfade prüfen“ macht beides sofort."
-
-#: includes/admin.php:207
-msgid "Block original paths"
-msgstr "Originalpfade sperren"
-
-#: includes/admin.php:207
-msgid "Visitors get a 404 for the original paths of masked entries. Logged-in users keep access. /wp-json/tegatai/ (The Hive) stays reachable."
-msgstr "Besucher erhalten für die Originalpfade maskierter Einträge einen 404. Angemeldete Benutzer behalten den Zugriff. /wp-json/tegatai/ (The Hive) bleibt erreichbar."
-
-#: includes/admin.php:210
-msgid "How it is activated"
-msgstr "So wird es aktiviert"
-
-#: includes/admin.php:211
-msgid "1. Switch on and save the names. 2. Reload nginx so the new rules are active. 3. Click \"Check new paths\". Only paths that answered correctly are used in the pages and blocked, so a missing reload never breaks the site."
-msgstr "1. Einschalten und die Namen speichern. 2. nginx neu laden, damit die neuen Regeln aktiv sind. 3. „Neue Pfade prüfen“ klicken. Nur Pfade, die korrekt geantwortet haben, werden in den Seiten verwendet und gesperrt – ein vergessenes Neuladen legt die Seite also nie lahm."
-
-#: includes/admin.php:216
-msgid "Last check: %s"
-msgstr "Letzte Prüfung: %s"
-
-#: includes/admin.php:218
-msgid "Check new paths"
-msgstr "Neue Pfade prüfen"
-
-#: includes/admin.php:223
-msgid "Names"
-msgstr "Namen"
-
-#: includes/admin.php:225
-msgid "Lowercase letters, digits and hyphens. Names starting with \"wp-\" are not allowed. Empty fields get an automatic short name."
-msgstr "Kleinbuchstaben, Ziffern und Bindestriche. Namen, die mit „wp-“ beginnen, sind nicht erlaubt. Leere Felder bekommen automatisch einen Kurznamen."
-
-#: includes/admin.php:233
-msgid "Folder for plugins and themes"
-msgstr "Ordner für Plugins und Themes"
-
-#: includes/admin.php:233
-msgid "Plugins and themes are shown under %s"
-msgstr "Plugins und Themes erscheinen unter %s"
-
-#: includes/admin.php:235
-msgid "Folder"
-msgstr "Ordner"
-
-#: includes/admin.php:235
-msgid "Name"
-msgstr "Name"
-
-#: includes/admin.php:235
-msgid "Status"
-msgstr "Status"
-
-#: includes/admin.php:242
-msgid "in use: %s"
-msgstr "in Verwendung: %s"
-
-#: includes/admin.php:972
-msgid "Off"
-msgstr "Aus"
-
-#: includes/admin.php:248
-msgid "WordPress core"
-msgstr "WordPress-Core"
-
-#: includes/admin.php:1748
-msgid "Save"
-msgstr "Speichern"
-
-#: includes/admin.php:286
-msgid "The secrets file was created."
-msgstr "Die Schlüsseldatei wurde angelegt."
-
-#: includes/admin.php:287
-msgid "The secrets file already exists and was not changed."
-msgstr "Die Schlüsseldatei existiert bereits und wurde nicht verändert."
-
-#: includes/admin.php:288
-msgid "The secrets file could not be created. The PHP user may not write to this directory; create the file manually with the template below."
-msgstr "Die Schlüsseldatei konnte nicht angelegt werden. Der PHP-Benutzer darf in diesem Verzeichnis nicht schreiben; lege die Datei mit der Vorlage unten selbst an."
-
-#: includes/admin.php:291
-msgid "Secrets file"
-msgstr "Schlüsseldatei"
-
-#: includes/admin.php:293
-msgid "Database"
-msgstr "Datenbank"
-
-#: includes/admin.php:294
-msgid "Not set"
-msgstr "Nicht gesetzt"
-
-#: includes/admin.php:298
-msgid "Secrets File"
-msgstr "Schlüsseldatei"
-
-#: includes/admin.php:299
-msgid "Keeps the Tegatai secrets in their own PHP file outside the web root instead of wp-config.php."
-msgstr "Speichert die Tegatai-Schlüssel in einer eigenen PHP-Datei außerhalb des Webverzeichnisses statt in der wp-config.php."
-
-#: includes/admin.php:300
-msgid "No line in wp-config.php is needed: Tegatai loads the file itself. Only if the file is in another location, add the path to wp-config.php (see below)."
-msgstr "Keine Zeile in der wp-config.php nötig: Tegatai lädt die Datei selbst. Nur wenn die Datei an einem anderen Ort liegt, trägst du den Pfad in die wp-config.php ein (siehe unten)."
-
-#: includes/admin.php:305
-msgid "Path:"
-msgstr "Pfad:"
-
-#: includes/admin.php:309
-msgid "found (permissions %s)"
-msgstr "gefunden (Rechte %s)"
-
-#: includes/admin.php:310
-msgid "Recommended: 0600"
-msgstr "Empfohlen: 0600"
-
-#: includes/admin.php:312
-msgid "not found"
-msgstr "nicht gefunden"
-
-#: includes/admin.php:316
-msgid "Secret"
-msgstr "Schlüssel"
-
-#: includes/admin.php:316
-msgid "Loaded from"
-msgstr "Geladen aus"
-
-#: includes/admin.php:316
-msgid "Note"
-msgstr "Hinweis"
-
-#: includes/admin.php:319
-msgid "Also in the secrets file: remove the define() line from wp-config.php."
-msgstr "Auch in der Schlüsseldatei: entferne die define()-Zeile aus der wp-config.php."
-
-#: includes/admin.php:320
-msgid "Still in wp-config.php."
-msgstr "Noch in der wp-config.php."
-
-#: includes/admin.php:328
-msgid "Signs the messages between your Hive sites (HMAC). Must be the same on every Hive site, unless you use per-peer secrets (URL | secret)."
-msgstr "Signiert die Nachrichten zwischen deinen Hive-Seiten (HMAC). Muss auf allen Hive-Seiten gleich sein, außer du nutzt Schlüssel pro Gegenstelle (URL | Schlüssel)."
-
-#: includes/admin.php:332
-msgid "Signs the requests of your API clients for the API Guard. Clients must use the same value."
-msgstr "Signiert die Anfragen deiner API-Clients für den API Guard. Die Clients müssen denselben Wert verwenden."
-
-#: includes/admin.php:336
-msgid "Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display of secrets stored in the database. Only the hash goes into the file, never the PIN itself."
-msgstr "Optional. Ein bcrypt-Hash einer selbst gewählten PIN; die PIN schaltet die Anzeige von Schlüsseln frei, die in der Datenbank gespeichert sind. In die Datei kommt nur der Hash, nie die PIN selbst."
-
-#: includes/admin.php:340
-msgid "Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). Create it in your AbuseIPDB account under API; it is not generated locally."
-msgstr "Optional. API-Schlüssel, um gesperrte IPs an AbuseIPDB zu melden (Tab Firewall). Du erstellst ihn in deinem AbuseIPDB-Konto unter API; er wird nicht lokal erzeugt."
-
-#: includes/admin.php:344
-msgid "Optional. Key for encrypting backups. Without it Tegatai uses a key stored in the database. Never change it once backups exist, otherwise they can no longer be decrypted."
-msgstr "Optional. Schlüssel zum Verschlüsseln der Backups. Ohne ihn nutzt Tegatai einen in der Datenbank gespeicherten Schlüssel. Ändere ihn nie, sobald Backups existieren, sonst lassen sie sich nicht mehr entschlüsseln."
-
-#: includes/admin.php:348
-msgid "How to create the keys"
-msgstr "So erstellst du die Schlüssel"
-
-#: includes/admin.php:349
-msgid "Run the command in a terminal (e.g. via SSH on the server) and copy the output into the file."
-msgstr "Führe den Befehl in einem Terminal aus (z. B. per SSH auf dem Server) und kopiere die Ausgabe in die Datei."
-
-#: includes/admin.php:360
-msgid "Create secrets file"
-msgstr "Schlüsseldatei anlegen"
-
-#: includes/admin.php:361
-msgid "Copies the secrets currently defined in wp-config.php into the file. Afterwards remove the TEGATAI_ define() lines from wp-config.php."
-msgstr "Kopiert die aktuell in der wp-config.php definierten Schlüssel in die Datei. Entferne danach die TEGATAI_-define()-Zeilen aus der wp-config.php."
-
-#: includes/admin.php:365
-msgid "Template"
-msgstr "Vorlage"
-
-#: includes/admin.php:367
-msgid "Another location can be set in wp-config.php with the path only:"
-msgstr "Ein anderer Ort lässt sich in der wp-config.php setzen, nur mit dem Pfad:"
-
-#: includes/admin.php:373
-msgid "Notifications"
-msgstr "Benachrichtigungen"
-
-#: includes/admin.php:373
-msgid "Enable Email Alerts"
-msgstr "E-Mail-Warnungen aktivieren"
-
-#: includes/admin.php:373
-msgid "Receive notifications for critical security events."
-msgstr "Erhalte Benachrichtigungen bei kritischen Sicherheitsereignissen."
-
-#: includes/admin.php:374
-msgid "Recipient Email"
-msgstr "Empfänger E-Mail"
-
-#: includes/admin.php:376
-msgid "Webhook URL"
-msgstr "Webhook-URL"
-
-#: includes/admin.php:384
-msgid "2FA"
-msgstr "2FA"
-
-#: includes/admin.php:384
-msgid "Enable 2FA"
-msgstr "2FA aktivieren"
-
-#: includes/admin.php:384
-msgid "Enforces Two-Factor Authentication for administrators."
-msgstr "Erzwingt die Zwei-Faktor-Authentifizierung für Administratoren."
-
-#: includes/admin.php:386
-msgid "Preferred Method"
-msgstr "Bevorzugte Methode"
-
-#: includes/admin.php:388
-msgid "Email Code Only"
-msgstr "Nur E-Mail Code"
-
-#: includes/admin.php:389
-msgid "App Only"
-msgstr "Nur App"
-
-#: includes/admin.php:390
-msgid "Both"
-msgstr "Beides"
-
-#: includes/admin.php:407
-msgid "The rules file has not been written by this version yet. Click \"Write rules to config\"."
-msgstr "Die Regeldatei wurde von dieser Version noch nicht geschrieben. Klicke auf „Write rules to config“."
-
-#: includes/admin.php:410
-msgid "Rules written to %1$s (%2$s)."
-msgstr "Regeln geschrieben nach %1$s (%2$s)."
-
-#: includes/admin.php:411
-msgid "Include line for your nginx server block:"
-msgstr "Include-Zeile für deinen nginx-Serverblock:"
-
-#: includes/admin.php:414
-msgid "The rules file %s was written but no longer exists. Click \"Write rules to config\"."
-msgstr "Die Regeldatei %s wurde geschrieben, existiert aber nicht mehr. Klicke auf „Write rules to config“."
-
-#: includes/admin.php:417
-msgid "The rules file could not be written: %s"
-msgstr "Die Regeldatei konnte nicht geschrieben werden: %s"
-
-#: includes/admin.php:424
-msgid "The nginx rules file has moved. Older versions wrote it to the following location(s), which are no longer updated:"
-msgstr "Die nginx-Regeldatei ist umgezogen. Ältere Versionen haben sie an folgende Stelle(n) geschrieben, die nicht mehr aktualisiert werden:"
-
-#: includes/admin.php:426
-msgid "Change the include line in your nginx server block to the new file, reload nginx and then delete the old file(s):"
-msgstr "Ändere die include-Zeile im nginx-Serverblock auf die neue Datei, lade nginx neu und lösche danach die alte(n) Datei(en):"
-
-#: includes/admin.php:814
+#. Plugin Name of the plugin
+#: tegatai-secure.php
+msgid "Tegatai Secure"
+msgstr "Tegatai Secure"
+
+#. Plugin URI of the plugin
+#: tegatai-secure.php
+msgid "https://github.com/Suzu-chan1990/Tegatai-Secure"
+msgstr "https://github.com/Suzu-chan1990/Tegatai-Secure"
+
+#. Description of the plugin
+#: tegatai-secure.php
+msgid ""
+"Firewall, login protection with 2FA, anti-spam, scanners, server rules, "
+"encrypted database backups and IP ban sharing between your own sites."
+msgstr ""
+"Firewall, Login-Schutz mit 2FA, Anti-Spam, Scanner, Server-Regeln, "
+"verschlüsselte Datenbank-Backups und Austausch von IP-Sperren zwischen "
+"deinen eigenen Seiten."
+
+#. Author of the plugin
+#: tegatai-secure.php
+msgid "Saguya"
+msgstr "Saguya"
+
+#: includes/admin.php:113 includes/admin.php:511
 msgid "Saved successfully"
 msgstr "Erfolgreich gespeichert"
 
-#: includes/admin.php:488
-msgid "No data provided."
-msgstr "Keine Daten."
-
-#: includes/admin.php:819
+#: includes/admin.php:114 includes/admin.php:530
 msgid "Data saved!"
 msgstr "Daten gespeichert!"
 
-#: includes/admin.php:553
-msgid "Protection & Firewall"
-msgstr "Schutz & Firewall"
-
-#: includes/admin.php:555
-msgid "WAF, Login Guard, Anti-Spam, GeoIP Block"
-msgstr "WAF, Login-Schutz, Anti-Spam, GeoIP-Sperre"
-
-#: includes/admin.php:850
-msgid "WAF Firewall"
-msgstr "WAF Firewall"
-
-#: includes/admin.php:1144
-msgid "Login Protection"
-msgstr "Login Schutz"
-
-#: includes/admin.php:559
-msgid "Anti-Spam"
-msgstr "Anti-Spam"
-
-#: includes/admin.php:560
-msgid "GeoIP Block"
-msgstr "GeoIP-Sperre"
-
-#: includes/admin.php:564
-msgid "Server & System"
-msgstr "Server & System"
-
-#: includes/admin.php:566
-msgid "Server Rules, HTTP Headers, WP Masking, System Hardening"
-msgstr "Server-Regeln, HTTP-Header, WP Masking, System-Härtung"
-
-#: includes/admin.php:1139
-msgid "Server Rules"
-msgstr "Server Regeln"
-
-#: includes/admin.php:569
-msgid "HTTP Headers"
-msgstr "HTTP-Header"
-
-#: includes/admin.php:571
-msgid "Hardening"
-msgstr "Härtung"
-
-#: includes/admin.php:575
-msgid "Scanner & Checks"
-msgstr "Scanner & Prüfungen"
-
-#: includes/admin.php:577
-msgid "Malware, WP Core, FIM, Database, Uploads"
-msgstr "Malware, WP-Core, FIM, Datenbank, Uploads"
-
-#: includes/admin.php:579
-msgid "Main Scanner"
-msgstr "Hauptscanner"
-
-#: includes/admin.php:580
-msgid "Malware"
-msgstr "Malware"
-
-#: includes/admin.php:581
-msgid "Core"
-msgstr "Core"
-
-#: includes/admin.php:582
-msgid "FIM"
-msgstr "FIM"
-
-#: includes/admin.php:583
-msgid "DB XSS"
-msgstr "DB XSS"
-
-#: includes/admin.php:584
-msgid "Options"
-msgstr "Optionen"
-
-#: includes/admin.php:585
-msgid "Cron"
-msgstr "Cron"
-
-#: includes/admin.php:586
-msgid "Uploads"
-msgstr "Uploads"
-
-#: includes/admin.php:587
-msgid "Perms"
-msgstr "Rechte"
-
-#: includes/admin.php:591
-msgid "Management"
-msgstr "Verwaltung"
-
-#: includes/admin.php:593
-msgid "IP Prison, Sessions, Backups, Extras & API"
-msgstr "IP Prison, Sitzungen, Backups, Extras & API"
-
-#: includes/admin.php:1040
-msgid "IP Prison"
-msgstr "IP Prison"
-
-#: includes/admin.php:596
-msgid "Sessions"
-msgstr "Sitzungen"
-
-#: includes/admin.php:899
-msgid "Backups"
-msgstr "Backups"
-
-#: includes/admin.php:1320
-msgid "Extras & API"
-msgstr "Extras & API"
-
-#: includes/admin.php:599
-msgid "Secrets"
-msgstr "Schlüssel"
-
-#: includes/admin.php:603
-msgid "Logs & Events"
-msgstr "Logs & Ereignisse"
-
-#: includes/admin.php:605
-msgid "Live Traffic, Block Events, Security Timeline"
-msgstr "Live-Traffic, Sperr-Ereignisse, Sicherheits-Timeline"
-
-#: includes/admin.php:607
-msgid "Live Traffic"
-msgstr "Live-Traffic"
-
-#: includes/admin.php:608
-msgid "Timeline"
-msgstr "Timeline"
-
-#: includes/twofa.php:595
+#: includes/admin.php:115 includes/twofa.php:505 includes/twofa.php:549
 msgid "Error"
 msgstr "Fehler"
 
-#: includes/admin.php:850
-msgid "Login Guard"
-msgstr "Login-Schutz"
-
-#: includes/admin.php:851
-msgid "Two-Factor Auth"
-msgstr "Zwei-Faktor-Authentifizierung"
-
-#: includes/admin.php:1137
-msgid "Upload Guard"
-msgstr "Upload-Schutz"
-
-#: includes/admin.php:852
-msgid "Honeypot"
-msgstr "Honeypot"
-
-#: includes/admin.php:852
-msgid "Rate Limiting"
-msgstr "Rate Limiting"
-
-#: includes/admin.php:853
-msgid "Auto Quarantine"
-msgstr "Automatische Quarantäne"
-
-#: includes/admin.php:1145
-msgid "Trusted Devices"
-msgstr "Vertrauenswürdige Geräte"
-
-#: includes/admin.php:863
-msgid "PROTECTED"
-msgstr "GESCHÜTZT"
-
-#: includes/admin.php:863
-msgid "ATTENTION"
-msgstr "ACHTUNG"
-
-#: includes/admin.php:863
-msgid "CRITICAL"
-msgstr "KRITISCH"
-
-#: includes/admin.php:864
-msgid "Core protections are active and no critical dashboard condition was detected."
-msgstr "Die zentralen Schutzfunktionen sind aktiv, es wurde kein kritischer Zustand erkannt."
-
-#: includes/admin.php:864
-msgid "Some protections are disabled or recent security activity needs review."
-msgstr "Einige Schutzfunktionen sind ausgeschaltet oder aktuelle Sicherheitsereignisse sollten geprüft werden."
-
-#: includes/admin.php:864
-msgid "Important protections are missing. Review the security modules below."
-msgstr "Wichtige Schutzfunktionen fehlen. Prüfe die Sicherheitsmodule unten."
-
-#: includes/admin.php:872
-msgid "Enable WAF Firewall"
-msgstr "WAF Firewall aktivieren"
-
-#: includes/admin.php:872
-msgid "Recommended as the primary request-level protection against common malicious traffic."
-msgstr "Empfohlen als wichtigster Schutz auf Anfrage-Ebene gegen gängigen schädlichen Traffic."
-
-#: includes/admin.php:872
-msgid "Review WAF"
-msgstr "WAF prüfen"
-
-#: includes/admin.php:875
-msgid "Enable Two-Factor Authentication"
-msgstr "Zwei-Faktor-Authentifizierung aktivieren"
-
-#: includes/admin.php:875
-msgid "Strongly recommended for administrator accounts to reduce the impact of stolen passwords."
-msgstr "Für Administrator-Konten dringend empfohlen, damit gestohlene Passwörter weniger Schaden anrichten."
-
-#: includes/admin.php:875
-msgid "Review 2FA"
-msgstr "2FA prüfen"
-
-#: includes/admin.php:878
-msgid "Enable Login Guard"
-msgstr "Login-Schutz aktivieren"
-
-#: includes/admin.php:878
-msgid "Helps slow down repeated login attempts and brute-force attacks."
-msgstr "Bremst wiederholte Login-Versuche und Brute-Force-Angriffe aus."
-
-#: includes/admin.php:878
-msgid "Review Login Guard"
-msgstr "Login-Schutz prüfen"
-
-#: includes/admin.php:881
-msgid "Review Upload Guard"
-msgstr "Upload-Schutz prüfen"
-
-#: includes/admin.php:881
-msgid "Especially useful when the website accepts user-uploaded files."
-msgstr "Besonders sinnvoll, wenn die Website Uploads von Benutzern annimmt."
-
-#: includes/admin.php:884
-msgid "Review Rate Limiting"
-msgstr "Rate Limiting prüfen"
-
-#: includes/admin.php:884
-msgid "Useful for limiting abusive request bursts without blocking normal visitors."
-msgstr "Begrenzt missbräuchliche Anfrage-Schübe, ohne normale Besucher zu blockieren."
-
-#: includes/admin.php:884
-msgid "Review limits"
-msgstr "Limits prüfen"
-
-#: includes/admin.php:887
-msgid "Enable protected server files"
-msgstr "Geschützte Server-Dateien aktivieren"
-
-#: includes/admin.php:887
-msgid "Adds an extra server-level barrier around sensitive files and paths."
-msgstr "Fügt eine zusätzliche Sperre auf Server-Ebene um sensible Dateien und Pfade hinzu."
-
-#: includes/admin.php:887
-msgid "Review Server Rules"
-msgstr "Server-Regeln prüfen"
-
-#: includes/admin.php:890
-msgid "Review automated backups"
-msgstr "Automatische Backups prüfen"
-
-#: includes/admin.php:890
-msgid "A recent recoverable backup is an important part of a complete security strategy."
-msgstr "Ein aktuelles, wiederherstellbares Backup ist ein wichtiger Teil einer vollständigen Sicherheitsstrategie."
-
-#: includes/admin.php:890
-msgid "Review Backups"
-msgstr "Backups prüfen"
-
-#: includes/admin.php:893
-msgid "Automatic Quarantine is disabled"
-msgstr "Automatische Quarantäne ist ausgeschaltet"
-
-#: includes/admin.php:893
-msgid "Optional: enable it if you want high-confidence detections to be isolated automatically."
-msgstr "Optional: einschalten, wenn eindeutige Funde automatisch isoliert werden sollen."
-
-#: includes/admin.php:893
-msgid "Configure"
-msgstr "Einrichten"
-
-#: includes/admin.php:964
-msgid "Core protection modules"
-msgstr "Zentrale Schutzmodule"
-
-#: includes/admin.php:898
-msgid "Server hardening"
-msgstr "Server-Härtung"
-
-#: includes/admin.php:900
-msgid "Recent activity"
-msgstr "Letzte Aktivität"
-
-#: includes/admin.php:906
-msgid "Security Status"
-msgstr "Sicherheitsstatus"
-
-#: includes/admin.php:909
-msgid "score"
-msgstr "Punkte"
-
-#: includes/admin.php:917
-msgid "Protection active"
-msgstr "Schutz aktiv"
-
-#: includes/admin.php:918
-msgid "%1$d / %2$d modules"
-msgstr "%1$d / %2$d Module"
-
-#: includes/admin.php:922
-msgid "Recommended actions"
-msgstr "Empfohlene Maßnahmen"
-
-#: includes/admin.php:923
-msgid "No action required"
-msgstr "Keine Maßnahme nötig"
-
-#: includes/admin.php:926
-msgid "Tegatai has not detected a configuration issue requiring attention."
-msgstr "Tegatai hat kein Konfigurationsproblem gefunden, das Aufmerksamkeit braucht."
-
-#: includes/admin.php:933
-msgid "Important"
-msgstr "Wichtig"
-
-#: includes/admin.php:933
-msgid "Optional"
-msgstr "Optional"
-
-#: includes/admin.php:933
-msgid "Recommended"
-msgstr "Empfohlen"
-
-#: includes/admin.php:942
-msgid "Why this score?"
-msgstr "Wie entsteht dieser Wert?"
-
-#: includes/admin.php:952
-msgid "While you were away"
-msgstr "Während du weg warst"
-
-#: includes/admin.php:952
-msgid "Recent security activity from the Tegatai event log."
-msgstr "Aktuelle Sicherheitsereignisse aus dem Tegatai-Ereignisprotokoll."
-
-#: includes/admin.php:952
-msgid "View all"
-msgstr "Alle anzeigen"
-
-#: includes/admin.php:954
-msgid "No recent security events."
-msgstr "Keine aktuellen Sicherheitsereignisse."
-
-#: includes/admin.php:955
-msgid "Security event"
-msgstr "Sicherheitsereignis"
-
-#: includes/admin.php:961
-msgid "Blocked total"
-msgstr "Sperren gesamt"
-
-#: includes/admin.php:961
-msgid "All recorded blocks"
-msgstr "Alle erfassten Sperren"
-
-#: includes/admin.php:962
-msgid "Blocks / 24h"
-msgstr "Sperren / 24 h"
-
-#: includes/admin.php:962
-msgid "Firewall and WAF activity"
-msgstr "Firewall- und WAF-Aktivität"
-
-#: includes/admin.php:963
-msgid "Failed logins / 24h"
-msgstr "Fehlgeschlagene Logins / 24 h"
-
-#: includes/admin.php:963
-msgid "Authentication failures"
-msgstr "Fehlgeschlagene Anmeldungen"
-
-#: includes/admin.php:964
-msgid "Modules active"
-msgstr "Aktive Module"
-
-#: includes/admin.php:969
-msgid "Protection cockpit"
-msgstr "Schutz-Cockpit"
-
-#: includes/admin.php:970
-msgid "The protections that matter most on every request."
-msgstr "Die Schutzfunktionen, die bei jeder Anfrage am meisten zählen."
-
-#: includes/admin.php:972
-msgid "Active"
-msgstr "Aktiv"
-
-#: includes/admin.php:976
-msgid "Top sources / 24h"
-msgstr "Top-Quellen / 24 h"
-
-#: includes/admin.php:977
-msgid "IPs generating the most security events."
-msgstr "IPs mit den meisten Sicherheitsereignissen."
-
-#: includes/admin.php:978
-msgid "No data yet."
-msgstr "Noch keine Daten."
-
-#: includes/hive.php:739
-msgid "Dashboard"
-msgstr "Dashboard"
-
-#: includes/admin.php:1042
-msgid "IP released. Bans from The Hive stay active on the other sites."
-msgstr "IP freigegeben. Sperren aus The Hive bleiben auf den anderen Seiten aktiv."
-
-#: includes/admin.php:1045
-msgid "No active bans."
-msgstr "Keine aktiven Sperren."
-
-#: includes/admin.php:1049
-msgid "Reason"
-msgstr "Grund"
-
-#: includes/admin.php:1049
-msgid "Source"
-msgstr "Quelle"
-
-#: includes/admin.php:1049
-msgid "Level"
-msgstr "Stufe"
-
-#: includes/admin.php:1049
-msgid "Until"
-msgstr "Bis"
-
-#: includes/admin.php:1828
-msgid "Action"
-msgstr "Aktion"
-
-#: includes/admin.php:1053
-msgid "This site"
-msgstr "Diese Seite"
-
-#: includes/admin.php:1064
-msgid "Release"
-msgstr "Freigeben"
-
-#: includes/admin.php:1069
-msgid "Showing the newest %1$d of %2$d bans."
-msgstr "Es werden die neuesten %1$d von %2$d Sperren angezeigt."
-
-#: includes/admin.php:1079
-msgid "Country Database"
-msgstr "Länderdatenbank"
-
-#: includes/admin.php:1080
-msgid "Countries are looked up locally in the free \"IP to Country Lite\" database by DB-IP (CC BY 4.0). Visitor IPs never leave the server. The database is only downloaded while the GeoIP block is on, and renewed monthly."
-msgstr "Länder werden lokal in der kostenlosen Datenbank „IP to Country Lite“ von DB-IP (CC BY 4.0) nachgeschlagen. Besucher-IPs verlassen nie den Server. Die Datenbank wird nur heruntergeladen, solange die GeoIP-Sperre aktiv ist, und monatlich erneuert."
-
-#: includes/admin.php:1082
-msgid "Database downloaded."
-msgstr "Datenbank heruntergeladen."
-
-#: includes/admin.php:1084
-msgid "Download failed:"
-msgstr "Download fehlgeschlagen:"
-
-#: includes/admin.php:1088
-msgid "Edition"
-msgstr "Ausgabe"
-
-#: includes/admin.php:1089
-msgid "Downloaded"
-msgstr "Heruntergeladen"
-
-#: includes/admin.php:1254
-msgid "Size"
-msgstr "Größe"
-
-#: includes/admin.php:1094
-msgid "No database yet. Until it is downloaded, no country is blocked."
-msgstr "Noch keine Datenbank. Bis sie heruntergeladen ist, wird kein Land gesperrt."
-
-#: includes/admin.php:1097
-msgid "Last download failed:"
-msgstr "Letzter Download fehlgeschlagen:"
-
-#: includes/admin.php:1102
-msgid "Update now"
-msgstr "Jetzt aktualisieren"
-
-#: includes/admin.php:1102
-msgid "Download database"
-msgstr "Datenbank herunterladen"
-
-#: includes/admin.php:1111
-msgid "Google reCAPTCHA"
-msgstr "Google reCAPTCHA"
-
-#: includes/admin.php:1112
-msgid "Enable reCAPTCHA"
-msgstr "reCAPTCHA aktivieren"
-
-#: includes/admin.php:1112
-msgid "Google CAPTCHA for login and comments. Switching it on switches Cloudflare Turnstile off."
-msgstr "Google-CAPTCHA für Login und Kommentare. Beim Einschalten wird Cloudflare Turnstile ausgeschaltet."
-
-#: includes/admin.php:1113
-msgid "Only one captcha can be active: reCAPTCHA or Turnstile."
-msgstr "Es kann nur ein Captcha aktiv sein: reCAPTCHA oder Turnstile."
-
-#: includes/admin.php:1635
-msgid "Type"
-msgstr "Typ"
-
-#: includes/admin.php:1116
-msgid "v2 – \"I'm not a robot\" checkbox"
-msgstr "v2 – Checkbox „Ich bin kein Roboter“"
-
-#: includes/admin.php:1117
-msgid "v3 – invisible, score based"
-msgstr "v3 – unsichtbar, mit Score"
-
-#: includes/admin.php:1146
-msgid "Site Key"
-msgstr "Site Key"
-
-#: includes/admin.php:1146
-msgid "Secret Key"
-msgstr "Secret Key"
-
-#: includes/admin.php:1120
-msgid "Minimum score (v3 only)"
-msgstr "Mindest-Score (nur v3)"
-
-#: includes/admin.php:1121
-msgid "0.1 lets almost everyone through, 0.9 is very strict. Google recommends 0.5. The key type (v2 or v3) must match the type selected above."
-msgstr "0.1 lässt fast alle durch, 0.9 ist sehr streng. Google empfiehlt 0.5. Der Schlüsseltyp (v2 oder v3) muss zum oben gewählten Typ passen."
-
-#: includes/admin.php:1137
-msgid "WAF Settings"
-msgstr "WAF Einstellungen"
-
-#: includes/admin.php:1137
-msgid "Enable WAF"
-msgstr "WAF aktivieren"
-
-#: includes/admin.php:1137
-msgid "Activates the Web Application Firewall to block malicious requests."
-msgstr "Aktiviert die Web Application Firewall, um bösartige Anfragen zu blockieren."
-
-#: includes/admin.php:1137
-msgid "Block Bad Bots"
-msgstr "Bad Bots blockieren"
-
-#: includes/admin.php:1137
-msgid "Blocks known malicious bots, scrapers, and automated attack tools."
-msgstr "Blockiert bekannte bösartige Bots, Scraper und automatisierte Angriffstools."
-
-#: includes/admin.php:1137
-msgid "Rate Limit"
-msgstr "Rate Limit"
-
-#: includes/admin.php:1137
-msgid "Prevents brute-force attacks by limiting requests per minute."
-msgstr "Verhindert Brute-Force-Angriffe durch Begrenzung der Anfragen pro Minute."
-
-#: includes/admin.php:1137
-msgid "404 Trap"
-msgstr "404 Falle"
-
-#: includes/admin.php:1137
-msgid "Bans IPs that generate too many 404 Not Found errors."
-msgstr "Sperrt IPs, die zu viele 404-Fehler verursachen."
-
-#: includes/admin.php:1137
-msgid "Blocks uploads of executable or disguised script files."
-msgstr "Blockiert Uploads ausführbarer oder getarnter Skriptdateien."
-
-#: includes/admin.php:1137
-msgid "Block AI Bots"
-msgstr "KI-Bots blockieren"
-
-#: includes/admin.php:1137
-msgid "Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content."
-msgstr "Hindert OpenAI, ChatGPT und andere KI-Scraper daran, deine Inhalte zu crawlen."
-
-#: includes/admin.php:1137
-msgid "Block SEO Bots"
-msgstr "SEO-Bots blockieren"
-
-#: includes/admin.php:1137
-msgid "Blocks aggressive SEO crawlers like Ahrefs or Semrush."
-msgstr "Blockiert aggressive SEO-Crawler wie Ahrefs oder Semrush."
-
-#: includes/admin.php:1137
-msgid "WAF Whitelist"
-msgstr "WAF Whitelist"
-
-#: includes/admin.php:1137
-msgid "Allowed URLs"
-msgstr "Erlaubte URLs"
-
-#: includes/admin.php:1137
-msgid "Custom Rules"
-msgstr "Eigene Regeln"
-
-#: includes/admin.php:1137
-msgid "Custom Regex Filters"
-msgstr "Eigene Regex Filter"
-
-#: includes/admin.php:1137
-msgid "One regex per line (e.g., <code>/bad-bot/i</code>)."
-msgstr "Pro Zeile ein Regex (z.B. <code>/bad-bot/i</code>)."
-
-#: includes/admin.php:1137
-msgid "IP Lists"
-msgstr "IP Listen"
-
-#: includes/admin.php:1137
-msgid "Whitelist IPs"
-msgstr "Whitelist IPs"
-
-#: includes/admin.php:1137
-msgid "Blacklist IPs"
-msgstr "Blacklist IPs"
-
-#: includes/admin.php:1139
-msgid "Disable Directory Browsing"
-msgstr "Directory Browsing deaktivieren"
-
-#: includes/admin.php:1139
-msgid "Prevents attackers from seeing lists of your files."
-msgstr "Verhindert, dass Angreifer Dateilisten deines Servers sehen können."
-
-#: includes/admin.php:1139
-msgid "Protect Sensitive Files"
-msgstr "Sensible Dateien schützen"
-
-#: includes/admin.php:1139
-msgid "Blocks access to .env, .sql, .bak, .log, and .git files."
-msgstr "Blockiert den Zugriff auf .env, .sql, .bak, .log und .git Dateien."
-
-#: includes/admin.php:1139
-msgid "Block System Files"
-msgstr "Systemdateien blockieren"
-
-#: includes/admin.php:1139
-msgid "Hides readme.html, license.txt, and wp-config.php from the web."
-msgstr "Versteckt readme.html, license.txt und wp-config.php vor dem Web."
-
-#: includes/admin.php:1139
-msgid "Block Dotfiles"
-msgstr "Dotfiles blockieren"
-
-#: includes/admin.php:1139
-msgid "Denies access to hidden files (e.g., .htaccess)."
-msgstr "Verweigert den Zugriff auf versteckte Dateien (z.B. .htaccess)."
-
-#: includes/admin.php:1139
-msgid "Block XML-RPC"
-msgstr "XML-RPC blockieren"
-
-#: includes/admin.php:1139
-msgid "Disables xmlrpc.php to prevent DDoS and brute-force attacks."
-msgstr "Deaktiviert die xmlrpc.php, um DDoS- und Brute-Force-Angriffe zu verhindern."
-
-#: includes/admin.php:1139
-msgid "Disable PHP in Uploads"
-msgstr "PHP in Uploads deaktivieren"
-
-#: includes/admin.php:1139
-msgid "Prevents execution of malicious backdoors in your media folder."
-msgstr "Verhindert die Ausführung von Malware und Backdoors in deinem Upload-Ordner."
-
-#: includes/admin.php:1139
-msgid "Ultimate Bad Bot Filter"
-msgstr "Ultimate Bad Bot Filter"
-
-#: includes/admin.php:1139
-msgid "Strict Nginx-level blocking for hacking tools."
-msgstr "Strenge Blockierung von Hacking-Tools direkt auf Nginx-Ebene."
-
-#: includes/admin.php:1139
-msgid "Hotlink Protection"
-msgstr "Hotlink Schutz"
-
-#: includes/admin.php:1139
-msgid "Prevents other sites from embedding your images and stealing bandwidth."
-msgstr "Verhindert, dass andere Seiten deine Bilder einbetten und Bandbreite stehlen."
-
-#: includes/admin.php:1139
-msgid "Write rules to config"
-msgstr "Regeln in die Konfiguration schreiben"
-
-#: includes/admin.php:1139
-msgid "Custom Protection"
-msgstr "Eigener Schutz"
-
-#: includes/admin.php:1139
-msgid "Protected Directories"
-msgstr "Geschützte Verzeichnisse"
-
-#: includes/admin.php:1140
-msgid "Block Specific Files"
-msgstr "Spezifische Dateien blockieren"
-
-#: includes/admin.php:1141
-msgid "Paths from root (e.g., <code>/secret.zip</code>)."
-msgstr "Pfade ab dem Hauptverzeichnis (z. B. <code>/secret.zip</code>)."
-
-#: includes/admin.php:1143
-msgid "Hotlink Whitelist"
-msgstr "Hotlink Whitelist"
-
-#: includes/admin.php:1144
-msgid "Login Limit"
-msgstr "Login Limit"
-
-#: includes/admin.php:1144
-msgid "Locks out IPs after multiple failed login attempts."
-msgstr "Sperrt IPs nach mehreren fehlgeschlagenen Login-Versuchen."
-
-#: includes/admin.php:1144
-msgid "Disable App Passwords"
-msgstr "App-Passwörter deaktivieren"
-
-#: includes/admin.php:1144
-msgid "Turns off the WordPress application passwords feature."
-msgstr "Schaltet die WordPress-Funktion für App-Passwörter ab."
-
-#: includes/admin.php:1145
-msgid "Warns via email upon logins from unknown devices."
-msgstr "Warnt per E-Mail bei Logins von unbekannten Geräten."
-
-#: includes/admin.php:1145
-msgid "Block wp-login.php"
-msgstr "wp-login.php blockieren"
-
-#: includes/admin.php:1145
-msgid "Disables the default login route (requires Custom Slug)."
-msgstr "Deaktiviert die Standard-Login-Route (erfordert einen Custom Slug!)."
-
-#: includes/admin.php:1145
-msgid "Hide /wp-admin/"
-msgstr "/wp-admin/ verstecken"
-
-#: includes/admin.php:1145
-msgid "Redirects unauthenticated users away from the admin area."
-msgstr "Leitet nicht authentifizierte Benutzer vom Admin-Bereich weg."
-
-#: includes/admin.php:1145
-msgid "Restrict Dashboard"
-msgstr "Dashboard einschränken"
-
-#: includes/admin.php:1145
-msgid "Only administrators and editors may access the WordPress dashboard."
-msgstr "Nur Administratoren und Redakteure dürfen das WordPress-Dashboard aufrufen."
-
-#: includes/admin.php:1145
-msgid "Idle Logout (60m)"
-msgstr "Automatischer Logout (60 Min)"
-
-#: includes/admin.php:1145
-msgid "Automatically logs out inactive administrators after 60 minutes."
-msgstr "Meldet inaktive Administratoren nach 60 Minuten automatisch ab."
-
-#: includes/admin.php:1145
-msgid "Custom Login Slug"
-msgstr "Eigener Login-Pfad"
-
-#: includes/admin.php:1146
-msgid "Spam & Bots"
-msgstr "Spam & Bots"
-
-#: includes/admin.php:1146
-msgid "Enable Honeypot"
-msgstr "Honeypot aktivieren"
-
-#: includes/admin.php:1146
-msgid "Adds an invisible field to catch automated spam bots."
-msgstr "Fügt ein unsichtbares Feld hinzu, um automatisierte Spam-Bots abzufangen."
-
-#: includes/admin.php:1146
-msgid "Minimum Fill Time"
-msgstr "Minimale Ausfüllzeit"
-
-#: includes/admin.php:1146
-msgid "Blocks forms submitted too quickly."
-msgstr "Blockiert Formulare, die zu schnell abgeschickt werden."
-
-#: includes/admin.php:1146
-msgid "Referrer Check"
-msgstr "Referrer-Prüfung"
-
-#: includes/admin.php:1146
-msgid "Ensures form submissions come from your own site."
-msgstr "Stellt sicher, dass Formulareingaben von deiner eigenen Seite stammen."
-
-#: includes/admin.php:1146
-msgid "Block Trash Mails"
-msgstr "Trash-Mails blockieren"
-
-#: includes/admin.php:1146
-msgid "Rejects disposable email addresses during registration."
-msgstr "Lehnt Wegwerf-E-Mail-Adressen bei der Registrierung ab."
-
-#: includes/admin.php:1146
-msgid "Max. Links"
-msgstr "Max. Links"
-
-#: includes/admin.php:1146
-msgid "Cloudflare Turnstile"
-msgstr "Cloudflare Turnstile"
-
-#: includes/admin.php:1146
-msgid "Enable Turnstile"
-msgstr "Turnstile aktivieren"
-
-#: includes/admin.php:1146
-msgid "Privacy-friendly Cloudflare CAPTCHA for login and comments."
-msgstr "Datenschutzfreundliches Cloudflare CAPTCHA für Logins und Kommentare."
-
-#: includes/admin.php:1149
-msgid "GeoIP Configuration"
-msgstr "GeoIP-Einstellungen"
-
-#: includes/admin.php:1152
-msgid "Operation Mode"
-msgstr "Betriebsmodus"
-
-#: includes/admin.php:1154
-msgid "Disabled"
-msgstr "Ausgeschaltet"
-
-#: includes/admin.php:1155
-msgid "Blacklist (Block listed countries)"
-msgstr "Blacklist (aufgeführte Länder sperren)"
-
-#: includes/admin.php:1156
-msgid "Whitelist (Allow ONLY listed countries)"
-msgstr "Whitelist (NUR aufgeführte Länder erlauben)"
-
-#: includes/admin.php:1159
-msgid "Protect Login Only"
-msgstr "Nur Login schützen"
-
-#: includes/admin.php:1159
-msgid "If enabled, the GeoIP filter only applies to wp-login.php and XML-RPC. If disabled, it blocks the entire website."
-msgstr "Wenn aktiv, gilt der GeoIP-Filter nur für wp-login.php und XML-RPC. Wenn aus, sperrt er die gesamte Website."
-
-#: includes/admin.php:1161
-msgid "Save Settings"
-msgstr "Einstellungen Speichern"
-
-#: includes/admin.php:1166
-msgid "Country Codes"
-msgstr "Ländercodes"
-
-#: includes/admin.php:1168
-msgid "ISO Alpha-2 Codes"
-msgstr "ISO-Alpha-2-Codes"
-
-#: includes/admin.php:1169
-msgid "One code per line (e.g. DE, AT)."
-msgstr "Ein Code pro Zeile (z. B. DE, AT)."
-
-#: includes/admin.php:1171
-msgid "Save Codes"
-msgstr "Codes speichern"
-
-#: includes/admin.php:1177
-msgid "System"
-msgstr "System"
-
-#: includes/admin.php:1177
-msgid "Hide WP Version"
-msgstr "WP Version verstecken"
-
-#: includes/admin.php:1177
-msgid "Removes the WordPress version number from your source code."
-msgstr "Entfernt die WordPress-Versionsnummer aus dem Quellcode."
-
-#: includes/admin.php:1177
-msgid "Disable XML-RPC"
-msgstr "XML-RPC deaktivieren"
-
-#: includes/admin.php:1177
-msgid "Turns off the XML-RPC API internally."
-msgstr "Schaltet die XML-RPC API intern ab."
-
-#: includes/admin.php:1177
-msgid "Disable File Editor"
-msgstr "Datei-Editor deaktivieren"
-
-#: includes/admin.php:1177
-msgid "Prevents editing plugins and themes via the WP dashboard."
-msgstr "Verhindert das Bearbeiten von Plugins und Themes über das WP-Dashboard."
-
-#: includes/admin.php:1177
-msgid "Block Enumeration"
-msgstr "Benutzer-Enumeration blockieren"
-
-#: includes/admin.php:1177
-msgid "Stops attackers from discovering your usernames."
-msgstr "Hindert Angreifer daran, deine Benutzernamen herauszufinden."
-
-#: includes/admin.php:1177
-msgid "Hide Login Errors"
-msgstr "Login-Fehler verbergen"
-
-#: includes/admin.php:1177
-msgid "Shows a generic message instead of revealing whether the username or password was wrong."
-msgstr "Zeigt eine allgemeine Meldung, statt zu verraten, ob Benutzername oder Passwort falsch war."
-
-#: includes/admin.php:1179
-msgid "Admin Honeypot"
-msgstr "Admin Honeypot"
-
-#: includes/admin.php:1179
-msgid "Permanently bans anyone trying to log in as admin."
-msgstr "Sperrt jeden dauerhaft, der versucht, sich als \"admin\" einzuloggen."
-
-#: includes/admin.php:1180
-msgid "Privilege Guard"
-msgstr "Rechte-Schutz"
-
-#: includes/admin.php:1180
-msgid "Prevents unauthorized users from upgrading to Administrator."
-msgstr "Verhindert, dass unbefugte Benutzer sich Administrator-Rechte geben."
-
-#: includes/admin.php:1184
-msgid "System Deep Clean"
-msgstr "System-Tiefenreinigung"
-
-#: includes/admin.php:1185
-msgid "Manual database cleanup. Deletes expired transients, spam comments, old post revisions, and optimizes table overhead."
-msgstr "Manuelle Datenbank-Bereinigung. Löscht abgelaufene Transients, Spam-Kommentare und alte Beitragsrevisionen und optimiert den Tabellen-Overhead."
-
-#: includes/admin.php:1198
-msgid "Run Deep Clean"
-msgstr "Tiefenreinigung starten"
-
-#: includes/admin.php:1193
-msgid "Do you want to clean the database now? (This may take a few seconds on large sites)"
-msgstr "Möchtest du die Datenbank jetzt bereinigen? (Dies kann bei großen Seiten einige Sekunden dauern)"
-
-#: includes/admin.php:1200
+#: includes/admin.php:116
+msgid ""
+"Do you want to clean the database now? (This may take a few seconds on large"
+" sites)"
+msgstr ""
+"Möchtest du die Datenbank jetzt bereinigen? (Dies kann bei großen Seiten "
+"einige Sekunden dauern)"
+
+#: includes/admin.php:117
+msgid "Cleaning..."
+msgstr "Wird bereinigt …"
+
+#: includes/admin.php:118
 msgid "Cleanup successful! Statistics:"
 msgstr "Bereinigung erfolgreich! Statistiken:"
 
-#: includes/admin.php:1205
+#: includes/admin.php:119
 msgid "Error during cleanup."
 msgstr "Fehler bei der Bereinigung."
 
-#: includes/admin.php:1214
-msgid "HTTP Security Headers"
-msgstr "HTTP Security Headers"
-
-#: includes/admin.php:1214
-msgid "X-Frame-Options"
-msgstr "X-Frame-Options"
-
-#: includes/admin.php:1214
-msgid "Clickjacking protection."
-msgstr "Schutz vor Clickjacking."
-
-#: includes/admin.php:1214
-msgid "X-Content-Type-Options"
-msgstr "X-Content-Type-Options"
-
-#: includes/admin.php:1214
-msgid "Stops browsers from MIME-sniffing."
-msgstr "Verhindert, dass Browser den MIME-Typ erraten (Sniffing)."
-
-#: includes/admin.php:1214
-msgid "X-XSS-Protection"
-msgstr "X-XSS-Protection"
-
-#: includes/admin.php:1214
-msgid "Enables legacy browser XSS filtering."
-msgstr "Aktiviert den XSS-Filter älterer Browser."
-
-#: includes/admin.php:1214
-msgid "HSTS (SSL)"
-msgstr "HSTS (SSL)"
-
-#: includes/admin.php:1214
-msgid "Enforces strict HTTPS connections."
-msgstr "Erzwingt strikte HTTPS-Verbindungen."
-
-#: includes/admin.php:1214
-msgid "HSTS: include subdomains"
-msgstr "HSTS: Subdomains einschließen"
-
-#: includes/admin.php:1214
-msgid "Only enable if ALL subdomains are reachable via HTTPS, otherwise they become unreachable for a year."
-msgstr "Nur aktivieren, wenn ALLE Subdomains per HTTPS erreichbar sind – sonst sind sie ein Jahr lang nicht erreichbar."
-
-#: includes/admin.php:1214
-msgid "Referrer Policy"
-msgstr "Referrer Policy"
-
-#: includes/admin.php:1214
-msgid "Controls referrer information."
-msgstr "Steuert die Referrer-Informationen."
-
-#: includes/admin.php:1214
-msgid "Permissions-Policy"
-msgstr "Permissions-Policy"
-
-#: includes/admin.php:1214
-msgid "Restricts access to browser features (camera, mic)."
-msgstr "Schränkt den Zugriff auf Browser-Funktionen ein (Kamera, Mikrofon)."
-
-#: includes/admin.php:1214
-msgid "Content Security Policy (basic)"
-msgstr "Content Security Policy (Basis)"
-
-#: includes/admin.php:1214
-msgid "Permissive baseline policy: restricts resources to HTTPS/same origin and blocks plain-HTTP content. It allows inline scripts and eval, so it does NOT protect against XSS."
-msgstr "Großzügige Basis-Richtlinie: beschränkt Ressourcen auf HTTPS/gleiche Herkunft und blockiert unverschlüsselte HTTP-Inhalte. Sie erlaubt Inline-Skripte und eval und schützt daher NICHT vor XSS."
-
-#: includes/admin.php:1219
-msgid "Backup Config"
-msgstr "Backup-Einstellungen"
-
-#: includes/admin.php:1220
-msgid "Auto backup"
-msgstr "Auto Backup"
-
-#: includes/admin.php:1220
-msgid "Automatically creates backups based on frequency."
-msgstr "Erstellt Backups automatisch nach dem gewählten Intervall."
-
-#: includes/admin.php:1222
-msgid "Frequency"
-msgstr "Häufigkeit"
-
-#: includes/admin.php:1224
-msgid "Daily"
-msgstr "Täglich"
-
-#: includes/admin.php:1225
-msgid "Weekly"
-msgstr "Wöchentlich"
-
-#: includes/admin.php:1232
-msgid "Encryption"
-msgstr "Verschlüsselung"
-
-#: includes/admin.php:1234
-msgid "Backup key loaded: X25519 + XChaCha20-Poly1305."
-msgstr "Backup-Schlüssel geladen: X25519 + XChaCha20-Poly1305."
-
-#: includes/admin.php:1234
-msgid "Only the public key is on this server: new backups are encrypted, but can only be downloaded decrypted with the private key."
-msgstr "Auf diesem Server liegt nur der öffentliche Schlüssel: Neue Backups werden verschlüsselt, können aber nur mit dem privaten Schlüssel entschlüsselt heruntergeladen werden."
-
-#: includes/admin.php:1236
-msgid "No backup key: backups use XChaCha20-Poly1305 with a key derived from TEGATAI_BACKUP_SECRET. For a key pair (recommended), run on the server as the PHP-FPM user:"
-msgstr "Kein Backup-Schlüssel: Backups nutzen XChaCha20-Poly1305 mit einem aus TEGATAI_BACKUP_SECRET abgeleiteten Schlüssel. Für ein Schlüsselpaar (empfohlen) auf dem Server als PHP-FPM-Benutzer ausführen:"
-
-#: includes/admin.php:1241
-msgid "Local Backups"
-msgstr "Lokale Backups"
-
-#: includes/admin.php:1245
-msgid "Create Backup Now"
-msgstr "Jetzt Backup Erstellen"
-
-#: includes/admin.php:1588
-msgid "File"
-msgstr "Datei"
-
-#: includes/admin.php:1255
-msgid "Date"
-msgstr "Datum"
-
-#: includes/admin.php:1263
-msgid "No backups available."
-msgstr "Keine Backups vorhanden."
-
-#: includes/admin.php:1276
-msgid "DL"
-msgstr "DL"
-
-#: includes/admin.php:1299
-msgid "Malware & Integrity Scanner"
-msgstr "Malware & Integritäts-Scanner"
-
-#: includes/admin.php:1300
-msgid "Auto-Quarantine (IPS)"
-msgstr "Auto-Quarantäne (IPS)"
-
-#: includes/admin.php:1300
-msgid "Automatically moves detected malware to a safe location."
-msgstr "Verschiebt erkannte Malware automatisch in einen sicheren Ordner."
-
-#: includes/admin.php:1301
-msgid "Scan running..."
-msgstr "Scan läuft..."
-
-#: includes/admin.php:1301
-msgid "Abort / reset scan"
-msgstr "Scan abbrechen / zurücksetzen"
-
-#: includes/admin.php:1301
-msgid "Abort the running scan and reset its state?"
-msgstr "Laufenden Scan abbrechen und seinen Stand zurücksetzen?"
-
-#: includes/admin.php:1301
-msgid "Start New Scan"
-msgstr "Neuen Scan Starten"
-
-#: includes/admin.php:1308
-msgid "Create File Snapshot"
-msgstr "Datei-Snapshot erstellen"
-
-#: includes/admin.php:1310
-msgid "Save current state as a safe baseline?"
-msgstr "Aktuellen Zustand als sichere Basis speichern?"
-
-#: includes/admin.php:1312
-msgid "Last Result:"
-msgstr "Letztes Ergebnis:"
-
-#: includes/admin.php:1312
-msgid "Files Checked:"
-msgstr "Geprüfte Dateien:"
-
-#: includes/admin.php:1312
-msgid "Issue"
-msgstr "Problem"
-
-#: includes/admin.php:1312
-msgid "Scanner Configuration"
-msgstr "Scanner Konfiguration"
-
-#: includes/admin.php:1312
-msgid "Exclude from Scan"
-msgstr "Vom Scan ausschließen"
-
-#: includes/admin.php:1313
-msgid "Session Security"
-msgstr "Session Sicherheit"
-
-#: includes/admin.php:1313
-msgid "IP Guard"
-msgstr "IP Guard"
-
-#: includes/admin.php:1313
-msgid "Invalidates the session if the users IP address changes."
-msgstr "Macht die Sitzung ungültig, falls sich die IP-Adresse des Benutzers ändert."
-
-#: includes/admin.php:1313
-msgid "Browser Guard"
-msgstr "Browser Guard"
-
-#: includes/admin.php:1313
-msgid "Invalidates the session if the users browser changes."
-msgstr "Macht die Sitzung ungültig, falls sich der Browser (User-Agent) des Benutzers ändert."
-
-#: includes/admin.php:1313
-msgid "Single Session"
-msgstr "Einzelne Sitzung"
-
-#: includes/admin.php:1313
-msgid "Allows only one active session per user; older sessions are logged out."
-msgstr "Erlaubt nur eine aktive Sitzung pro Benutzer; ältere Sitzungen werden abgemeldet."
-
-#: includes/admin.php:1313
-msgid "Max Session (Min)"
-msgstr "Max. Sitzungsdauer (Min.)"
-
-#: includes/admin.php:1313
-msgid "Active Sessions"
-msgstr "Aktive Sitzungen"
-
-#: includes/admin.php:1313
-msgid "User"
-msgstr "User"
-
-#: includes/admin.php:1313
-msgid "Browser"
-msgstr "Browser"
-
-#: includes/admin.php:1313
-msgid "Kill"
-msgstr "Kill"
-
-#: includes/admin.php:1321
-msgid "Restrict REST API"
-msgstr "REST API einschränken"
-
-#: includes/admin.php:1321
-msgid "Requires authentication for REST endpoints."
-msgstr "Verlangt eine Anmeldung für REST-Endpunkte."
-
-#: includes/admin.php:1322
-msgid "Disable Right-Click"
-msgstr "Rechtsklick deaktivieren"
-
-#: includes/admin.php:1322
-msgid "Prevents basic right-clicking."
-msgstr "Verhindert einfaches Rechtsklicken."
-
-#: includes/admin.php:1323
-msgid "Enable Copy Protection"
-msgstr "Kopierschutz aktivieren"
-
-#: includes/admin.php:1323
-msgid "Stops users from copying text."
-msgstr "Verhindert, dass Besucher Text kopieren."
-
-#: includes/admin.php:1327
-msgid "Configuration Export & Import"
-msgstr "Konfiguration exportieren & importieren"
-
-#: includes/admin.php:1332
-msgid "Export Settings"
-msgstr "Einstellungen exportieren"
-
-#: includes/admin.php:1333
-msgid "Downloads a .json file with all settings."
-msgstr "Lädt eine .json-Datei mit allen Einstellungen herunter."
-
-#: includes/admin.php:1334
-msgid "Download (.json)"
-msgstr "Herunterladen (.json)"
-
-#: includes/admin.php:1338
-msgid "Import Settings"
-msgstr "Einstellungen importieren"
-
-#: includes/admin.php:1339
-msgid "Select a .json file to apply instantly."
-msgstr "Wähle eine .json-Datei, die sofort übernommen wird."
-
-#: includes/admin.php:1341
-msgid "Import"
-msgstr "Importieren"
-
-#: includes/admin.php:1351
+#: includes/admin.php:120
 msgid "Please select a .json file first!"
 msgstr "Bitte wähle zuerst eine .json Datei aus!"
 
-#: includes/admin.php:1352
+#: includes/admin.php:121
 msgid "WARNING: This will overwrite all settings. Continue?"
 msgstr "ACHTUNG: Dadurch werden alle Einstellungen überschrieben. Fortfahren?"
 
-#: includes/admin.php:1363
+#: includes/admin.php:122
+msgid "Importing..."
+msgstr "Wird importiert …"
+
+#: includes/admin.php:123
 msgid "Successfully imported! Reloading."
 msgstr "Erfolgreich importiert! Seite wird neu geladen."
 
-#: includes/admin.php:1366
+#: includes/admin.php:124
 msgid "Import error: "
 msgstr "Fehler beim Import: "
 
-#: includes/admin.php:1380
-msgid "Live Traffic Log"
-msgstr "Live Traffic Log"
-
-#: includes/admin.php:1380
-msgid "Clear Logs"
-msgstr "Logs leeren"
-
-#: includes/admin.php:1380
-msgid "Are you sure?"
-msgstr "Wirklich?"
-
-#: includes/admin.php:1634
-msgid "Time"
-msgstr "Zeit"
-
-#: includes/admin.php:1636
-msgid "Message"
-msgstr "Nachricht"
-
-#: includes/admin.php:1386
-msgid "Baseline snapshot created."
-msgstr "Ausgangs-Snapshot erstellt."
-
-#: includes/admin.php:1402
-msgid "File Integrity Monitor (FIM)"
-msgstr "Datei-Integritätsüberwachung (FIM)"
-
-#: includes/admin.php:1403
-msgid "Tracks file changes in Plugins, MU-Plugins and Themes."
-msgstr "Überwacht Dateiänderungen in Plugins, MU-Plugins und Themes."
-
-#: includes/admin.php:1408
-msgid "Create baseline"
-msgstr "Ausgangsstand erstellen"
-
-#: includes/admin.php:1413
-msgid "Check now"
-msgstr "Jetzt prüfen"
-
-#: includes/admin.php:1417
-msgid "Last run: %s"
-msgstr "Letzter Lauf: %s"
-
-#: includes/admin.php:1444
-msgid "Changed files"
-msgstr "Geänderte Dateien"
-
-#: includes/admin.php:1445
-msgid "New files"
-msgstr "Neue Dateien"
-
-#: includes/admin.php:1446
-msgid "Deleted files"
-msgstr "Gelöschte Dateien"
-
-#: includes/admin.php:1448
-msgid "No baseline exists yet. Click “Create baseline” first."
-msgstr "Es gibt noch keinen Ausgangsstand. Klicke zuerst auf „Ausgangsstand erstellen“."
-
-#: includes/admin.php:1465
-msgid "Stored-XSS Database Scanner"
-msgstr "Stored-XSS-Datenbankscanner"
-
-#: includes/admin.php:1466
-msgid "Read-only scan of common WP tables for suspicious HTML/JS patterns."
-msgstr "Rein lesender Scan gängiger WP-Tabellen auf verdächtige HTML-/JS-Muster."
-
-#: includes/admin.php:1470
-msgid "Run scan"
-msgstr "Scan starten"
-
-#: includes/admin.php:1483
-msgid "No suspicious patterns found."
-msgstr "Keine verdächtigen Muster gefunden."
-
-#: includes/admin.php:1486
-msgid "Table"
-msgstr "Tabelle"
-
-#: includes/admin.php:1487
-msgid "ID"
-msgstr "ID"
-
-#: includes/admin.php:1488
-msgid "Field"
-msgstr "Feld"
-
-#: includes/admin.php:1589
-msgid "Snippet"
-msgstr "Ausschnitt"
-
-#: includes/admin.php:1536
-msgid "Quarantine done: %1$d ok, %2$d failed (max 50 per click)."
-msgstr "Quarantäne fertig: %1$d ok, %2$d fehlgeschlagen (max. 50 pro Klick)."
-
-#: includes/admin.php:1540
-msgid "State reset."
-msgstr "Stand zurückgesetzt."
-
-#: includes/admin.php:1552
-msgid "Malware / Backdoor Scanner"
-msgstr "Malware-/Backdoor-Scanner"
-
-#: includes/admin.php:1553
-msgid "Signature-based scan for common malware/backdoor patterns."
-msgstr "Signaturbasierter Scan auf gängige Malware-/Backdoor-Muster."
-
-#: includes/admin.php:1559
-msgid "Fresh scan"
-msgstr "Neuer Scan"
-
-#: includes/admin.php:1560
-msgid "Run"
-msgstr "Starten"
-
-#: includes/admin.php:1565
-msgid "Reset"
-msgstr "Zurücksetzen"
-
-#: includes/admin.php:1583
-msgid "Clean."
-msgstr "Sauber."
-
-#: includes/admin.php:1586
-msgid "Sev"
-msgstr "Schw."
-
-#: includes/admin.php:1587
-msgid "Rule"
-msgstr "Regel"
-
-#: includes/admin.php:1615
-msgid "Security Timeline"
-msgstr "Sicherheits-Timeline"
-
-#: includes/admin.php:1623
-msgid "Clear?"
-msgstr "Leeren?"
-
-#: includes/admin.php:1623
-msgid "Clear"
-msgstr "Leeren"
-
-#: includes/admin.php:1631
-msgid "No events yet."
-msgstr "Noch keine Ereignisse."
-
-#: includes/admin.php:1653
-msgid "WordPress Core Integrity"
-msgstr "WordPress-Core-Integrität"
-
-#: includes/admin.php:1654
-msgid "Compares wp-admin/wp-includes core files against official WP checksums."
-msgstr "Vergleicht die Core-Dateien in wp-admin/wp-includes mit den offiziellen WP-Prüfsummen."
-
-#: includes/admin.php:1661
-msgid "Run check"
-msgstr "Prüfung starten"
-
-#: includes/admin.php:1676
-msgid "Corrupted Files"
-msgstr "Beschädigte Dateien"
-
-#: includes/admin.php:1690
-msgid "Do you want to overwrite this file with the clean original version from WordPress.org?"
-msgstr "Möchtest du diese Datei mit der sauberen Originalversion von WordPress.org überschreiben?"
-
-#: includes/admin.php:1699
-msgid "Repair error: "
-msgstr "Fehler beim Reparieren: "
-
-#: includes/admin.php:1714
-msgid "Dangerous Options Scanner"
-msgstr "Scanner für gefährliche Optionen"
-
-#: includes/admin.php:1721
-msgid "Scan options"
-msgstr "Optionen scannen"
-
-#: includes/admin.php:1725
-msgid "Hits"
-msgstr "Treffer"
-
-#: includes/admin.php:1745
-msgid "Whitelist (Exceptions)"
-msgstr "Whitelist (Ausnahmen)"
-
-#: includes/admin.php:1738
-msgid "Suspicious Cron Monitor"
-msgstr "Überwachung verdächtiger Cronjobs"
-
-#: includes/admin.php:1742
-msgid "Total hooks"
-msgstr "Hooks gesamt"
-
-#: includes/admin.php:1743
-msgid "Flagged"
-msgstr "Markiert"
-
-#: includes/admin.php:1757
-msgid "Uploads Monitor"
-msgstr "Upload-Überwachung"
-
-#: includes/admin.php:1766
-msgid "Scan uploads"
-msgstr "Uploads scannen"
-
-#: includes/admin.php:1770
-msgid "Quarantine flagged (max 50)"
-msgstr "Markierte in Quarantäne (max. 50)"
-
-#: includes/admin.php:1776
-msgid "Permission Monitor"
-msgstr "Rechte-Überwachung"
-
-#: includes/admin.php:1779
-msgid "Checked"
-msgstr "Geprüft"
-
-#: includes/admin.php:1787
-msgid "🛡️ Tegatai Security Status"
-msgstr "🛡️ Tegatai Security Status"
-
-#: includes/admin.php:1793
-msgid "Never"
-msgstr "Nie"
-
-#: includes/admin.php:1794
-msgid "Clean ✅"
-msgstr "Sauber ✅"
-
-#: includes/admin.php:1794
-msgid "Scan required..."
-msgstr "Prüfung nötig..."
-
-#: includes/admin.php:1797
-msgid "Blocked"
-msgstr "Blockiert"
-
-#: includes/admin.php:1798
-msgid "Traffic"
-msgstr "Traffic"
-
-#: includes/admin.php:1802
-msgid "Last Scan:"
-msgstr "Letzter Scan:"
-
-#: includes/admin.php:1803
-msgid "Result:"
-msgstr "Ergebnis:"
-
-#: includes/admin.php:1807
-msgid "Go to Dashboard"
-msgstr "Zum Dashboard"
-
-#: includes/admin.php:1826
-msgid "Active WP-Cron Jobs"
-msgstr "Aktive WP-Cronjobs"
-
-#: includes/admin.php:1828
-msgid "Next Run"
-msgstr "Nächster Lauf"
-
-#: includes/admin.php:1828
-msgid "Hook"
-msgstr "Hook"
-
-#: includes/admin.php:1828
-msgid "Schedule"
-msgstr "Intervall"
-
-#: includes/admin.php:1853
-msgid "No cron jobs found."
-msgstr "Keine Cronjobs gefunden."
-
-#: includes/admin.php:1905
-msgid "Invalid JSON format."
-msgstr "Ungültiges JSON Format."
-
-#: includes/admin.php:1938
-msgid "🗑️ <strong>%d</strong> expired transients deleted."
-msgstr "🗑️ <strong>%d</strong> abgelaufene Transients gelöscht."
-
-#: includes/admin.php:1942
-msgid "🗑️ <strong>%d</strong> spam/trash comments removed."
-msgstr "🗑️ <strong>%d</strong> Spam/Trash-Kommentare entfernt."
-
-#: includes/admin.php:1946
-msgid "🗑️ <strong>%d</strong> old post revisions cleaned."
-msgstr "🗑️ <strong>%d</strong> alte Beitrags-Revisionen bereinigt."
-
-#: includes/admin.php:1954
-msgid "⚡ Database tables defragmented (overhead released)."
-msgstr "⚡ Datenbank-Tabellen defragmentiert (Overhead freigegeben)."
-
-#: includes/admin.php:1956
-msgid "Everything was already spotless! No cleanup needed."
-msgstr "Alles war bereits blitzblank! Keine Bereinigung nötig."
-
-#: includes/api_guard.php:205
-msgid "API Guard"
-msgstr "API Guard"
-
-#: includes/api_guard.php:218
-msgid "API Gateway rules updated successfully."
-msgstr "API-Gateway-Regeln erfolgreich aktualisiert."
-
-#: includes/api_guard.php:290
-msgid "API Rules"
-msgstr "API-Regeln"
-
-#: includes/api_guard.php:300
-msgid "Master Sync Token"
-msgstr "Master-Sync-Token"
-
-#: includes/hive.php:793
-msgid "Secret loaded from tegatai-secrets.php or wp-config.php"
-msgstr "Schlüssel aus tegatai-secrets.php oder wp-config.php geladen"
-
-#: includes/api_guard.php:304
-msgid "The API token is active and secured. It is completely hidden from the UI."
-msgstr "Das API-Token ist aktiv und gesichert. Es wird in der Oberfläche vollständig verborgen."
-
-#: includes/hive.php:799
-msgid "Secret active in Database"
-msgstr "Secret in der Datenbank aktiv"
-
-#: includes/api_guard.php:310
-msgid "An API token is stored in the database. We strongly recommend defining TEGATAI_API_SECRET in tegatai-secrets.php (outside the web root) to lock it."
-msgstr "In der Datenbank ist ein API-Token gespeichert. Wir empfehlen dringend, TEGATAI_API_SECRET in tegatai-secrets.php (außerhalb des Webroots) zu definieren, um es festzuschreiben."
-
-#: includes/hive.php:809
-msgid "Reveal (Sudo)"
-msgstr "Anzeigen (Sudo)"
-
-#: includes/hive.php:811
-msgid "Generate New"
-msgstr "Neu erzeugen"
-
-#: includes/twofa.php:205
-msgid "Copy"
-msgstr "Kopieren"
-
-#: includes/api_guard.php:325
-msgid "Generate a new key only if you need to copy it to your tegatai-secrets.php or client applications."
-msgstr "Erzeuge nur dann einen neuen Schlüssel, wenn du ihn in deine tegatai-secrets.php oder in Client-Anwendungen kopieren musst."
-
-#: includes/api_guard.php:330
-msgid "Routing & Authentication"
-msgstr "Routing & Authentifizierung"
-
-#: includes/api_guard.php:332
-msgid "Match Mode"
-msgstr "Vergleichsmodus"
-
-#: includes/api_guard.php:334
-msgid "Contains (e.g. sync.php)"
-msgstr "Enthält (z. B. sync.php)"
-
-#: includes/api_guard.php:335
-msgid "Exact Match (e.g. /wp-json/sync/start)"
-msgstr "Exakt (z. B. /wp-json/sync/start)"
-
-#: includes/api_guard.php:336
-msgid "Regex (ReDoS protected)"
-msgstr "Regex (ReDoS-geschützt)"
-
-#: includes/api_guard.php:339
-msgid "Protected Endpoints"
-msgstr "Geschützte Endpunkte"
-
-#: includes/api_guard.php:342
-msgid "Auth Mode"
-msgstr "Authentifizierungsmodus"
-
-#: includes/api_guard.php:344
-msgid "Static Token (Header / GET)"
-msgstr "Statisches Token (Header / GET)"
-
-#: includes/api_guard.php:345
-msgid "HMAC v2 (Method + URI + Timestamp + Req ID + Body)"
-msgstr "HMAC v2 (Methode + URI + Zeitstempel + Request-ID + Body)"
-
-#: includes/api_guard.php:347
-msgid "HMAC enforces a 60-second rolling window signature."
-msgstr "HMAC erzwingt eine Signatur mit gleitendem 60-Sekunden-Fenster."
-
-#: includes/api_guard.php:351
-msgid "Traffic Control & Firewall"
-msgstr "Traffic-Steuerung & Firewall"
-
-#: includes/api_guard.php:354
-msgid "Rate Limit (10/min, 50/hr)"
-msgstr "Rate Limit (10/Min., 50/Std.)"
-
-#: includes/api_guard.php:358
-msgid "IP / CIDR Allowlist"
-msgstr "IP-/CIDR-Allowlist"
-
-#: includes/api_guard.php:360
-msgid "Optional. If defined, ONLY these IPs can hit the endpoints. Everything else is dropped immediately."
-msgstr "Optional. Wenn gesetzt, dürfen NUR diese IPs die Endpunkte aufrufen. Alles andere wird sofort verworfen."
-
-#: includes/api_guard.php:394
-msgid "Save Gateway Rules"
-msgstr "Gateway-Regeln speichern"
-
-#: includes/hive.php:924
+#: includes/admin.php:125
+msgid "Warning: Deleting a WP cron can affect plugin functionality. Proceed?"
+msgstr ""
+"Achtung: Das Löschen eines WP-Cron-Jobs kann Plugin-Funktionen "
+"beeinträchtigen. Fortfahren?"
+
+#: includes/admin.php:126
+msgid "Deleting..."
+msgstr "Wird gelöscht …"
+
+#: includes/admin.php:127 includes/quarantine.php:221
+msgid "Delete"
+msgstr "Löschen"
+
+#: includes/admin.php:139
+msgid "Tegatai Sudo Vault: Please enter your TEGATAI_SUDO_PIN"
+msgstr "Tegatai Sudo Vault: Bitte gib deine TEGATAI_SUDO_PIN ein"
+
+#: includes/admin.php:140
+msgid ""
+"Error: TEGATAI_SUDO_PIN is not defined (secrets file or wp-config.php)."
+msgstr ""
+"Fehler: TEGATAI_SUDO_PIN ist nicht definiert (Schlüsseldatei oder wp-"
+"config.php)."
+
+#: includes/admin.php:141
+msgid "Sudo Access Denied: Invalid PIN."
+msgstr "Sudo-Zugriff verweigert: Ungültige PIN."
+
+#: includes/admin.php:142
+msgid "Request failed:"
+msgstr "Anfrage fehlgeschlagen:"
+
+#: includes/admin.php:143
 msgid "Copied!"
 msgstr "Kopiert!"
 
-#: includes/backup.php:59
+#: includes/admin.php:144
+msgid "Signing payload and pinging nodes..."
+msgstr "Signiere Daten und pinge Knoten an …"
+
+#: includes/admin.php:145
+msgid "Cryptographic Handshake Results:"
+msgstr "Ergebnisse des kryptografischen Handshakes:"
+
+#: includes/admin.php:146
+msgid "Unknown error"
+msgstr "Unbekannter Fehler"
+
+#: includes/admin.php:147
+msgid "Connection error or invalid server response:"
+msgstr "Verbindungsfehler oder ungültige Antwort des Servers:"
+
+#: includes/admin.php:190
+msgid "AbuseIPDB Reporting"
+msgstr "AbuseIPDB-Meldungen"
+
+#: includes/admin.php:191
+msgid "Report bans to AbuseIPDB"
+msgstr "Sperren an AbuseIPDB melden"
+
+#: includes/admin.php:191
+msgid ""
+"Sends IPs banned by the honeypot URL, the 404 instant ban, the 404 scan and "
+"the login traps (also bans received through The Hive) to AbuseIPDB in the "
+"background."
+msgstr ""
+"Meldet IPs, die durch die Honeypot-URL, die 404-Sofortsperre, den 404-Scan "
+"und die Login-Fallen gesperrt wurden (auch über The Hive erhaltene Sperren),"
+" im Hintergrund an AbuseIPDB."
+
+#: includes/admin.php:193
+msgid "API key:"
+msgstr "API-Schlüssel:"
+
+#: includes/admin.php:194
+msgid "found (TEGATAI_ABUSEIPDB_KEY)"
+msgstr "gefunden (TEGATAI_ABUSEIPDB_KEY)"
+
+#: includes/admin.php:195
+msgid ""
+"missing - add TEGATAI_ABUSEIPDB_KEY to the secrets file (Management → "
+"Secrets). Nothing is sent without a key."
+msgstr ""
+"fehlt – trage TEGATAI_ABUSEIPDB_KEY in die Schlüsseldatei ein (Management → "
+"Secrets). Ohne Schlüssel wird nichts gesendet."
+
+#: includes/admin.php:196
+msgid "Sent today:"
+msgstr "Heute gesendet:"
+
+#: includes/admin.php:197
+msgid "Total:"
+msgstr "Gesamt:"
+
+#: includes/admin.php:198
+msgid "Waiting:"
+msgstr "Wartend:"
+
+#: includes/admin.php:199
+msgid "Last report:"
+msgstr "Letzte Meldung:"
+
+#: includes/admin.php:200
+msgid "Paused until:"
+msgstr "Pausiert bis:"
+
+#: includes/admin.php:201
+msgid "Last error:"
+msgstr "Letzter Fehler:"
+
+#: includes/admin.php:203
+msgid ""
+"Reports contain only the IP, the category and the type of the ban - no URLs,"
+" usernames or other request data. Private and reserved IPs are never "
+"reported."
+msgstr ""
+"Meldungen enthalten nur die IP, die Kategorie und die Art der Sperre – keine"
+" URLs, Benutzernamen oder anderen Anfragedaten. Private und reservierte IPs "
+"werden nie gemeldet."
+
+#: includes/admin.php:211
+msgid "Names saved, rules written and new paths checked."
+msgstr "Namen gespeichert, Regeln geschrieben und neue Pfade geprüft."
+
+#: includes/admin.php:212
+msgid "New paths checked."
+msgstr "Neue Pfade geprüft."
+
+#: includes/admin.php:226 includes/admin.php:293
+msgid "Masked"
+msgstr "Maskiert"
+
+#: includes/admin.php:227
+msgid "No files to hide"
+msgstr "Keine Dateien zu verstecken"
+
+#: includes/admin.php:228
+msgid "Not reachable"
+msgstr "Nicht erreichbar"
+
+#: includes/admin.php:229
+msgid "Waiting for check"
+msgstr "Wartet auf Prüfung"
+
+#: includes/admin.php:233 includes/admin.php:624
+msgid "WP Masking"
+msgstr "WP Masking"
+
+#: includes/admin.php:234
+msgid ""
+"Hides the WordPress structure in the pages visitors receive. The web server "
+"maps the new paths back to the real files; the rules are part of tegatai-"
+"nginx.conf (nginx) or of the Tegatai block in .htaccess (Apache, LiteSpeed)."
+msgstr ""
+"Verbirgt die WordPress-Struktur in den Seiten, die Besucher erhalten. Der "
+"Webserver bildet die neuen Pfade auf die echten Dateien ab; die Regeln "
+"stehen in tegatai-nginx.conf (nginx) bzw. im Tegatai-Block der .htaccess "
+"(Apache, LiteSpeed)."
+
+#: includes/admin.php:238
+msgid "Hide plugin and theme paths"
+msgstr "Plugin- und Theme-Pfade verstecken"
+
+#: includes/admin.php:238
+msgid ""
+"Plugin and theme folders are shown under their own names, e.g. /assets/bar/ "
+"instead of the plugin folder."
+msgstr ""
+"Plugin- und Theme-Ordner erscheinen unter eigenen Namen, z. B. /assets/bar/ "
+"statt des Plugin-Ordners."
+
+#: includes/admin.php:239
+msgid "Hide wp-includes, wp-json and admin-ajax"
+msgstr "wp-includes, wp-json und admin-ajax verstecken"
+
+#: includes/admin.php:239
+msgid ""
+"wp-includes, the REST API and admin-ajax.php get their own paths. /wp-json/ "
+"keeps working for The Hive and other sites."
+msgstr ""
+"wp-includes, die REST-API und admin-ajax.php bekommen eigene Pfade. /wp-"
+"json/ funktioniert weiter für The Hive und andere Seiten."
+
+#: includes/admin.php:240
+msgid "Remove versions and identifiers"
+msgstr "Versionen und Kennungen entfernen"
+
+#: includes/admin.php:240
+msgid ""
+"Removes ?ver= parameters, script/style ids, generator tags, "
+"RSD/wlwmanifest/shortlink/REST links, the emoji script, the speculation "
+"rules (they list the WordPress paths) and the X-Pingback header."
+msgstr ""
+"Entfernt ?ver=-Parameter, Script-/Style-IDs, Generator-Tags, "
+"RSD-/wlwmanifest-/Shortlink-/REST-Links, das Emoji-Skript, die Speculation "
+"Rules (sie enthalten die WordPress-Pfade) und den X-Pingback-Header."
+
+#: includes/admin.php:241
+msgid "Hide file names"
+msgstr "Dateinamen verstecken"
+
+#: includes/admin.php:241
+msgid ""
+"File names of masked plugin, theme and wp-includes files are replaced by a "
+"neutral name per file, e.g. /assets/bar/css/t3f9a0c1d2e4. The folders stay, "
+"so relative URLs in CSS and JS keep working. A changed file gets a new name."
+msgstr ""
+"Dateinamen maskierter Plugin-, Theme- und wp-includes-Dateien werden durch "
+"einen neutralen Namen pro Datei ersetzt, z. B. /assets/bar/css/t3f9a0c1d2e4."
+" Die Ordner bleiben, damit relative URLs in CSS und JS weiter funktionieren."
+" Eine geänderte Datei bekommt einen neuen Namen."
+
+#. translators: 1: number of active file names, 2: number of waiting file
+#. names
+#: includes/admin.php:246
+#, php-format
+msgid "File names: %1$d active, %2$d waiting."
+msgstr "Dateinamen: %1$d aktiv, %2$d wartend."
+
+#: includes/admin.php:247
+msgid ""
+"New files are found when pages are visited. Tegatai adds them to the rules "
+"and checks them every hour; they are used as soon as the web server knows "
+"the rules (nginx: after a reload; Apache and LiteSpeed: at once). \"Check "
+"new paths\" does both right away."
+msgstr ""
+"Neue Dateien werden beim Aufruf von Seiten gefunden. Tegatai nimmt sie in "
+"die Regeln auf und prüft sie stündlich; sie werden benutzt, sobald der "
+"Webserver die Regeln kennt (nginx: nach einem Reload; Apache und LiteSpeed: "
+"sofort). „Neue Pfade prüfen“ erledigt beides sofort."
+
+#: includes/admin.php:250
+msgid "Block original paths"
+msgstr "Originalpfade sperren"
+
+#: includes/admin.php:250
+msgid ""
+"Visitors get a 404 for the original paths of masked entries. Logged-in users"
+" keep access. /wp-json/tegatai/ (The Hive) stays reachable."
+msgstr ""
+"Besucher erhalten für die Originalpfade maskierter Einträge einen 404. "
+"Angemeldete Benutzer behalten den Zugriff. /wp-json/tegatai/ (The Hive) "
+"bleibt erreichbar."
+
+#: includes/admin.php:253
+msgid "How it is activated"
+msgstr "So wird es aktiviert"
+
+#: includes/admin.php:254
+msgid ""
+"1. Switch on and save the names. 2. nginx: reload nginx so the new rules are"
+" active (Apache and LiteSpeed read the .htaccess at once). 3. Click \"Check "
+"new paths\". Only paths that answered correctly are used in the pages and "
+"blocked, so a missing reload never breaks the site."
+msgstr ""
+"1. Einschalten und die Namen speichern. 2. nginx: nginx neu laden, damit die"
+" neuen Regeln aktiv sind (Apache und LiteSpeed lesen die .htaccess sofort). "
+"3. Auf „Neue Pfade prüfen“ klicken. Nur Pfade, die richtig geantwortet "
+"haben, werden in den Seiten benutzt und gesperrt – ein vergessener Reload "
+"legt die Seite also nie lahm."
+
+#. translators: %s: date and time
+#: includes/admin.php:259
+#, php-format
+msgid "Last check: %s"
+msgstr "Letzte Prüfung: %s"
+
+#: includes/admin.php:261
+msgid "Check new paths"
+msgstr "Neue Pfade prüfen"
+
+#: includes/admin.php:266
+msgid "Names"
+msgstr "Namen"
+
+#: includes/admin.php:268
+msgid ""
+"Lowercase letters, digits and hyphens. Names starting with \"wp-\" are not "
+"allowed. Empty fields get an automatic short name."
+msgstr ""
+"Kleinbuchstaben, Ziffern und Bindestriche. Namen, die mit „wp-“ beginnen, "
+"sind nicht erlaubt. Leere Felder bekommen automatisch einen Kurznamen."
+
+#. translators: %s: example path
+#: includes/admin.php:276
+msgid "Folder for plugins and themes"
+msgstr "Ordner für Plugins und Themes"
+
+#. translators: %s: example path
+#: includes/admin.php:276
+#, php-format
+msgid "Plugins and themes are shown under %s"
+msgstr "Plugins und Themes erscheinen unter %s"
+
+#: includes/admin.php:278
+msgid "Folder"
+msgstr "Ordner"
+
+#: includes/admin.php:278
+msgid "Name"
+msgstr "Name"
+
+#: includes/admin.php:278
+msgid "Status"
+msgstr "Status"
+
+#. translators: %s: path that is in use until the new name was checked
+#: includes/admin.php:285
+#, php-format
+msgid "in use: %s"
+msgstr "in Verwendung: %s"
+
+#: includes/admin.php:287 includes/admin.php:292 includes/admin.php:293
+#: includes/admin.php:294 includes/admin.php:826
+msgid "Off"
+msgstr "Aus"
+
+#: includes/admin.php:291
+msgid "WordPress core"
+msgstr "WordPress-Core"
+
+#: includes/admin.php:296 includes/admin.php:424 includes/admin.php:438
+#: includes/admin.php:976 includes/admin.php:991 includes/admin.php:1000
+#: includes/admin.php:1002 includes/admin.php:1003 includes/admin.php:1061
+#: includes/admin.php:1148 includes/admin.php:1149 includes/admin.php:1522
+#: includes/admin.php:1539
+msgid "Save"
+msgstr "Speichern"
+
+#: includes/admin.php:305
+msgid "Secrets file"
+msgstr "Schlüsseldatei"
+
+#: includes/admin.php:307
+msgid "Database (older version, read only)"
+msgstr "Datenbank (ältere Version, nur lesend)"
+
+#: includes/admin.php:308
+msgid "Not set"
+msgstr "Nicht gesetzt"
+
+#: includes/admin.php:312
+msgid "Secrets File"
+msgstr "Schlüsseldatei"
+
+#: includes/admin.php:313
+msgid ""
+"Tegatai keeps keys, API secrets and webhook URLs only in a PHP file outside "
+"the web root (or as constants in wp-config.php), never in the database. "
+"Tegatai only reads this file; you create it with the command below."
+msgstr ""
+"Tegatai bewahrt Schlüssel, API-Secrets und Webhook-URLs nur in einer PHP-"
+"Datei außerhalb des Webverzeichnisses auf (oder als Konstanten in der wp-"
+"config.php), nie in der Datenbank. Tegatai liest diese Datei nur; angelegt "
+"wird sie mit dem Befehl unten."
+
+#: includes/admin.php:315
+msgid "Path:"
+msgstr "Pfad:"
+
+#. translators: %s: file permissions, e.g. 0600
+#: includes/admin.php:319
+#, php-format
+msgid "found (permissions %s)"
+msgstr "gefunden (Rechte %s)"
+
+#: includes/admin.php:320
+msgid "Recommended: 0600"
+msgstr "Empfohlen: 0600"
+
+#: includes/admin.php:322
+msgid "not found"
+msgstr "nicht gefunden"
+
+#: includes/admin.php:326
+msgid "Secret"
+msgstr "Schlüssel"
+
+#: includes/admin.php:326
+msgid "Loaded from"
+msgstr "Geladen aus"
+
+#: includes/admin.php:326
+msgid "Note"
+msgstr "Hinweis"
+
+#: includes/admin.php:329
+msgid "Also in the secrets file: remove the define() line from wp-config.php."
+msgstr ""
+"Auch in der Schlüsseldatei: entferne die define()-Zeile aus der wp-"
+"config.php."
+
+#: includes/admin.php:330
+msgid ""
+"Move it into the secrets file (command below); the database copy is then "
+"deleted automatically."
+msgstr ""
+"Übertrage es in die Schlüsseldatei (Befehl unten); die Kopie in der "
+"Datenbank wird danach automatisch gelöscht."
+
+#: includes/admin.php:348
+msgid "Create or update the secrets file"
+msgstr "Schlüsseldatei anlegen oder aktualisieren"
+
+#: includes/admin.php:349
+msgid ""
+"Run this command on the server as the site's PHP-FPM user (not as root), "
+"e.g. via SSH. It writes the complete file with all values Tegatai knows "
+"right now, including values still stored in the database by an older "
+"version; those database copies are deleted automatically afterwards. Edit "
+"the commented lines in the file to add more secrets."
+msgstr ""
+"Führe diesen Befehl auf dem Server als PHP-FPM-Benutzer der Seite aus (nicht"
+" als root), z. B. per SSH. Er schreibt die komplette Datei mit allen Werten,"
+" die Tegatai gerade kennt – auch mit Werten, die eine ältere Version noch in"
+" der Datenbank gespeichert hat; diese Datenbank-Kopien werden danach "
+"automatisch gelöscht. Für weitere Secrets die auskommentierten Zeilen in der"
+" Datei bearbeiten."
+
+#: includes/admin.php:350
+msgid "Show command (contains secrets)"
+msgstr "Befehl anzeigen (enthält Secrets)"
+
+#: includes/admin.php:356
+msgid ""
+"Signs the messages between your Hive sites (HMAC). Must be the same on every"
+" Hive site, unless you use per-peer keys."
+msgstr ""
+"Signiert die Nachrichten zwischen deinen Hive-Seiten (HMAC). Muss auf jeder "
+"Hive-Seite gleich sein, außer du nutzt Schlüssel pro Gegenstelle."
+
+#: includes/admin.php:360
+msgid ""
+"Signs the requests of your API clients for the API Guard. Clients must use "
+"the same value."
+msgstr ""
+"Signiert die Anfragen deiner API-Clients für den API Guard. Die Clients "
+"müssen denselben Wert verwenden."
+
+#: includes/admin.php:364
+msgid ""
+"Optional. A bcrypt hash of a PIN of your choice; the PIN unlocks the display"
+" of secrets. Only the hash goes into the file, never the PIN itself."
+msgstr ""
+"Optional. Ein bcrypt-Hash einer PIN deiner Wahl; die PIN schaltet die "
+"Anzeige von Secrets frei. In die Datei kommt nur der Hash, nie die PIN "
+"selbst."
+
+#: includes/admin.php:368
+msgid ""
+"Key for encrypting backups when no backup key pair is used. Never change it "
+"once backups exist, otherwise they can no longer be decrypted."
+msgstr ""
+"Schlüssel zum Verschlüsseln von Backups, wenn kein Backup-Schlüsselpaar "
+"benutzt wird. Nie mehr ändern, sobald Backups existieren – sonst lassen sie "
+"sich nicht mehr entschlüsseln."
+
+#: includes/admin.php:372
+msgid ""
+"Optional. API key for reporting banned IPs to AbuseIPDB (Firewall tab). "
+"Create it in your AbuseIPDB account under API."
+msgstr ""
+"Optional. API-Schlüssel, um gesperrte IPs an AbuseIPDB zu melden (Tab "
+"Firewall). Anzulegen in deinem AbuseIPDB-Konto unter API."
+
+#: includes/admin.php:376
+msgid ""
+"Optional. Secret key of Google reCAPTCHA (the site key stays in the "
+"settings)."
+msgstr ""
+"Optional. Geheimer Schlüssel von Google reCAPTCHA (der Website-Schlüssel "
+"bleibt in den Einstellungen)."
+
+#: includes/admin.php:380
+msgid ""
+"Optional. Secret key of Cloudflare Turnstile (the site key stays in the "
+"settings)."
+msgstr ""
+"Optional. Geheimer Schlüssel von Cloudflare Turnstile (der Website-Schlüssel"
+" bleibt in den Einstellungen)."
+
+#: includes/admin.php:384
+msgid ""
+"Optional. Webhook URL for security alerts (e.g. Discord). It contains an "
+"access token, so it is treated as a secret."
+msgstr ""
+"Optional. Webhook-URL für Sicherheitsmeldungen (z. B. Discord). Sie enthält "
+"einen Zugriffstoken und wird deshalb wie ein Secret behandelt."
+
+#: includes/admin.php:388
+msgid "How to create the keys"
+msgstr "So erstellst du die Schlüssel"
+
+#: includes/admin.php:395
+msgid ""
+"Instead of the file, the same names can be defined as constants in wp-"
+"config.php. Another location for the file can be set in wp-config.php with "
+"the path only:"
+msgstr ""
+"Statt der Datei können dieselben Namen auch als Konstanten in der wp-"
+"config.php definiert werden. Einen anderen Ort für die Datei legst du in der"
+" wp-config.php fest, nur mit dem Pfad:"
+
+#. translators: %s: constant name
+#: includes/admin.php:406
+#, php-format
+msgid "%s is set (secrets file / wp-config.php)."
+msgstr "%s ist gesetzt (Schlüsseldatei / wp-config.php)."
+
+#. translators: %s: constant name
+#: includes/admin.php:410
+#, php-format
+msgid ""
+"Still stored in the database by an older version. Move it into the secrets "
+"file as %s (command in the Secrets tab); it is then deleted from the "
+"database."
+msgstr ""
+"Noch von einer älteren Version in der Datenbank gespeichert. Übertrage es "
+"als %s in die Schlüsseldatei (Befehl im Tab Secrets); danach wird es aus der"
+" Datenbank gelöscht."
+
+#. translators: %s: constant name
+#: includes/admin.php:413
+#, php-format
+msgid ""
+"Not set. Secrets are never stored in the database: add %s to the secrets "
+"file (Secrets tab)."
+msgstr ""
+"Nicht gesetzt. Secrets werden nie in der Datenbank gespeichert: trage %s in "
+"die Schlüsseldatei ein (Tab Secrets)."
+
+#: includes/admin.php:419
+msgid "Notifications"
+msgstr "Benachrichtigungen"
+
+#: includes/admin.php:419
+msgid "Enable Email Alerts"
+msgstr "E-Mail-Warnungen aktivieren"
+
+#: includes/admin.php:419
+msgid "Receive notifications for critical security events."
+msgstr "Erhalte Benachrichtigungen bei kritischen Sicherheitsereignissen."
+
+#: includes/admin.php:420
+msgid "Recipient Email"
+msgstr "Empfänger E-Mail"
+
+#: includes/admin.php:422
+msgid "Webhook URL"
+msgstr "Webhook-URL"
+
+#: includes/admin.php:430
+msgid "2FA"
+msgstr "2FA"
+
+#: includes/admin.php:430
+msgid "Enable 2FA"
+msgstr "2FA aktivieren"
+
+#: includes/admin.php:430
+msgid "Enforces Two-Factor Authentication for administrators."
+msgstr "Erzwingt die Zwei-Faktor-Authentifizierung für Administratoren."
+
+#: includes/admin.php:432
+msgid "Preferred Method"
+msgstr "Bevorzugte Methode"
+
+#: includes/admin.php:434
+msgid "Email Code Only"
+msgstr "Nur E-Mail Code"
+
+#: includes/admin.php:435
+msgid "App Only"
+msgstr "Nur App"
+
+#: includes/admin.php:436
+msgid "Both"
+msgstr "Beides"
+
+#: includes/admin.php:454
+msgid ""
+"The rules file has not been written by this version yet. Click \"Write rules"
+" to config\"."
+msgstr ""
+"Die Regeldatei wurde von dieser Version noch nicht geschrieben. Klicke auf "
+"„Write rules to config“."
+
+#. translators: 1: file path, 2: date and time
+#: includes/admin.php:457
+#, php-format
+msgid "Rules written to %1$s (%2$s)."
+msgstr "Regeln geschrieben nach %1$s (%2$s)."
+
+#: includes/admin.php:459
+msgid ""
+"Apache / LiteSpeed reads the rules from this file directly (block \"Tegatai-"
+"Secure\", needs mod_rewrite)."
+msgstr ""
+"Apache / LiteSpeed liest die Regeln direkt aus dieser Datei (Block „Tegatai-"
+"Secure“, benötigt mod_rewrite)."
+
+#: includes/admin.php:461
+msgid "Include line for your nginx server block:"
+msgstr "Include-Zeile für deinen nginx-Serverblock:"
+
+#. translators: %s: file path
+#: includes/admin.php:465
+#, php-format
+msgid ""
+"The rules file %s was written but no longer exists. Click \"Write rules to "
+"config\"."
+msgstr ""
+"Die Regeldatei %s wurde geschrieben, existiert aber nicht mehr. Klicke auf "
+"„Write rules to config“."
+
+#. translators: %s: error details (paths and reasons)
+#: includes/admin.php:468
+#, php-format
+msgid "The rules file could not be written: %s"
+msgstr "Die Regeldatei konnte nicht geschrieben werden: %s"
+
+#: includes/admin.php:527 includes/admin.php:531
+msgid "No data provided."
+msgstr "Keine Daten."
+
+#: includes/admin.php:607
+msgid "Protection & Firewall"
+msgstr "Schutz & Firewall"
+
+#: includes/admin.php:609
+msgid "WAF, Login Guard, Anti-Spam, GeoIP Block"
+msgstr "WAF, Login-Schutz, Anti-Spam, GeoIP-Sperre"
+
+#: includes/admin.php:611 includes/admin.php:704
+msgid "WAF Firewall"
+msgstr "WAF Firewall"
+
+#: includes/admin.php:612 includes/admin.php:1001
+msgid "Login Protection"
+msgstr "Login Schutz"
+
+#: includes/admin.php:613
+msgid "Anti-Spam"
+msgstr "Anti-Spam"
+
+#: includes/admin.php:614
+msgid "GeoIP Block"
+msgstr "GeoIP-Sperre"
+
+#: includes/admin.php:618
+msgid "Server & System"
+msgstr "Server & System"
+
+#: includes/admin.php:620
+msgid "Server Rules, HTTP Headers, WP Masking, System Hardening"
+msgstr "Server-Regeln, HTTP-Header, WP Masking, System-Härtung"
+
+#: includes/admin.php:622 includes/admin.php:993
+msgid "Server Rules"
+msgstr "Server Regeln"
+
+#: includes/admin.php:623
+msgid "HTTP Headers"
+msgstr "HTTP-Header"
+
+#: includes/admin.php:625
+msgid "Hardening"
+msgstr "Härtung"
+
+#: includes/admin.php:629
+msgid "Scanner & Checks"
+msgstr "Scanner & Prüfungen"
+
+#: includes/admin.php:631
+msgid "Malware, WP Core, FIM, Database, Uploads"
+msgstr "Malware, WP-Core, FIM, Datenbank, Uploads"
+
+#: includes/admin.php:633
+msgid "Main Scanner"
+msgstr "Hauptscanner"
+
+#: includes/admin.php:634
+msgid "Malware"
+msgstr "Malware"
+
+#: includes/admin.php:635
+msgid "Core"
+msgstr "Core"
+
+#: includes/admin.php:636
+msgid "FIM"
+msgstr "FIM"
+
+#: includes/admin.php:637
+msgid "DB XSS"
+msgstr "DB XSS"
+
+#: includes/admin.php:638
+msgid "Options"
+msgstr "Optionen"
+
+#: includes/admin.php:639
+msgid "Cron"
+msgstr "Cron"
+
+#: includes/admin.php:640
+msgid "Uploads"
+msgstr "Uploads"
+
+#: includes/admin.php:641
+msgid "Perms"
+msgstr "Rechte"
+
+#: includes/admin.php:645
+msgid "Management"
+msgstr "Verwaltung"
+
+#: includes/admin.php:647
+msgid "IP Prison, Sessions, Backups, Extras & API"
+msgstr "IP Prison, Sitzungen, Backups, Extras & API"
+
+#: includes/admin.php:649 includes/admin.php:894
+msgid "IP Prison"
+msgstr "IP Prison"
+
+#: includes/admin.php:650
+msgid "Sessions"
+msgstr "Sitzungen"
+
+#: includes/admin.php:651 includes/admin.php:753
+msgid "Backups"
+msgstr "Backups"
+
+#: includes/admin.php:652 includes/admin.php:1156
+msgid "Extras & API"
+msgstr "Extras & API"
+
+#: includes/admin.php:653
+msgid "Secrets"
+msgstr "Schlüssel"
+
+#: includes/admin.php:657
+msgid "Logs & Events"
+msgstr "Logs & Ereignisse"
+
+#: includes/admin.php:659
+msgid "Live Traffic, Block Events, Security Timeline"
+msgstr "Live-Traffic, Sperr-Ereignisse, Sicherheits-Timeline"
+
+#: includes/admin.php:661
+msgid "Live Traffic"
+msgstr "Live-Traffic"
+
+#: includes/admin.php:662
+msgid "Timeline"
+msgstr "Timeline"
+
+#: includes/admin.php:704
+msgid "Login Guard"
+msgstr "Login-Schutz"
+
+#: includes/admin.php:705
+msgid "Two-Factor Auth"
+msgstr "Zwei-Faktor-Authentifizierung"
+
+#: includes/admin.php:705 includes/admin.php:991
+msgid "Upload Guard"
+msgstr "Upload-Schutz"
+
+#: includes/admin.php:706
+msgid "Honeypot"
+msgstr "Honeypot"
+
+#: includes/admin.php:706
+msgid "Rate Limiting"
+msgstr "Rate Limiting"
+
+#: includes/admin.php:707
+msgid "Auto Quarantine"
+msgstr "Automatische Quarantäne"
+
+#: includes/admin.php:707 includes/admin.php:1002
+msgid "Trusted Devices"
+msgstr "Vertrauenswürdige Geräte"
+
+#: includes/admin.php:717
+msgid "PROTECTED"
+msgstr "GESCHÜTZT"
+
+#: includes/admin.php:717
+msgid "ATTENTION"
+msgstr "ACHTUNG"
+
+#: includes/admin.php:717
+msgid "CRITICAL"
+msgstr "KRITISCH"
+
+#: includes/admin.php:718
+msgid ""
+"Core protections are active and no critical dashboard condition was "
+"detected."
+msgstr ""
+"Die zentralen Schutzfunktionen sind aktiv, es wurde kein kritischer Zustand "
+"erkannt."
+
+#: includes/admin.php:718
+msgid ""
+"Some protections are disabled or recent security activity needs review."
+msgstr ""
+"Einige Schutzfunktionen sind ausgeschaltet oder aktuelle "
+"Sicherheitsereignisse sollten geprüft werden."
+
+#: includes/admin.php:718
+msgid "Important protections are missing. Review the security modules below."
+msgstr "Wichtige Schutzfunktionen fehlen. Prüfe die Sicherheitsmodule unten."
+
+#: includes/admin.php:726
+msgid "Enable WAF Firewall"
+msgstr "WAF Firewall aktivieren"
+
+#: includes/admin.php:726
+msgid ""
+"Recommended as the primary request-level protection against common malicious"
+" traffic."
+msgstr ""
+"Empfohlen als wichtigster Schutz auf Anfrage-Ebene gegen gängigen "
+"schädlichen Traffic."
+
+#: includes/admin.php:726
+msgid "Review WAF"
+msgstr "WAF prüfen"
+
+#: includes/admin.php:729
+msgid "Enable Two-Factor Authentication"
+msgstr "Zwei-Faktor-Authentifizierung aktivieren"
+
+#: includes/admin.php:729
+msgid ""
+"Strongly recommended for administrator accounts to reduce the impact of "
+"stolen passwords."
+msgstr ""
+"Für Administrator-Konten dringend empfohlen, damit gestohlene Passwörter "
+"weniger Schaden anrichten."
+
+#: includes/admin.php:729
+msgid "Review 2FA"
+msgstr "2FA prüfen"
+
+#: includes/admin.php:732
+msgid "Enable Login Guard"
+msgstr "Login-Schutz aktivieren"
+
+#: includes/admin.php:732
+msgid "Helps slow down repeated login attempts and brute-force attacks."
+msgstr "Bremst wiederholte Login-Versuche und Brute-Force-Angriffe aus."
+
+#: includes/admin.php:732
+msgid "Review Login Guard"
+msgstr "Login-Schutz prüfen"
+
+#: includes/admin.php:735
+msgid "Review Upload Guard"
+msgstr "Upload-Schutz prüfen"
+
+#: includes/admin.php:735
+msgid "Especially useful when the website accepts user-uploaded files."
+msgstr "Besonders sinnvoll, wenn die Website Uploads von Benutzern annimmt."
+
+#: includes/admin.php:738
+msgid "Review Rate Limiting"
+msgstr "Rate Limiting prüfen"
+
+#: includes/admin.php:738
+msgid ""
+"Useful for limiting abusive request bursts without blocking normal visitors."
+msgstr ""
+"Begrenzt missbräuchliche Anfrage-Schübe, ohne normale Besucher zu "
+"blockieren."
+
+#: includes/admin.php:738
+msgid "Review limits"
+msgstr "Limits prüfen"
+
+#: includes/admin.php:741
+msgid "Enable protected server files"
+msgstr "Geschützte Server-Dateien aktivieren"
+
+#: includes/admin.php:741
+msgid "Adds an extra server-level barrier around sensitive files and paths."
+msgstr ""
+"Fügt eine zusätzliche Sperre auf Server-Ebene um sensible Dateien und Pfade "
+"hinzu."
+
+#: includes/admin.php:741
+msgid "Review Server Rules"
+msgstr "Server-Regeln prüfen"
+
+#: includes/admin.php:744
+msgid "Review automated backups"
+msgstr "Automatische Backups prüfen"
+
+#: includes/admin.php:744
+msgid ""
+"A recent recoverable backup is an important part of a complete security "
+"strategy."
+msgstr ""
+"Ein aktuelles, wiederherstellbares Backup ist ein wichtiger Teil einer "
+"vollständigen Sicherheitsstrategie."
+
+#: includes/admin.php:744
+msgid "Review Backups"
+msgstr "Backups prüfen"
+
+#: includes/admin.php:747
+msgid "Automatic Quarantine is disabled"
+msgstr "Automatische Quarantäne ist ausgeschaltet"
+
+#: includes/admin.php:747
+msgid ""
+"Optional: enable it if you want high-confidence detections to be isolated "
+"automatically."
+msgstr ""
+"Optional: einschalten, wenn eindeutige Funde automatisch isoliert werden "
+"sollen."
+
+#: includes/admin.php:747
+msgid "Configure"
+msgstr "Einrichten"
+
+#: includes/admin.php:751 includes/admin.php:818
+msgid "Core protection modules"
+msgstr "Zentrale Schutzmodule"
+
+#: includes/admin.php:752
+msgid "Server hardening"
+msgstr "Server-Härtung"
+
+#: includes/admin.php:754
+msgid "Recent activity"
+msgstr "Letzte Aktivität"
+
+#: includes/admin.php:760
+msgid "Security Status"
+msgstr "Sicherheitsstatus"
+
+#: includes/admin.php:763
+msgid "score"
+msgstr "Punkte"
+
+#: includes/admin.php:771
+msgid "Protection active"
+msgstr "Schutz aktiv"
+
+#. translators: 1: number of enabled modules, 2: number of all modules
+#: includes/admin.php:772
+#, php-format
+msgid "%1$d / %2$d modules"
+msgstr "%1$d / %2$d Module"
+
+#: includes/admin.php:776
+msgid "Recommended actions"
+msgstr "Empfohlene Maßnahmen"
+
+#. translators: %d: number of recommended actions
+#: includes/admin.php:777
+#, php-format
+msgid "%d item"
+msgid_plural "%d items"
+msgstr[0] "%d Eintrag"
+msgstr[1] "%d Einträge"
+
+#. translators: %d: number of recommended actions
+#: includes/admin.php:777
+msgid "No action required"
+msgstr "Keine Maßnahme nötig"
+
+#: includes/admin.php:780
+msgid "Tegatai has not detected a configuration issue requiring attention."
+msgstr ""
+"Tegatai hat kein Konfigurationsproblem gefunden, das Aufmerksamkeit braucht."
+
+#: includes/admin.php:787
+msgid "Important"
+msgstr "Wichtig"
+
+#: includes/admin.php:787
+msgid "Optional"
+msgstr "Optional"
+
+#: includes/admin.php:787
+msgid "Recommended"
+msgstr "Empfohlen"
+
+#: includes/admin.php:796
+msgid "Why this score?"
+msgstr "Wie entsteht dieser Wert?"
+
+#: includes/admin.php:806
+msgid "While you were away"
+msgstr "Während du weg warst"
+
+#: includes/admin.php:806
+msgid "Recent security activity from the Tegatai event log."
+msgstr "Aktuelle Sicherheitsereignisse aus dem Tegatai-Ereignisprotokoll."
+
+#: includes/admin.php:806
+msgid "View all"
+msgstr "Alle anzeigen"
+
+#: includes/admin.php:808
+msgid "No recent security events."
+msgstr "Keine aktuellen Sicherheitsereignisse."
+
+#: includes/admin.php:809
+msgid "Security event"
+msgstr "Sicherheitsereignis"
+
+#: includes/admin.php:815
+msgid "Blocked total"
+msgstr "Sperren gesamt"
+
+#: includes/admin.php:815
+msgid "All recorded blocks"
+msgstr "Alle erfassten Sperren"
+
+#: includes/admin.php:816
+msgid "Blocks / 24h"
+msgstr "Sperren / 24 h"
+
+#: includes/admin.php:816
+msgid "Firewall and WAF activity"
+msgstr "Firewall- und WAF-Aktivität"
+
+#: includes/admin.php:817
+msgid "Failed logins / 24h"
+msgstr "Fehlgeschlagene Logins / 24 h"
+
+#: includes/admin.php:817
+msgid "Authentication failures"
+msgstr "Fehlgeschlagene Anmeldungen"
+
+#: includes/admin.php:818
+msgid "Modules active"
+msgstr "Aktive Module"
+
+#: includes/admin.php:823
+msgid "Protection cockpit"
+msgstr "Schutz-Cockpit"
+
+#: includes/admin.php:824
+msgid "The protections that matter most on every request."
+msgstr "Die Schutzfunktionen, die bei jeder Anfrage am meisten zählen."
+
+#: includes/admin.php:826
+msgid "Active"
+msgstr "Aktiv"
+
+#: includes/admin.php:830
+msgid "Top sources / 24h"
+msgstr "Top-Quellen / 24 h"
+
+#: includes/admin.php:831
+msgid "IPs generating the most security events."
+msgstr "IPs mit den meisten Sicherheitsereignissen."
+
+#: includes/admin.php:832
+msgid "No data yet."
+msgstr "Noch keine Daten."
+
+#: includes/admin.php:850 includes/api_guard.php:236 includes/hive.php:690
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#. translators: %d: number of active bans
+#: includes/admin.php:894
+#, php-format
+msgid "%d active ban"
+msgid_plural "%d active bans"
+msgstr[0] "%d aktive Sperre"
+msgstr[1] "%d aktive Sperren"
+
+#: includes/admin.php:896
+msgid "IP released. Bans from The Hive stay active on the other sites."
+msgstr ""
+"IP freigegeben. Sperren aus The Hive bleiben auf den anderen Seiten aktiv."
+
+#: includes/admin.php:899
+msgid "No active bans."
+msgstr "Keine aktiven Sperren."
+
+#: includes/admin.php:903
+msgid "Reason"
+msgstr "Grund"
+
+#: includes/admin.php:903
+msgid "Source"
+msgstr "Quelle"
+
+#: includes/admin.php:903
+msgid "Level"
+msgstr "Stufe"
+
+#: includes/admin.php:903
+msgid "Until"
+msgstr "Bis"
+
+#: includes/admin.php:903 includes/admin.php:1090 includes/admin.php:1149
+#: includes/admin.php:1608
+msgid "Action"
+msgstr "Aktion"
+
+#: includes/admin.php:907
+msgid "This site"
+msgstr "Diese Seite"
+
+#: includes/admin.php:918
+msgid "Release"
+msgstr "Freigeben"
+
+#. translators: 1: shown, 2: total
+#: includes/admin.php:923
+#, php-format
+msgid "Showing the newest %1$d of %2$d bans."
+msgstr "Es werden die neuesten %1$d von %2$d Sperren angezeigt."
+
+#: includes/admin.php:933
+msgid "Country Database"
+msgstr "Länderdatenbank"
+
+#: includes/admin.php:934
+msgid ""
+"Countries are looked up locally in the free \"IP to Country Lite\" database "
+"by DB-IP (CC BY 4.0). Visitor IPs never leave the server. The database is "
+"only downloaded while the GeoIP block is on, and renewed monthly."
+msgstr ""
+"Länder werden lokal in der kostenlosen Datenbank „IP to Country Lite“ von "
+"DB-IP (CC BY 4.0) nachgeschlagen. Besucher-IPs verlassen nie den Server. Die"
+" Datenbank wird nur heruntergeladen, solange die GeoIP-Sperre aktiv ist, und"
+" monatlich erneuert."
+
+#: includes/admin.php:936
+msgid "Database downloaded."
+msgstr "Datenbank heruntergeladen."
+
+#: includes/admin.php:938
+msgid "Download failed:"
+msgstr "Download fehlgeschlagen:"
+
+#: includes/admin.php:942
+msgid "Edition"
+msgstr "Ausgabe"
+
+#: includes/admin.php:943
+msgid "Downloaded"
+msgstr "Heruntergeladen"
+
+#: includes/admin.php:944 includes/admin.php:1088 includes/quarantine.php:212
+msgid "Size"
+msgstr "Größe"
+
+#: includes/admin.php:948
+msgid "No database yet. Until it is downloaded, no country is blocked."
+msgstr ""
+"Noch keine Datenbank. Bis sie heruntergeladen ist, wird kein Land gesperrt."
+
+#: includes/admin.php:951
+msgid "Last download failed:"
+msgstr "Letzter Download fehlgeschlagen:"
+
+#: includes/admin.php:956
+msgid "Update now"
+msgstr "Jetzt aktualisieren"
+
+#: includes/admin.php:956
+msgid "Download database"
+msgstr "Datenbank herunterladen"
+
+#: includes/admin.php:965
+msgid "Google reCAPTCHA"
+msgstr "Google reCAPTCHA"
+
+#: includes/admin.php:966
+msgid "Enable reCAPTCHA"
+msgstr "reCAPTCHA aktivieren"
+
+#: includes/admin.php:966
+msgid ""
+"Google CAPTCHA for login and comments. Switching it on switches Cloudflare "
+"Turnstile off."
+msgstr ""
+"Google-CAPTCHA für Login und Kommentare. Beim Einschalten wird Cloudflare "
+"Turnstile ausgeschaltet."
+
+#: includes/admin.php:967
+msgid "Only one captcha can be active: reCAPTCHA or Turnstile."
+msgstr "Es kann nur ein Captcha aktiv sein: reCAPTCHA oder Turnstile."
+
+#: includes/admin.php:969 includes/admin.php:1187 includes/admin.php:1444
+msgid "Type"
+msgstr "Typ"
+
+#: includes/admin.php:970
+msgid "v2 – \"I'm not a robot\" checkbox"
+msgstr "v2 – Checkbox „Ich bin kein Roboter“"
+
+#: includes/admin.php:971
+msgid "v3 – invisible, score based"
+msgstr "v3 – unsichtbar, mit Score"
+
+#: includes/admin.php:972 includes/admin.php:1003
+msgid "Site Key"
+msgstr "Site Key"
+
+#: includes/admin.php:973 includes/admin.php:1003
+msgid "Secret Key"
+msgstr "Secret Key"
+
+#: includes/admin.php:974
+msgid "Minimum score (v3 only)"
+msgstr "Mindest-Score (nur v3)"
+
+#: includes/admin.php:975
+msgid ""
+"0.1 lets almost everyone through, 0.9 is very strict. Google recommends 0.5."
+" The key type (v2 or v3) must match the type selected above."
+msgstr ""
+"0.1 lässt fast alle durch, 0.9 ist sehr streng. Google empfiehlt 0.5. Der "
+"Schlüsseltyp (v2 oder v3) muss zum oben gewählten Typ passen."
+
+#: includes/admin.php:991
+msgid "WAF Settings"
+msgstr "WAF Einstellungen"
+
+#: includes/admin.php:991
+msgid "Enable WAF"
+msgstr "WAF aktivieren"
+
+#: includes/admin.php:991
+msgid "Activates the Web Application Firewall to block malicious requests."
+msgstr ""
+"Aktiviert die Web Application Firewall, um bösartige Anfragen zu blockieren."
+
+#: includes/admin.php:991
+msgid "Block Bad Bots"
+msgstr "Bad Bots blockieren"
+
+#: includes/admin.php:991
+msgid "Blocks known malicious bots, scrapers, and automated attack tools."
+msgstr ""
+"Blockiert bekannte bösartige Bots, Scraper und automatisierte Angriffstools."
+
+#: includes/admin.php:991
+msgid "Rate Limit"
+msgstr "Rate Limit"
+
+#: includes/admin.php:991
+msgid "Prevents brute-force attacks by limiting requests per minute."
+msgstr ""
+"Verhindert Brute-Force-Angriffe durch Begrenzung der Anfragen pro Minute."
+
+#: includes/admin.php:991
+msgid "404 Trap"
+msgstr "404 Falle"
+
+#: includes/admin.php:991
+msgid "Bans IPs that generate too many 404 Not Found errors."
+msgstr "Sperrt IPs, die zu viele 404-Fehler verursachen."
+
+#: includes/admin.php:991
+msgid "Blocks uploads of executable or disguised script files."
+msgstr "Blockiert Uploads ausführbarer oder getarnter Skriptdateien."
+
+#: includes/admin.php:991
+msgid "Block AI Bots"
+msgstr "KI-Bots blockieren"
+
+#: includes/admin.php:991
+msgid ""
+"Stops OpenAI, ChatGPT, and other AI scrapers from crawling your content."
+msgstr ""
+"Hindert OpenAI, ChatGPT und andere KI-Scraper daran, deine Inhalte zu "
+"crawlen."
+
+#: includes/admin.php:991
+msgid "Block SEO Bots"
+msgstr "SEO-Bots blockieren"
+
+#: includes/admin.php:991
+msgid "Blocks aggressive SEO crawlers like Ahrefs or Semrush."
+msgstr "Blockiert aggressive SEO-Crawler wie Ahrefs oder Semrush."
+
+#: includes/admin.php:991
+msgid "WAF Whitelist"
+msgstr "WAF Whitelist"
+
+#: includes/admin.php:991
+msgid "Allowed URLs"
+msgstr "Erlaubte URLs"
+
+#: includes/admin.php:991
+msgid "Custom Rules"
+msgstr "Eigene Regeln"
+
+#: includes/admin.php:991
+msgid "Custom Regex Filters"
+msgstr "Eigene Regex Filter"
+
+#: includes/admin.php:991
+msgid "One regex per line (e.g., <code>/bad-bot/i</code>)."
+msgstr "Pro Zeile ein Regex (z.B. <code>/bad-bot/i</code>)."
+
+#: includes/admin.php:991
+msgid "IP Lists"
+msgstr "IP Listen"
+
+#: includes/admin.php:991
+msgid "Whitelist IPs"
+msgstr "Whitelist IPs"
+
+#: includes/admin.php:991
+msgid "Blacklist IPs"
+msgstr "Blacklist IPs"
+
+#: includes/admin.php:993
+msgid "Disable Directory Browsing"
+msgstr "Directory Browsing deaktivieren"
+
+#: includes/admin.php:993
+msgid "Prevents attackers from seeing lists of your files."
+msgstr "Verhindert, dass Angreifer Dateilisten deines Servers sehen können."
+
+#: includes/admin.php:993
+msgid "Protect Sensitive Files"
+msgstr "Sensible Dateien schützen"
+
+#: includes/admin.php:993
+msgid "Blocks access to .env, .sql, .bak, .log, and .git files."
+msgstr "Blockiert den Zugriff auf .env, .sql, .bak, .log und .git Dateien."
+
+#: includes/admin.php:993
+msgid "Block System Files"
+msgstr "Systemdateien blockieren"
+
+#: includes/admin.php:993
+msgid "Hides readme.html, license.txt, and wp-config.php from the web."
+msgstr "Versteckt readme.html, license.txt und wp-config.php vor dem Web."
+
+#: includes/admin.php:993
+msgid "Block Dotfiles"
+msgstr "Dotfiles blockieren"
+
+#: includes/admin.php:993
+msgid "Denies access to hidden files (e.g., .htaccess)."
+msgstr "Verweigert den Zugriff auf versteckte Dateien (z.B. .htaccess)."
+
+#: includes/admin.php:993
+msgid "Block XML-RPC"
+msgstr "XML-RPC blockieren"
+
+#: includes/admin.php:993
+msgid "Disables xmlrpc.php to prevent DDoS and brute-force attacks."
+msgstr ""
+"Deaktiviert die xmlrpc.php, um DDoS- und Brute-Force-Angriffe zu verhindern."
+
+#: includes/admin.php:993
+msgid "Disable PHP in Uploads"
+msgstr "PHP in Uploads deaktivieren"
+
+#: includes/admin.php:993
+msgid "Prevents execution of malicious backdoors in your media folder."
+msgstr ""
+"Verhindert die Ausführung von Malware und Backdoors in deinem Upload-Ordner."
+
+#: includes/admin.php:993
+msgid "Allow direct PHP in Plugins & Themes"
+msgstr "Direktes PHP in Plugins & Themes erlauben"
+
+#: includes/admin.php:993
+msgid ""
+"Off (recommended): direct requests for PHP files in plugins and themes are "
+"blocked, except the files under \"PHP Exceptions\". Switch on only if a "
+"plugin still fails because of this."
+msgstr ""
+"Aus (empfohlen): Direkte Aufrufe von PHP-Dateien in Plugins und Themes "
+"werden blockiert, außer den Dateien unter „PHP-Ausnahmen“. Nur einschalten, "
+"wenn ein Plugin deswegen trotzdem nicht funktioniert."
+
+#: includes/admin.php:993
+msgid "Ultimate Bad Bot Filter"
+msgstr "Ultimate Bad Bot Filter"
+
+#: includes/admin.php:993
+msgid ""
+"Blocks hacking tools, AI scrapers and SEO crawlers on the web server (nginx "
+"file or .htaccess)."
+msgstr ""
+"Blockiert Hacking-Tools, KI-Scraper und SEO-Crawler direkt auf dem Webserver"
+" (nginx-Datei oder .htaccess)."
+
+#: includes/admin.php:993
+msgid "Hotlink Protection"
+msgstr "Hotlink Schutz"
+
+#: includes/admin.php:993
+msgid ""
+"Prevents other sites from embedding your images and stealing bandwidth."
+msgstr ""
+"Verhindert, dass andere Seiten deine Bilder einbetten und Bandbreite "
+"stehlen."
+
+#: includes/admin.php:993
+msgid "Write rules to config"
+msgstr "Regeln in die Konfiguration schreiben"
+
+#: includes/admin.php:993
+msgid "Custom Protection"
+msgstr "Eigener Schutz"
+
+#: includes/admin.php:993
+msgid "Protected Directories"
+msgstr "Geschützte Verzeichnisse"
+
+#: includes/admin.php:994
+msgid "Block Specific Files"
+msgstr "Spezifische Dateien blockieren"
+
+#: includes/admin.php:995
+msgid "Paths from root (e.g., <code>/secret.zip</code>)."
+msgstr "Pfade ab dem Hauptverzeichnis (z. B. <code>/secret.zip</code>)."
+
+#: includes/admin.php:997
+msgid "PHP Exceptions (Plugins & Themes)"
+msgstr "PHP-Ausnahmen (Plugins & Themes)"
+
+#: includes/admin.php:998
+msgid ""
+"Files that may still be requested directly, one per line, relative to the "
+"plugins or themes folder (e.g., <code>matomo/app/matomo.php</code>). A "
+"trailing <code>/</code> allows a whole folder. An empty field allows "
+"nothing."
+msgstr ""
+"Dateien, die weiterhin direkt aufgerufen werden dürfen, eine pro Zeile, "
+"relativ zum Plugins- bzw. Themes-Ordner (z. B. "
+"<code>matomo/app/matomo.php</code>). Ein <code>/</code> am Ende erlaubt "
+"einen ganzen Ordner. Ein leeres Feld erlaubt nichts."
+
+#: includes/admin.php:1000
+msgid "Hotlink Whitelist"
+msgstr "Hotlink Whitelist"
+
+#: includes/admin.php:1001
+msgid "Login Limit"
+msgstr "Login Limit"
+
+#: includes/admin.php:1001
+msgid "Locks out IPs after multiple failed login attempts."
+msgstr "Sperrt IPs nach mehreren fehlgeschlagenen Login-Versuchen."
+
+#: includes/admin.php:1001
+msgid "Disable App Passwords"
+msgstr "App-Passwörter deaktivieren"
+
+#: includes/admin.php:1001
+msgid "Turns off the WordPress application passwords feature."
+msgstr "Schaltet die WordPress-Funktion für App-Passwörter ab."
+
+#: includes/admin.php:1002
+msgid "Warns via email upon logins from unknown devices."
+msgstr "Warnt per E-Mail bei Logins von unbekannten Geräten."
+
+#: includes/admin.php:1002
+msgid "Block wp-login.php"
+msgstr "wp-login.php blockieren"
+
+#: includes/admin.php:1002
+msgid "Disables the default login route (requires Custom Slug)."
+msgstr "Deaktiviert die Standard-Login-Route (erfordert einen Custom Slug!)."
+
+#: includes/admin.php:1002
+msgid "Hide /wp-admin/"
+msgstr "/wp-admin/ verstecken"
+
+#: includes/admin.php:1002
+msgid "Redirects unauthenticated users away from the admin area."
+msgstr "Leitet nicht authentifizierte Benutzer vom Admin-Bereich weg."
+
+#: includes/admin.php:1002
+msgid "Restrict Dashboard"
+msgstr "Dashboard einschränken"
+
+#: includes/admin.php:1002
+msgid "Only administrators and editors may access the WordPress dashboard."
+msgstr ""
+"Nur Administratoren und Redakteure dürfen das WordPress-Dashboard aufrufen."
+
+#: includes/admin.php:1002
+msgid "Idle Logout (60m)"
+msgstr "Automatischer Logout (60 Min)"
+
+#: includes/admin.php:1002
+msgid "Automatically logs out inactive administrators after 60 minutes."
+msgstr "Meldet inaktive Administratoren nach 60 Minuten automatisch ab."
+
+#: includes/admin.php:1002
+msgid "Custom Login Slug"
+msgstr "Eigener Login-Pfad"
+
+#: includes/admin.php:1003
+msgid "Spam & Bots"
+msgstr "Spam & Bots"
+
+#: includes/admin.php:1003
+msgid "Enable Honeypot"
+msgstr "Honeypot aktivieren"
+
+#: includes/admin.php:1003
+msgid "Adds an invisible field to catch automated spam bots."
+msgstr ""
+"Fügt ein unsichtbares Feld hinzu, um automatisierte Spam-Bots abzufangen."
+
+#: includes/admin.php:1003
+msgid "Minimum Fill Time"
+msgstr "Minimale Ausfüllzeit"
+
+#: includes/admin.php:1003
+msgid "Blocks forms submitted too quickly."
+msgstr "Blockiert Formulare, die zu schnell abgeschickt werden."
+
+#: includes/admin.php:1003
+msgid "Referrer Check"
+msgstr "Referrer-Prüfung"
+
+#: includes/admin.php:1003
+msgid "Ensures form submissions come from your own site."
+msgstr ""
+"Stellt sicher, dass Formulareingaben von deiner eigenen Seite stammen."
+
+#: includes/admin.php:1003
+msgid "Block Trash Mails"
+msgstr "Trash-Mails blockieren"
+
+#: includes/admin.php:1003
+msgid "Rejects disposable email addresses during registration."
+msgstr "Lehnt Wegwerf-E-Mail-Adressen bei der Registrierung ab."
+
+#: includes/admin.php:1003
+msgid "Max. Links"
+msgstr "Max. Links"
+
+#: includes/admin.php:1003
+msgid "Cloudflare Turnstile"
+msgstr "Cloudflare Turnstile"
+
+#: includes/admin.php:1003
+msgid "Enable Turnstile"
+msgstr "Turnstile aktivieren"
+
+#: includes/admin.php:1003
+msgid "Privacy-friendly Cloudflare CAPTCHA for login and comments."
+msgstr "Datenschutzfreundliches Cloudflare CAPTCHA für Logins und Kommentare."
+
+#: includes/admin.php:1006
+msgid "GeoIP Configuration"
+msgstr "GeoIP-Einstellungen"
+
+#: includes/admin.php:1009
+msgid "Operation Mode"
+msgstr "Betriebsmodus"
+
+#: includes/admin.php:1011
+msgid "Disabled"
+msgstr "Ausgeschaltet"
+
+#: includes/admin.php:1012
+msgid "Blacklist (Block listed countries)"
+msgstr "Blacklist (aufgeführte Länder sperren)"
+
+#: includes/admin.php:1013
+msgid "Whitelist (Allow ONLY listed countries)"
+msgstr "Whitelist (NUR aufgeführte Länder erlauben)"
+
+#: includes/admin.php:1016
+msgid "Protect Login Only"
+msgstr "Nur Login schützen"
+
+#: includes/admin.php:1016
+msgid ""
+"If enabled, the GeoIP filter only applies to wp-login.php and XML-RPC. If "
+"disabled, it blocks the entire website."
+msgstr ""
+"Wenn aktiv, gilt der GeoIP-Filter nur für wp-login.php und XML-RPC. Wenn "
+"aus, sperrt er die gesamte Website."
+
+#: includes/admin.php:1018
+msgid "Save Settings"
+msgstr "Einstellungen Speichern"
+
+#: includes/admin.php:1023
+msgid "Country Codes"
+msgstr "Ländercodes"
+
+#: includes/admin.php:1025
+msgid "ISO Alpha-2 Codes"
+msgstr "ISO-Alpha-2-Codes"
+
+#: includes/admin.php:1026
+msgid "One code per line (e.g. DE, AT)."
+msgstr "Ein Code pro Zeile (z. B. DE, AT)."
+
+#: includes/admin.php:1028
+msgid "Save Codes"
+msgstr "Codes speichern"
+
+#: includes/admin.php:1034
+msgid "System"
+msgstr "System"
+
+#: includes/admin.php:1034
+msgid "Hide WP Version"
+msgstr "WP Version verstecken"
+
+#: includes/admin.php:1034
+msgid "Removes the WordPress version number from your source code."
+msgstr "Entfernt die WordPress-Versionsnummer aus dem Quellcode."
+
+#: includes/admin.php:1034
+msgid "Disable XML-RPC"
+msgstr "XML-RPC deaktivieren"
+
+#: includes/admin.php:1034
+msgid "Turns off the XML-RPC API internally."
+msgstr "Schaltet die XML-RPC API intern ab."
+
+#: includes/admin.php:1034
+msgid "Disable File Editor"
+msgstr "Datei-Editor deaktivieren"
+
+#: includes/admin.php:1034
+msgid "Prevents editing plugins and themes via the WP dashboard."
+msgstr ""
+"Verhindert das Bearbeiten von Plugins und Themes über das WP-Dashboard."
+
+#: includes/admin.php:1034
+msgid "Block Enumeration"
+msgstr "Benutzer-Enumeration blockieren"
+
+#: includes/admin.php:1034
+msgid "Stops attackers from discovering your usernames."
+msgstr "Hindert Angreifer daran, deine Benutzernamen herauszufinden."
+
+#: includes/admin.php:1034
+msgid "Hide Login Errors"
+msgstr "Login-Fehler verbergen"
+
+#: includes/admin.php:1034
+msgid ""
+"Shows a generic message instead of revealing whether the username or "
+"password was wrong."
+msgstr ""
+"Zeigt eine allgemeine Meldung, statt zu verraten, ob Benutzername oder "
+"Passwort falsch war."
+
+#: includes/admin.php:1036
+msgid "Admin Honeypot"
+msgstr "Admin Honeypot"
+
+#: includes/admin.php:1036
+msgid "Permanently bans anyone trying to log in as admin."
+msgstr "Sperrt jeden dauerhaft, der versucht, sich als \"admin\" einzuloggen."
+
+#: includes/admin.php:1037
+msgid "Privilege Guard"
+msgstr "Rechte-Schutz"
+
+#: includes/admin.php:1037
+msgid "Prevents unauthorized users from upgrading to Administrator."
+msgstr "Verhindert, dass unbefugte Benutzer sich Administrator-Rechte geben."
+
+#: includes/admin.php:1041
+msgid "System Deep Clean"
+msgstr "System-Tiefenreinigung"
+
+#: includes/admin.php:1042
+msgid ""
+"Manual database cleanup. Deletes expired transients, spam comments, old post"
+" revisions, and optimizes table overhead."
+msgstr ""
+"Manuelle Datenbank-Bereinigung. Löscht abgelaufene Transients, Spam-"
+"Kommentare und alte Beitragsrevisionen und optimiert den Tabellen-Overhead."
+
+#: includes/admin.php:1043
+msgid "Run Deep Clean"
+msgstr "Tiefenreinigung starten"
+
+#: includes/admin.php:1048
+msgid "HTTP Security Headers"
+msgstr "HTTP Security Headers"
+
+#: includes/admin.php:1048
+msgid "X-Frame-Options"
+msgstr "X-Frame-Options"
+
+#: includes/admin.php:1048
+msgid "Clickjacking protection."
+msgstr "Schutz vor Clickjacking."
+
+#: includes/admin.php:1048
+msgid "X-Content-Type-Options"
+msgstr "X-Content-Type-Options"
+
+#: includes/admin.php:1048
+msgid "Stops browsers from MIME-sniffing."
+msgstr "Verhindert, dass Browser den MIME-Typ erraten (Sniffing)."
+
+#: includes/admin.php:1048
+msgid "X-XSS-Protection"
+msgstr "X-XSS-Protection"
+
+#: includes/admin.php:1048
+msgid ""
+"Outdated: current browsers ignore it. Sends \"0\" (filter off) as "
+"recommended today; better leave it off and use the Content Security Policy."
+msgstr ""
+"Veraltet: aktuelle Browser ignorieren ihn. Sendet „0“ (Filter aus), wie "
+"heute empfohlen; besser ausgeschaltet lassen und die Content Security Policy"
+" nutzen."
+
+#: includes/admin.php:1048
+msgid "HSTS (SSL)"
+msgstr "HSTS (SSL)"
+
+#: includes/admin.php:1048
+msgid "Enforces strict HTTPS connections."
+msgstr "Erzwingt strikte HTTPS-Verbindungen."
+
+#: includes/admin.php:1048
+msgid "HSTS: include subdomains"
+msgstr "HSTS: Subdomains einschließen"
+
+#: includes/admin.php:1048
+msgid ""
+"Only enable if ALL subdomains are reachable via HTTPS, otherwise they become"
+" unreachable for a year."
+msgstr ""
+"Nur aktivieren, wenn ALLE Subdomains per HTTPS erreichbar sind – sonst sind "
+"sie ein Jahr lang nicht erreichbar."
+
+#: includes/admin.php:1048
+msgid "Referrer Policy"
+msgstr "Referrer Policy"
+
+#: includes/admin.php:1048
+msgid "Controls referrer information."
+msgstr "Steuert die Referrer-Informationen."
+
+#: includes/admin.php:1048
+msgid "Permissions-Policy"
+msgstr "Permissions-Policy"
+
+#: includes/admin.php:1048
+msgid "Restricts access to browser features (camera, mic)."
+msgstr "Schränkt den Zugriff auf Browser-Funktionen ein (Kamera, Mikrofon)."
+
+#: includes/admin.php:1048
+msgid "Content Security Policy (basic)"
+msgstr "Content Security Policy (Basis)"
+
+#: includes/admin.php:1048
+msgid ""
+"Permissive baseline policy: restricts resources to HTTPS/same origin and "
+"blocks plain-HTTP content. It allows inline scripts and eval, so it does NOT"
+" protect against XSS."
+msgstr ""
+"Großzügige Basis-Richtlinie: beschränkt Ressourcen auf HTTPS/gleiche "
+"Herkunft und blockiert unverschlüsselte HTTP-Inhalte. Sie erlaubt Inline-"
+"Skripte und eval und schützt daher NICHT vor XSS."
+
+#: includes/admin.php:1048
+msgid "Cross-Origin-Opener-Policy"
+msgstr "Cross-Origin-Opener-Policy"
+
+#: includes/admin.php:1048
+msgid ""
+"Separates this site from windows of other sites (same-origin-allow-popups: "
+"windows this site opens, e.g. share dialogs, keep working)."
+msgstr ""
+"Trennt diese Seite von Fenstern anderer Seiten (same-origin-allow-popups: "
+"Fenster, die diese Seite selbst öffnet, z. B. Teilen-Dialoge, funktionieren "
+"weiter)."
+
+#: includes/admin.php:1048
+msgid "Cross-Origin-Resource-Policy"
+msgstr "Cross-Origin-Resource-Policy"
+
+#: includes/admin.php:1048
+msgid ""
+"Other sites may not load files of this site in the browser (same-site: "
+"subdomains are allowed). Leave it off if your other domains embed images or "
+"files from this site."
+msgstr ""
+"Andere Seiten dürfen Dateien dieser Seite im Browser nicht laden (same-site:"
+" Subdomains sind erlaubt). Ausgeschaltet lassen, wenn deine anderen Domains "
+"Bilder oder Dateien von dieser Seite einbinden."
+
+#: includes/admin.php:1053
+msgid "Backup Config"
+msgstr "Backup-Einstellungen"
+
+#: includes/admin.php:1054
+msgid "Auto backup"
+msgstr "Auto Backup"
+
+#: includes/admin.php:1054
+msgid "Automatically creates backups based on frequency."
+msgstr "Erstellt Backups automatisch nach dem gewählten Intervall."
+
+#: includes/admin.php:1056
+msgid "Frequency"
+msgstr "Häufigkeit"
+
+#: includes/admin.php:1058
+msgid "Daily"
+msgstr "Täglich"
+
+#: includes/admin.php:1059
+msgid "Weekly"
+msgstr "Wöchentlich"
+
+#: includes/admin.php:1066
+msgid "Encryption"
+msgstr "Verschlüsselung"
+
+#: includes/admin.php:1068
+msgid "Backup key loaded: X25519 + XChaCha20-Poly1305."
+msgstr "Backup-Schlüssel geladen: X25519 + XChaCha20-Poly1305."
+
+#: includes/admin.php:1068
+msgid ""
+"Only the public key is on this server: new backups are encrypted, but can "
+"only be downloaded decrypted with the private key."
+msgstr ""
+"Auf diesem Server liegt nur der öffentliche Schlüssel: Neue Backups werden "
+"verschlüsselt, können aber nur mit dem privaten Schlüssel entschlüsselt "
+"heruntergeladen werden."
+
+#: includes/admin.php:1070
+msgid ""
+"No backup key pair: backups use XChaCha20-Poly1305 with a key derived from "
+"TEGATAI_BACKUP_SECRET (secrets file). For a key pair (recommended), run this"
+" on the server as the site's PHP-FPM user (not as root). Tegatai never "
+"writes key files itself:"
+msgstr ""
+"Kein Backup-Schlüsselpaar: Backups nutzen XChaCha20-Poly1305 mit einem "
+"Schlüssel, der aus TEGATAI_BACKUP_SECRET (Schlüsseldatei) abgeleitet wird. "
+"Für ein Schlüsselpaar (empfohlen) diesen Befehl auf dem Server als PHP-FPM-"
+"Benutzer der Seite ausführen (nicht als root). Tegatai schreibt selbst nie "
+"Schlüsseldateien:"
+
+#: includes/admin.php:1070
+msgid ""
+"Neither a key pair nor TEGATAI_BACKUP_SECRET is set: backups cannot be "
+"created yet."
+msgstr ""
+"Weder ein Schlüsselpaar noch TEGATAI_BACKUP_SECRET ist gesetzt: Backups "
+"können noch nicht erstellt werden."
+
+#: includes/admin.php:1075
+msgid "Local Backups"
+msgstr "Lokale Backups"
+
+#: includes/admin.php:1079
+msgid "Create Backup Now"
+msgstr "Jetzt Backup Erstellen"
+
+#: includes/admin.php:1087 includes/admin.php:1395
+msgid "File"
+msgstr "Datei"
+
+#: includes/admin.php:1089 includes/quarantine.php:212
+msgid "Date"
+msgstr "Datum"
+
+#: includes/admin.php:1097
+msgid "No backups available."
+msgstr "Keine Backups vorhanden."
+
+#: includes/admin.php:1110
+msgid "DL"
+msgstr "DL"
+
+#: includes/admin.php:1133
+msgid "Malware & Integrity Scanner"
+msgstr "Malware & Integritäts-Scanner"
+
+#: includes/admin.php:1134
+msgid "Auto-Quarantine (IPS)"
+msgstr "Auto-Quarantäne (IPS)"
+
+#: includes/admin.php:1134
+msgid "Automatically moves detected malware to a safe location."
+msgstr "Verschiebt erkannte Malware automatisch in einen sicheren Ordner."
+
+#: includes/admin.php:1136
+msgid "Daily vulnerability check (WPVulnerability)"
+msgstr "Tägliche Schwachstellen-Prüfung (WPVulnerability)"
+
+#: includes/admin.php:1136
+msgid ""
+"Off by default. When enabled, the slugs of your installed plugins are sent "
+"once a day to wpvulnerability.net to look up known vulnerabilities. No other"
+" data is sent."
+msgstr ""
+"Standardmäßig aus. Wenn eingeschaltet, werden einmal am Tag die Slugs deiner"
+" installierten Plugins an wpvulnerability.net gesendet, um bekannte "
+"Schwachstellen abzufragen. Andere Daten werden nicht gesendet."
+
+#: includes/admin.php:1137
+msgid "Scan running..."
+msgstr "Scan läuft..."
+
+#: includes/admin.php:1137
+msgid "Abort / reset scan"
+msgstr "Scan abbrechen / zurücksetzen"
+
+#: includes/admin.php:1137
+msgid "Abort the running scan and reset its state?"
+msgstr "Laufenden Scan abbrechen und seinen Stand zurücksetzen?"
+
+#: includes/admin.php:1137
+msgid "Start New Scan"
+msgstr "Neuen Scan Starten"
+
+#: includes/admin.php:1144
+msgid "Create File Snapshot"
+msgstr "Datei-Snapshot erstellen"
+
+#: includes/admin.php:1146
+msgid "Save current state as a safe baseline?"
+msgstr "Aktuellen Zustand als sichere Basis speichern?"
+
+#: includes/admin.php:1148
+msgid "Last Result:"
+msgstr "Letztes Ergebnis:"
+
+#: includes/admin.php:1148
+msgid "Files Checked:"
+msgstr "Geprüfte Dateien:"
+
+#: includes/admin.php:1148
+msgid "Issue"
+msgstr "Problem"
+
+#: includes/admin.php:1148
+msgid "Scanner Configuration"
+msgstr "Scanner Konfiguration"
+
+#: includes/admin.php:1148
+msgid "Exclude from Scan"
+msgstr "Vom Scan ausschließen"
+
+#: includes/admin.php:1149
+msgid "Session Security"
+msgstr "Session Sicherheit"
+
+#: includes/admin.php:1149
+msgid "IP Guard"
+msgstr "IP Guard"
+
+#: includes/admin.php:1149
+msgid "Invalidates the session if the users IP address changes."
+msgstr ""
+"Macht die Sitzung ungültig, falls sich die IP-Adresse des Benutzers ändert."
+
+#: includes/admin.php:1149
+msgid "Browser Guard"
+msgstr "Browser Guard"
+
+#: includes/admin.php:1149
+msgid "Invalidates the session if the users browser changes."
+msgstr ""
+"Macht die Sitzung ungültig, falls sich der Browser (User-Agent) des "
+"Benutzers ändert."
+
+#: includes/admin.php:1149
+msgid "Single Session"
+msgstr "Einzelne Sitzung"
+
+#: includes/admin.php:1149
+msgid ""
+"Allows only one active session per user; older sessions are logged out."
+msgstr ""
+"Erlaubt nur eine aktive Sitzung pro Benutzer; ältere Sitzungen werden "
+"abgemeldet."
+
+#: includes/admin.php:1149
+msgid "Max Session (Min)"
+msgstr "Max. Sitzungsdauer (Min.)"
+
+#: includes/admin.php:1149
+msgid "Active Sessions"
+msgstr "Aktive Sitzungen"
+
+#: includes/admin.php:1149
+msgid "User"
+msgstr "User"
+
+#: includes/admin.php:1149
+msgid "Browser"
+msgstr "Browser"
+
+#: includes/admin.php:1149
+msgid "Kill"
+msgstr "Kill"
+
+#: includes/admin.php:1157
+msgid "Restrict REST API"
+msgstr "REST API einschränken"
+
+#: includes/admin.php:1157
+msgid "Requires authentication for REST endpoints."
+msgstr "Verlangt eine Anmeldung für REST-Endpunkte."
+
+#: includes/admin.php:1158
+msgid "Disable Right-Click"
+msgstr "Rechtsklick deaktivieren"
+
+#: includes/admin.php:1158
+msgid "Prevents basic right-clicking."
+msgstr "Verhindert einfaches Rechtsklicken."
+
+#: includes/admin.php:1159
+msgid "Enable Copy Protection"
+msgstr "Kopierschutz aktivieren"
+
+#: includes/admin.php:1159
+msgid "Stops users from copying text."
+msgstr "Verhindert, dass Besucher Text kopieren."
+
+#: includes/admin.php:1163
+msgid "Configuration Export & Import"
+msgstr "Konfiguration exportieren & importieren"
+
+#: includes/admin.php:1168
+msgid "Export Settings"
+msgstr "Einstellungen exportieren"
+
+#: includes/admin.php:1169
+msgid "Downloads a .json file with all settings."
+msgstr "Lädt eine .json-Datei mit allen Einstellungen herunter."
+
+#: includes/admin.php:1170
+msgid "Download (.json)"
+msgstr "Herunterladen (.json)"
+
+#: includes/admin.php:1174
+msgid "Import Settings"
+msgstr "Einstellungen importieren"
+
+#: includes/admin.php:1175
+msgid "Select a .json file to apply instantly."
+msgstr "Wähle eine .json-Datei, die sofort übernommen wird."
+
+#: includes/admin.php:1177
+msgid "Import"
+msgstr "Importieren"
+
+#: includes/admin.php:1187
+msgid "Live Traffic Log"
+msgstr "Live Traffic Log"
+
+#: includes/admin.php:1187
+msgid "Clear Logs"
+msgstr "Logs leeren"
+
+#: includes/admin.php:1187
+msgid "Are you sure?"
+msgstr "Wirklich?"
+
+#: includes/admin.php:1187 includes/admin.php:1443
+msgid "Time"
+msgstr "Zeit"
+
+#: includes/admin.php:1187 includes/admin.php:1445
+msgid "Message"
+msgstr "Nachricht"
+
+#: includes/admin.php:1193
+msgid "Baseline snapshot created."
+msgstr "Ausgangs-Snapshot erstellt."
+
+#: includes/admin.php:1209
+msgid "File Integrity Monitor (FIM)"
+msgstr "Datei-Integritätsüberwachung (FIM)"
+
+#: includes/admin.php:1210
+msgid "Tracks file changes in Plugins, MU-Plugins and Themes."
+msgstr "Überwacht Dateiänderungen in Plugins, MU-Plugins und Themes."
+
+#: includes/admin.php:1215
+msgid "Create baseline"
+msgstr "Ausgangsstand erstellen"
+
+#: includes/admin.php:1220
+msgid "Check now"
+msgstr "Jetzt prüfen"
+
+#. translators: %s: date and time of the last run
+#: includes/admin.php:1224
+#, php-format
+msgid "Last run: %s"
+msgstr "Letzter Lauf: %s"
+
+#: includes/admin.php:1251
+msgid "Changed files"
+msgstr "Geänderte Dateien"
+
+#: includes/admin.php:1252
+msgid "New files"
+msgstr "Neue Dateien"
+
+#: includes/admin.php:1253
+msgid "Deleted files"
+msgstr "Gelöschte Dateien"
+
+#: includes/admin.php:1255
+msgid "No baseline exists yet. Click “Create baseline” first."
+msgstr ""
+"Es gibt noch keinen Ausgangsstand. Klicke zuerst auf „Ausgangsstand "
+"erstellen“."
+
+#: includes/admin.php:1272
+msgid "Stored-XSS Database Scanner"
+msgstr "Stored-XSS-Datenbankscanner"
+
+#: includes/admin.php:1273
+msgid "Read-only scan of common WP tables for suspicious HTML/JS patterns."
+msgstr ""
+"Rein lesender Scan gängiger WP-Tabellen auf verdächtige HTML-/JS-Muster."
+
+#: includes/admin.php:1277
+msgid "Run scan"
+msgstr "Scan starten"
+
+#: includes/admin.php:1290
+msgid "No suspicious patterns found."
+msgstr "Keine verdächtigen Muster gefunden."
+
+#: includes/admin.php:1293
+msgid "Table"
+msgstr "Tabelle"
+
+#: includes/admin.php:1294
+msgid "ID"
+msgstr "ID"
+
+#: includes/admin.php:1295
+msgid "Field"
+msgstr "Feld"
+
+#: includes/admin.php:1296 includes/admin.php:1396
+msgid "Snippet"
+msgstr "Ausschnitt"
+
+#. translators: 1: number of quarantined files, 2: number of failures
+#: includes/admin.php:1343
+#, php-format
+msgid "Quarantine done: %1$d ok, %2$d failed (max 50 per click)."
+msgstr "Quarantäne fertig: %1$d ok, %2$d fehlgeschlagen (max. 50 pro Klick)."
+
+#: includes/admin.php:1347
+msgid "State reset."
+msgstr "Stand zurückgesetzt."
+
+#: includes/admin.php:1359
+msgid "Malware / Backdoor Scanner"
+msgstr "Malware-/Backdoor-Scanner"
+
+#: includes/admin.php:1360
+msgid "Signature-based scan for common malware/backdoor patterns."
+msgstr "Signaturbasierter Scan auf gängige Malware-/Backdoor-Muster."
+
+#: includes/admin.php:1366
+msgid "Fresh scan"
+msgstr "Neuer Scan"
+
+#: includes/admin.php:1367
+msgid "Run"
+msgstr "Starten"
+
+#: includes/admin.php:1372
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+#: includes/admin.php:1390
+msgid "Clean."
+msgstr "Sauber."
+
+#: includes/admin.php:1393
+msgid "Sev"
+msgstr "Schw."
+
+#: includes/admin.php:1394
+msgid "Rule"
+msgstr "Regel"
+
+#: includes/admin.php:1424
+msgid "Security Timeline"
+msgstr "Sicherheits-Timeline"
+
+#: includes/admin.php:1432
+msgid "Clear?"
+msgstr "Leeren?"
+
+#: includes/admin.php:1432
+msgid "Clear"
+msgstr "Leeren"
+
+#: includes/admin.php:1440
+msgid "No events yet."
+msgstr "Noch keine Ereignisse."
+
+#: includes/admin.php:1462
+msgid "WordPress Core Integrity"
+msgstr "WordPress-Core-Integrität"
+
+#: includes/admin.php:1463
+msgid ""
+"Compares wp-admin/wp-includes core files against official WP checksums."
+msgstr ""
+"Vergleicht die Core-Dateien in wp-admin/wp-includes mit den offiziellen WP-"
+"Prüfsummen."
+
+#: includes/admin.php:1470
+msgid "Run check"
+msgstr "Prüfung starten"
+
+#: includes/admin.php:1485
+msgid "Corrupted Files"
+msgstr "Beschädigte Dateien"
+
+#: includes/admin.php:1495
+msgid ""
+"To restore the original core files, use WordPress' own re-installation: "
+"Dashboard > Updates > \"Re-install version\". It replaces all core files "
+"with the official package."
+msgstr ""
+"Zum Wiederherstellen der originalen Core-Dateien die WordPress-eigene "
+"Neuinstallation nutzen: Dashboard > Aktualisierungen > „Version erneut "
+"installieren“. Dabei werden alle Core-Dateien durch das offizielle Paket "
+"ersetzt."
+
+#: includes/admin.php:1496
+msgid "Open Dashboard > Updates"
+msgstr "Dashboard > Aktualisierungen öffnen"
+
+#. translators: %s: WordPress version
+#: includes/admin.php:1498
+#, php-format
+msgid "WordPress core %s is clean."
+msgstr "WordPress-Core %s ist sauber."
+
+#: includes/admin.php:1505
+msgid "Dangerous Options Scanner"
+msgstr "Scanner für gefährliche Optionen"
+
+#: includes/admin.php:1512
+msgid "Scan options"
+msgstr "Optionen scannen"
+
+#: includes/admin.php:1516
+msgid "Hits"
+msgstr "Treffer"
+
+#: includes/admin.php:1519 includes/admin.php:1536
+msgid "Whitelist (Exceptions)"
+msgstr "Whitelist (Ausnahmen)"
+
+#: includes/admin.php:1529
+msgid "Suspicious Cron Monitor"
+msgstr "Überwachung verdächtiger Cronjobs"
+
+#: includes/admin.php:1533
+msgid "Total hooks"
+msgstr "Hooks gesamt"
+
+#: includes/admin.php:1534
+msgid "Flagged"
+msgstr "Markiert"
+
+#: includes/admin.php:1548
+msgid "Uploads Monitor"
+msgstr "Upload-Überwachung"
+
+#: includes/admin.php:1557
+msgid "Scan uploads"
+msgstr "Uploads scannen"
+
+#: includes/admin.php:1561
+msgid "Quarantine flagged (max 50)"
+msgstr "Markierte in Quarantäne (max. 50)"
+
+#: includes/admin.php:1567
+msgid "Permission Monitor"
+msgstr "Rechte-Überwachung"
+
+#: includes/admin.php:1570
+msgid "Checked"
+msgstr "Geprüft"
+
+#: includes/admin.php:1578
+msgid "🛡️ Tegatai Security Status"
+msgstr "🛡️ Tegatai Security Status"
+
+#: includes/admin.php:1584
+msgid "Never"
+msgstr "Nie"
+
+#: includes/admin.php:1585
+msgid "Clean ✅"
+msgstr "Sauber ✅"
+
+#: includes/admin.php:1585
+msgid "Scan required..."
+msgstr "Prüfung nötig..."
+
+#: includes/admin.php:1588
+msgid "Blocked"
+msgstr "Blockiert"
+
+#: includes/admin.php:1589
+msgid "Traffic"
+msgstr "Traffic"
+
+#: includes/admin.php:1593
+msgid "Last Scan:"
+msgstr "Letzter Scan:"
+
+#: includes/admin.php:1594
+msgid "Result:"
+msgstr "Ergebnis:"
+
+#: includes/admin.php:1598
+msgid "Go to Dashboard"
+msgstr "Zum Dashboard"
+
+#: includes/admin.php:1606
+msgid "Active WP-Cron Jobs"
+msgstr "Aktive WP-Cronjobs"
+
+#: includes/admin.php:1608
+msgid "Next Run"
+msgstr "Nächster Lauf"
+
+#: includes/admin.php:1608
+msgid "Hook"
+msgstr "Hook"
+
+#: includes/admin.php:1608
+msgid "Schedule"
+msgstr "Intervall"
+
+#: includes/admin.php:1633
+msgid "No cron jobs found."
+msgstr "Keine Cronjobs gefunden."
+
+#: includes/admin.php:1672 includes/admin.php:1674
+msgid "Invalid JSON format."
+msgstr "Ungültiges JSON Format."
+
+#. translators: %d: number of deleted transients
+#: includes/admin.php:1707
+#, php-format
+msgid "🗑️ <strong>%d</strong> expired transients deleted."
+msgstr "🗑️ <strong>%d</strong> abgelaufene Transients gelöscht."
+
+#. translators: %d: number of removed comments
+#: includes/admin.php:1711
+#, php-format
+msgid "🗑️ <strong>%d</strong> spam/trash comments removed."
+msgstr "🗑️ <strong>%d</strong> Spam/Trash-Kommentare entfernt."
+
+#. translators: %d: number of removed revisions
+#: includes/admin.php:1715
+#, php-format
+msgid "🗑️ <strong>%d</strong> old post revisions cleaned."
+msgstr "🗑️ <strong>%d</strong> alte Beitrags-Revisionen bereinigt."
+
+#: includes/admin.php:1723
+msgid "⚡ Database tables defragmented (overhead released)."
+msgstr "⚡ Datenbank-Tabellen defragmentiert (Overhead freigegeben)."
+
+#: includes/admin.php:1725
+msgid "Everything was already spotless! No cleanup needed."
+msgstr "Alles war bereits blitzblank! Keine Bereinigung nötig."
+
+#: includes/api_guard.php:207
+msgid "API Guard"
+msgstr "API Guard"
+
+#: includes/api_guard.php:220
+msgid "API Gateway rules updated successfully."
+msgstr "API-Gateway-Regeln erfolgreich aktualisiert."
+
+#: includes/api_guard.php:239
+msgid "API Rules"
+msgstr "API-Regeln"
+
+#: includes/api_guard.php:249
+msgid "Master Sync Token"
+msgstr "Master-Sync-Token"
+
+#: includes/api_guard.php:252 includes/hive.php:744
+msgid "Secret loaded from tegatai-secrets.php or wp-config.php"
+msgstr "Schlüssel aus tegatai-secrets.php oder wp-config.php geladen"
+
+#: includes/api_guard.php:253
+msgid ""
+"The API token is active and secured. It is completely hidden from the UI."
+msgstr ""
+"Das API-Token ist aktiv und gesichert. Es wird in der Oberfläche vollständig"
+" verborgen."
+
+#: includes/api_guard.php:258 includes/hive.php:750
+msgid "Secret still in the database (older version)"
+msgstr "Secret noch in der Datenbank (ältere Version)"
+
+#: includes/api_guard.php:259
+msgid ""
+"Copy it into the secrets file as TEGATAI_API_SECRET (command in the Secrets "
+"tab). It is then deleted from the database automatically."
+msgstr ""
+"Kopiere es als TEGATAI_API_SECRET in die Schlüsseldatei (Befehl im Tab "
+"Secrets). Danach wird es automatisch aus der Datenbank gelöscht."
+
+#: includes/api_guard.php:269 includes/hive.php:760
+msgid "Reveal (Sudo)"
+msgstr "Anzeigen (Sudo)"
+
+#: includes/api_guard.php:271 includes/hive.php:762
+msgid "Generate New"
+msgstr "Neu erzeugen"
+
+#: includes/api_guard.php:272 includes/hive.php:763 includes/twofa.php:205
+msgid "Copy"
+msgstr "Kopieren"
+
+#: includes/api_guard.php:274
+msgid ""
+"\"Generate New\" only shows a new random key; it is not saved. Put it into "
+"the secrets file as TEGATAI_API_SECRET and into your API clients."
+msgstr ""
+"„Neu erzeugen“ zeigt nur einen neuen Zufallsschlüssel an; gespeichert wird "
+"er nicht. Trage ihn als TEGATAI_API_SECRET in die Schlüsseldatei und in "
+"deine API-Clients ein."
+
+#: includes/api_guard.php:279
+msgid "Routing & Authentication"
+msgstr "Routing & Authentifizierung"
+
+#: includes/api_guard.php:281
+msgid "Match Mode"
+msgstr "Vergleichsmodus"
+
+#: includes/api_guard.php:283
+msgid "Contains (e.g. sync.php)"
+msgstr "Enthält (z. B. sync.php)"
+
+#: includes/api_guard.php:284
+msgid "Exact Match (e.g. /wp-json/sync/start)"
+msgstr "Exakt (z. B. /wp-json/sync/start)"
+
+#: includes/api_guard.php:285
+msgid "Regex (ReDoS protected)"
+msgstr "Regex (ReDoS-geschützt)"
+
+#: includes/api_guard.php:288
+msgid "Protected Endpoints"
+msgstr "Geschützte Endpunkte"
+
+#: includes/api_guard.php:291
+msgid "Auth Mode"
+msgstr "Authentifizierungsmodus"
+
+#: includes/api_guard.php:293
+msgid "Static Token (Header / GET)"
+msgstr "Statisches Token (Header / GET)"
+
+#: includes/api_guard.php:294
+msgid "HMAC v2 (Method + URI + Timestamp + Req ID + Body)"
+msgstr "HMAC v2 (Methode + URI + Zeitstempel + Request-ID + Body)"
+
+#: includes/api_guard.php:296
+msgid "HMAC enforces a 60-second rolling window signature."
+msgstr "HMAC erzwingt eine Signatur mit gleitendem 60-Sekunden-Fenster."
+
+#: includes/api_guard.php:300
+msgid "Traffic Control & Firewall"
+msgstr "Traffic-Steuerung & Firewall"
+
+#: includes/api_guard.php:303
+msgid "Rate Limit (10/min, 50/hr)"
+msgstr "Rate Limit (10/Min., 50/Std.)"
+
+#: includes/api_guard.php:307
+msgid "IP / CIDR Allowlist"
+msgstr "IP-/CIDR-Allowlist"
+
+#: includes/api_guard.php:309
+msgid ""
+"Optional. If defined, ONLY these IPs can hit the endpoints. Everything else "
+"is dropped immediately."
+msgstr ""
+"Optional. Wenn gesetzt, dürfen NUR diese IPs die Endpunkte aufrufen. Alles "
+"andere wird sofort verworfen."
+
+#: includes/api_guard.php:343
+msgid "Save Gateway Rules"
+msgstr "Gateway-Regeln speichern"
+
+#: includes/backup.php:58
 msgid "Backup Error."
 msgstr "Backup Fehler."
 
-#: includes/backup.php:474
-msgid "Decryption failed: wrong key (backup key file or TEGATAI_BACKUP_SECRET) or the file was modified."
-msgstr "Entschlüsselung fehlgeschlagen: falscher Schlüssel (Backup-Schlüsseldatei oder TEGATAI_BACKUP_SECRET) oder die Datei wurde verändert."
+#: includes/backup.php:179
+msgid ""
+"No backup key: create the backup key file or set TEGATAI_BACKUP_SECRET in "
+"the secrets file (see the Backups and Secrets tabs)."
+msgstr ""
+"Kein Backup-Schlüssel: Lege die Backup-Schlüsseldatei an oder setze "
+"TEGATAI_BACKUP_SECRET in der Schlüsseldatei (siehe Tabs Backups und "
+"Secrets)."
 
-#: includes/backup.php:539
+#: includes/backup.php:475
+msgid ""
+"Decryption failed: wrong key (backup key file or TEGATAI_BACKUP_SECRET) or "
+"the file was modified."
+msgstr ""
+"Entschlüsselung fehlgeschlagen: falscher Schlüssel (Backup-Schlüsseldatei "
+"oder TEGATAI_BACKUP_SECRET) oder die Datei wurde verändert."
+
+#: includes/backup.php:540
 msgid "This backup needs the private backup key, which is not on this server."
-msgstr "Für dieses Backup wird der private Backup-Schlüssel benötigt, der nicht auf diesem Server liegt."
-
-#: includes/core_integrity.php:86
-msgid "Security warning: Invalid core path."
-msgstr "Sicherheitswarnung: Ungültiger Core-Pfad."
-
-#: includes/core_integrity.php:96
-msgid "Could not load original file from WordPress.org (HTTP %d)."
-msgstr "Konnte Originaldatei nicht von WordPress.org laden (HTTP %d)."
-
-#: includes/core_integrity.php:101
-msgid "Downloaded file is empty. Aborting."
-msgstr "Heruntergeladene Datei ist leer. Abbruch."
-
-#: includes/core_integrity.php:112
-msgid "MD5 checksum mismatch! Downloaded file is corrupted or tampered."
-msgstr "MD5-Prüfsumme stimmt nicht! Die heruntergeladene Datei ist beschädigt oder manipuliert."
-
-#: includes/core_integrity.php:125
-msgid "Missing write permissions. The file could not be overwritten."
-msgstr "Schreibrechte fehlen. Die Datei konnte nicht überschrieben werden."
-
-#: includes/core_integrity.php:129
-msgid "Core file successfully repaired and verified: %s"
-msgstr "Core-Datei erfolgreich repariert und geprüft: %s"
+msgstr ""
+"Für dieses Backup wird der private Backup-Schlüssel benötigt, der nicht auf "
+"diesem Server liegt."
 
 #: includes/cron.php:24
 msgid "Every 6 hours (Tegatai)"
@@ -2140,7 +2662,9 @@ msgstr "Wartungsmodus"
 
 #: includes/firewall.php:85
 msgid "The website is currently locked for security maintenance."
-msgstr "Die Website ist aktuell aus Sicherheitsgründen für Wartungsarbeiten gesperrt."
+msgstr ""
+"Die Website ist aktuell aus Sicherheitsgründen für Wartungsarbeiten "
+"gesperrt."
 
 #: includes/firewall.php:85
 msgid "503 Service Unavailable"
@@ -2158,169 +2682,228 @@ msgstr "Trap"
 msgid "Login invalid."
 msgstr "Login ungültig."
 
-#: includes/hardening.php:108
+#: includes/hardening.php:78 includes/hardening.php:108
 msgid "Unauthorized privilege escalation attempt detected and blocked."
 msgstr "Unerlaubter Versuch einer Rechteausweitung erkannt und blockiert."
 
-#: includes/hardening.php:109
+#: includes/hardening.php:79 includes/hardening.php:109
 msgid "Security Alert"
 msgstr "Sicherheitswarnung"
 
-#: includes/hive.php:435
-msgid "This node has no Hive key yet (wp tegatai hive-keygen)."
-msgstr "Dieser Knoten hat noch keinen Hive-Schlüssel (wp tegatai hive-keygen)."
+#: includes/hive.php:438
+msgid "This node has no Hive key yet (see the Hive screen)."
+msgstr "Dieser Knoten hat noch keinen Hive-Schlüssel (siehe Hive-Seite)."
 
-#: includes/hive.php:439
+#: includes/hive.php:442
 msgid "No secret configured for this peer"
 msgstr "Für diesen Peer ist kein Secret konfiguriert"
 
-#: includes/hive.php:598
+#: includes/hive.php:601
 msgid "Hive network is disabled or missing configuration."
-msgstr "Das Hive-Netzwerk ist ausgeschaltet oder nicht vollständig eingerichtet."
+msgstr ""
+"Das Hive-Netzwerk ist ausgeschaltet oder nicht vollständig eingerichtet."
 
-#: includes/hive.php:615
+#: includes/hive.php:618
 msgid "OK - Ed25519 verified, encrypted"
 msgstr "OK – Ed25519 geprüft, verschlüsselt"
 
-#: includes/hive.php:615
+#: includes/hive.php:618
 msgid "OK - HMAC Verified"
 msgstr "OK – HMAC geprüft"
 
-#: includes/hive.php:652
+#: includes/hive.php:655
 msgid "The Hive"
 msgstr "The Hive"
 
-#: includes/hive.php:656
+#: includes/hive.php:659 includes/quarantine.php:176
+#: includes/quarantine.php:195 tegatai-secure.php:509
 msgid "Access Denied"
 msgstr "Zugriff verweigert"
 
-#: includes/hive.php:671
+#: includes/hive.php:674
 msgid "Hive network settings updated successfully."
 msgstr "Hive-Netzwerkeinstellungen erfolgreich aktualisiert."
 
-#: includes/hive.php:742
+#: includes/hive.php:693
 msgid "Network Setup"
 msgstr "Netzwerk-Einrichtung"
 
-#: includes/hive.php:752
+#: includes/hive.php:703
 msgid "Hive Network Status"
 msgstr "Hive-Netzwerkstatus"
 
-#: includes/hive.php:753
-msgid "Nodes with an Ed25519 key sign every message with their own private key and encrypt it end to end; other nodes use HMAC-SHA256. Timestamps, request IDs and the signed recipient make messages replay-resistant."
-msgstr "Knoten mit Ed25519-Schlüssel signieren jede Nachricht mit ihrem eigenen privaten Schlüssel und verschlüsseln sie Ende-zu-Ende; andere Knoten nutzen HMAC-SHA256. Zeitstempel, Request-IDs und der signierte Empfänger schützen vor wiederholt eingespielten Nachrichten."
+#: includes/hive.php:704
+msgid ""
+"Nodes with an Ed25519 key sign every message with their own private key and "
+"encrypt it end to end; other nodes use HMAC-SHA256. Timestamps, request IDs "
+"and the signed recipient make messages replay-resistant."
+msgstr ""
+"Knoten mit Ed25519-Schlüssel signieren jede Nachricht mit ihrem eigenen "
+"privaten Schlüssel und verschlüsseln sie Ende-zu-Ende; andere Knoten nutzen "
+"HMAC-SHA256. Zeitstempel, Request-IDs und der signierte Empfänger schützen "
+"vor wiederholt eingespielten Nachrichten."
 
-#: includes/hive.php:756
+#: includes/hive.php:707
 msgid "Enable Broadcast & Receive"
 msgstr "Senden & Empfangen aktivieren"
 
-#: includes/hive.php:761
+#: includes/hive.php:712
 msgid "Enforce strict SSL verification"
 msgstr "Strenge SSL-Prüfung erzwingen"
 
-#: includes/hive.php:762
+#: includes/hive.php:713
 msgid "Uncheck only for self-signed certs/local nodes"
 msgstr "Nur für selbstsignierte Zertifikate / lokale Knoten abschalten"
 
-#: includes/hive.php:769
+#: includes/hive.php:720
 msgid "Node Key (Ed25519)"
 msgstr "Knoten-Schlüssel (Ed25519)"
 
-#: includes/hive.php:772
-msgid "The PHP sodium extension is missing, Ed25519 is not available on this server."
-msgstr "Die PHP-Erweiterung sodium fehlt, Ed25519 ist auf diesem Server nicht verfügbar."
+#: includes/hive.php:723
+msgid ""
+"The PHP sodium extension is missing, Ed25519 is not available on this "
+"server."
+msgstr ""
+"Die PHP-Erweiterung sodium fehlt, Ed25519 ist auf diesem Server nicht "
+"verfügbar."
 
-#: includes/hive.php:775
+#: includes/hive.php:726
 msgid "Private key loaded from the secrets folder or wp-config.php"
-msgstr "Privater Schlüssel aus dem secrets-Ordner oder der wp-config.php geladen"
+msgstr ""
+"Privater Schlüssel aus dem secrets-Ordner oder der wp-config.php geladen"
 
-#: includes/hive.php:776
+#: includes/hive.php:727
 msgid "Add this line to the peer list of every other node:"
 msgstr "Diese Zeile in die Peer-Liste jedes anderen Knotens eintragen:"
 
-#: includes/hive.php:781
+#: includes/hive.php:732
 msgid "No node key yet."
 msgstr "Noch kein Knoten-Schlüssel."
 
-#: includes/hive.php:782
-msgid "Create it on the server as the site's PHP user (Tegatai never creates keys on its own). The private key is written to the secrets folder and never shown:"
-msgstr "Erstelle ihn auf dem Server als PHP-Benutzer der Seite (Tegatai erzeugt Schlüssel nie selbst). Der private Schlüssel wird in den secrets-Ordner geschrieben und nie angezeigt:"
+#: includes/hive.php:733
+msgid ""
+"Create it on the server as the site's PHP-FPM user (not as root). Tegatai "
+"never writes key files itself; this command creates the key file in the "
+"secrets folder and does not overwrite an existing one:"
+msgstr ""
+"Lege ihn auf dem Server als PHP-FPM-Benutzer der Seite an (nicht als root). "
+"Tegatai schreibt selbst nie Schlüsseldateien; dieser Befehl legt die "
+"Schlüsseldatei im Secrets-Ordner an und überschreibt keine vorhandene:"
 
-#: includes/hive.php:789
+#: includes/hive.php:740
 msgid "HMAC Shared Secret"
 msgstr "Gemeinsames HMAC-Secret"
 
-#: includes/hive.php:790
-msgid "Only used for peers without an Ed25519 key (nodes that are not switched yet)."
-msgstr "Wird nur für Peers ohne Ed25519-Schlüssel verwendet (Knoten, die noch nicht umgestellt sind)."
+#: includes/hive.php:741
+msgid ""
+"Only used for peers without an Ed25519 key (nodes that are not switched "
+"yet)."
+msgstr ""
+"Wird nur für Peers ohne Ed25519-Schlüssel verwendet (Knoten, die noch nicht "
+"umgestellt sind)."
 
-#: includes/hive.php:794
+#: includes/hive.php:745
 msgid "The secret is active and secured. It is hidden from the UI."
-msgstr "Das Secret ist aktiv und gesichert. Es wird in der Oberfläche verborgen."
+msgstr ""
+"Das Secret ist aktiv und gesichert. Es wird in der Oberfläche verborgen."
 
-#: includes/hive.php:800
-msgid "For security reasons, it is not displayed here. We strongly recommend moving it to tegatai-secrets.php (outside the web root)."
-msgstr "Aus Sicherheitsgründen wird es hier nicht angezeigt. Wir empfehlen dringend, es in tegatai-secrets.php (außerhalb des Webroots) zu verschieben."
+#: includes/hive.php:751
+msgid ""
+"Copy it into the secrets file as TEGATAI_HIVE_SECRET (command in the Secrets"
+" tab). It is then deleted from the database automatically."
+msgstr ""
+"Kopiere es als TEGATAI_HIVE_SECRET in die Schlüsseldatei (Befehl im Tab "
+"Secrets). Danach wird es automatisch aus der Datenbank gelöscht."
 
-#: includes/hive.php:815
-msgid "Leave blank to keep current secret."
-msgstr "Leer lassen, um das aktuelle Secret zu behalten."
+#: includes/hive.php:766
+msgid ""
+"Secrets are not saved in the database. \"Generate New\" only shows a new "
+"key: put it into the secrets file as TEGATAI_HIVE_SECRET on every Hive site."
+msgstr ""
+"Secrets werden nicht in der Datenbank gespeichert. „Neu erzeugen“ zeigt nur "
+"einen neuen Schlüssel an: Trage ihn auf jeder Hive-Seite als "
+"TEGATAI_HIVE_SECRET in die Schlüsseldatei ein."
 
-#: includes/hive.php:820
+#: includes/hive.php:771
 msgid "Peer Node URLs"
 msgstr "Peer-Knoten-URLs"
 
-#: includes/hive.php:821
-msgid "One peer per line: \"URL | ed25519:public key\" (recommended), \"URL | pair secret\" or \"URL\" (shared secret). Peers with a key are only accepted with their Ed25519 signature."
-msgstr "Ein Peer pro Zeile: „URL | ed25519:öffentlicher Schlüssel“ (empfohlen), „URL | Paar-Secret“ oder „URL“ (gemeinsames Secret). Peers mit Schlüssel werden nur mit ihrer Ed25519-Signatur akzeptiert."
+#: includes/hive.php:772
+msgid ""
+"One peer per line: \"URL | ed25519:public key\" (recommended; only public "
+"keys are stored) or \"URL\" (shared secret from the secrets file). Older "
+"\"URL | pair secret\" lines still work, but the pair secret is stored in the"
+" database. Peers with a key are only accepted with their Ed25519 signature."
+msgstr ""
+"Eine Gegenstelle pro Zeile: „URL | ed25519:öffentlicher Schlüssel“ "
+"(empfohlen; gespeichert werden nur öffentliche Schlüssel) oder „URL“ "
+"(gemeinsames Secret aus der Schlüsseldatei). Ältere Zeilen „URL | Paar-"
+"Secret“ funktionieren weiter, das Paar-Secret steht dann aber in der "
+"Datenbank. Gegenstellen mit Schlüssel werden nur mit ihrer Ed25519-Signatur "
+"akzeptiert."
 
-#: includes/hive.php:827
+#. translators: 1: peers with Ed25519, 2: all peers
+#: includes/hive.php:778
+#, php-format
 msgid "%1$d of %2$d peers use Ed25519."
 msgstr "%1$d von %2$d Peers nutzen Ed25519."
 
-#: includes/hive.php:832
+#. translators: %d: number of peers
+#: includes/hive.php:781
+#, php-format
+msgid ""
+"%d peers use a pair secret, which is stored in the database with this list. "
+"Switch them to Ed25519 keys: only public keys are stored then."
+msgstr ""
+"%d Gegenstellen nutzen ein Paar-Secret, das mit dieser Liste in der "
+"Datenbank gespeichert ist. Stelle sie auf Ed25519-Schlüssel um: dann werden "
+"nur öffentliche Schlüssel gespeichert."
+
+#: includes/hive.php:786
 msgid "Strict peer mode"
 msgstr "Strenger Peer-Modus"
 
-#: includes/hive.php:833
-msgid "Only accept HMAC bans from listed peers that identify themselves. Ed25519 peers are always strict."
-msgstr "Nur HMAC-Sperren von aufgeführten Peers annehmen, die sich ausweisen. Ed25519-Peers sind immer streng."
+#: includes/hive.php:787
+msgid ""
+"Only accept HMAC bans from listed peers that identify themselves. Ed25519 "
+"peers are always strict."
+msgstr ""
+"Nur HMAC-Sperren von aufgeführten Peers annehmen, die sich ausweisen. "
+"Ed25519-Peers sind immer streng."
 
-#: includes/hive.php:840
+#: includes/hive.php:794
 msgid "Ban Policy"
 msgstr "Sperr-Richtlinie"
 
-#: includes/hive.php:841
+#: includes/hive.php:795
 msgid "Network ban duration (hours)"
 msgstr "Dauer der Netzwerksperre (Stunden)"
 
-#: includes/hive.php:843
+#: includes/hive.php:797
 msgid "Never-ban allowlist (IP / CIDR)"
 msgstr "Niemals-sperren-Liste (IP / CIDR)"
 
-#: includes/hive.php:845
-msgid "Always protected as well: firewall whitelists, private ranges, this server and IPs admins logged in from (30 days)."
-msgstr "Ebenfalls immer geschützt: Firewall-Whitelists, private Adressbereiche, dieser Server und IPs, von denen sich Admins angemeldet haben (30 Tage)."
+#: includes/hive.php:799
+msgid ""
+"Always protected as well: firewall whitelists, private ranges, this server "
+"and IPs admins logged in from (30 days)."
+msgstr ""
+"Ebenfalls immer geschützt: Firewall-Whitelists, private Adressbereiche, "
+"dieser Server und IPs, von denen sich Admins angemeldet haben (30 Tage)."
 
-#: includes/hive.php:846
+#. translators: %d: number of active bans
+#: includes/hive.php:800
+#, php-format
 msgid "Active network bans: %d"
 msgstr "Aktive Netzwerksperren: %d"
 
-#: includes/hive.php:851
+#: includes/hive.php:805
 msgid "Save Hive Configuration"
 msgstr "Hive-Einstellungen speichern"
 
-#: includes/hive.php:852
+#: includes/hive.php:806
 msgid "Test Connections"
 msgstr "Verbindungen testen"
-
-#: includes/hive.php:935
-msgid "Signing payload and pinging nodes..."
-msgstr "Signiere Daten und pinge Knoten an …"
-
-#: includes/hive.php:960
-msgid "Cryptographic Handshake Results:"
-msgstr "Ergebnisse des kryptografischen Handshakes:"
 
 #: includes/honeypot.php:26
 msgid "Leave this field empty"
@@ -2331,50 +2914,105 @@ msgid "Login blocked (honeypot)."
 msgstr "Login blockiert (Honeypot)."
 
 #: includes/login.php:180
-msgid "The captcha service could not be reached. Please try again in a moment."
-msgstr "Der Captcha-Dienst ist nicht erreichbar. Bitte versuche es gleich noch einmal."
+msgid ""
+"The captcha service could not be reached. Please try again in a moment."
+msgstr ""
+"Der Captcha-Dienst ist nicht erreichbar. Bitte versuche es gleich noch "
+"einmal."
 
 #: includes/login.php:183
-msgid "The captcha was not completed. Please reload the page and solve the captcha before logging in."
-msgstr "Das Captcha wurde nicht ausgefüllt. Bitte lade die Seite neu und löse das Captcha vor dem Anmelden."
+msgid ""
+"The captcha was not completed. Please reload the page and solve the captcha "
+"before logging in."
+msgstr ""
+"Das Captcha wurde nicht ausgefüllt. Bitte lade die Seite neu und löse das "
+"Captcha vor dem Anmelden."
 
 #: includes/login.php:185
 msgid "Captcha verification failed. Please reload the page and try again."
-msgstr "Die Captcha-Prüfung ist fehlgeschlagen. Bitte lade die Seite neu und versuche es noch einmal."
+msgstr ""
+"Die Captcha-Prüfung ist fehlgeschlagen. Bitte lade die Seite neu und "
+"versuche es noch einmal."
 
-#: includes/login.php:256
+#: includes/login.php:248 includes/login.php:257
 msgid "Login not allowed from your location."
 msgstr "Login von deinem Standort aus nicht erlaubt."
 
-#: includes/mask.php:447
+#: includes/mask.php:549
 msgid "no file to test"
 msgstr "keine Datei zum Testen"
 
-#: includes/mask.php:451
+#: includes/mask.php:553
 msgid "wrong content"
 msgstr "falscher Inhalt"
 
-#: includes/mask.php:683
+#: includes/mask.php:785
 msgid "Theme"
 msgstr "Theme"
 
-#: includes/mask.php:683
+#: includes/mask.php:785
 msgid "Plugin"
 msgstr "Plugin"
 
+#: includes/quarantine.php:180
+msgid "Quarantine entry not found."
+msgstr "Quarantäne-Eintrag nicht gefunden."
+
+#: includes/quarantine.php:182
+msgid "Quarantine entry is damaged."
+msgstr "Quarantäne-Eintrag ist beschädigt."
+
+#: includes/quarantine.php:206
+msgid "Quarantine"
+msgstr "Quarantäne"
+
+#: includes/quarantine.php:207
+msgid ""
+"Quarantined files are deleted from the disk; their content is kept in the "
+"database. Tegatai does not write them back. If a file was flagged by "
+"mistake, download it and upload it again by hand (e.g. via SFTP)."
+msgstr ""
+"Dateien in Quarantäne werden von der Festplatte gelöscht; ihr Inhalt bleibt "
+"in der Datenbank. Tegatai schreibt sie nicht zurück. Wurde eine Datei "
+"versehentlich markiert, lade sie herunter und lade sie von Hand wieder hoch "
+"(z. B. per SFTP)."
+
+#: includes/quarantine.php:209
+msgid "The quarantine is empty."
+msgstr "Die Quarantäne ist leer."
+
+#: includes/quarantine.php:212
+msgid "Original path"
+msgstr "Ursprünglicher Pfad"
+
+#: includes/quarantine.php:217
+msgid "Download"
+msgstr "Herunterladen"
+
+#: includes/scanner.php:383
+msgid "moved to quarantine"
+msgstr "in Quarantäne verschoben"
+
 #: includes/spam.php:91
-msgid "The captcha service could not be reached. Please go back and try again in a moment."
-msgstr "Der Captcha-Dienst ist nicht erreichbar. Bitte geh zurück und versuche es gleich noch einmal."
+msgid ""
+"The captcha service could not be reached. Please go back and try again in a "
+"moment."
+msgstr ""
+"Der Captcha-Dienst ist nicht erreichbar. Bitte geh zurück und versuche es "
+"gleich noch einmal."
 
 #: includes/spam.php:93
-msgid "Captcha verification failed. Please go back, reload the page and try again."
-msgstr "Die Captcha-Prüfung ist fehlgeschlagen. Bitte geh zurück, lade die Seite neu und versuche es noch einmal."
+msgid ""
+"Captcha verification failed. Please go back, reload the page and try again."
+msgstr ""
+"Die Captcha-Prüfung ist fehlgeschlagen. Bitte geh zurück, lade die Seite neu"
+" und versuche es noch einmal."
 
-#: includes/terminal.php:152
+#: includes/terminal.php:117
 msgid "Back to Logs"
 msgstr "Zurück zu den Logs"
 
-#: includes/terminal.php:155
+#: includes/terminal.php:120
 msgid "Live Traffic Stream"
 msgstr "Live-Traffic-Stream"
 
@@ -2383,10 +3021,18 @@ msgid "Backup codes"
 msgstr "Backup-Codes"
 
 #: includes/twofa.php:187
-msgid "One-time codes for logging in when your authenticator app or email is not available. Each code works once. Store them somewhere safe, e.g. in a password manager or printed."
-msgstr "Einmal-Codes für die Anmeldung, wenn deine Authenticator-App oder E-Mail nicht verfügbar ist. Jeder Code funktioniert nur einmal. Bewahre sie sicher auf, z. B. in einem Passwort-Manager oder ausgedruckt."
+msgid ""
+"One-time codes for logging in when your authenticator app or email is not "
+"available. Each code works once. Store them somewhere safe, e.g. in a "
+"password manager or printed."
+msgstr ""
+"Einmal-Codes für die Anmeldung, wenn deine Authenticator-App oder E-Mail "
+"nicht verfügbar ist. Jeder Code funktioniert nur einmal. Bewahre sie sicher "
+"auf, z. B. in einem Passwort-Manager oder ausgedruckt."
 
+#. translators: 1: site host, 2: user login, 3: date
 #: includes/twofa.php:193
+#, php-format
 msgid ""
 "Tegatai Secure backup codes\n"
 "Site: %1$s\n"
@@ -2405,8 +3051,12 @@ msgstr ""
 "\n"
 
 #: includes/twofa.php:198
-msgid "Save these codes now. They are shown only once; afterwards only the number of unused codes is visible."
-msgstr "Speichere diese Codes jetzt. Sie werden nur einmal angezeigt; danach ist nur noch die Zahl der unbenutzten Codes sichtbar."
+msgid ""
+"Save these codes now. They are shown only once; afterwards only the number "
+"of unused codes is visible."
+msgstr ""
+"Speichere diese Codes jetzt. Sie werden nur einmal angezeigt; danach ist nur"
+" noch die Zahl der unbenutzten Codes sichtbar."
 
 #: includes/twofa.php:204
 msgid "Download (.txt)"
@@ -2420,139 +3070,170 @@ msgstr "Kopiert"
 msgid "Print"
 msgstr "Drucken"
 
-#: includes/twofa.php:235
+#: includes/twofa.php:210
 msgid "Unused codes:"
 msgstr "Unbenutzte Codes:"
 
-#: includes/twofa.php:241
+#. translators: %s: date
+#: includes/twofa.php:216
+#, php-format
 msgid "created %s"
 msgstr "erstellt %s"
 
-#: includes/twofa.php:243
+#: includes/twofa.php:218
 msgid "Only a few codes left. Generate a new set."
 msgstr "Nur noch wenige Codes übrig. Erzeuge einen neuen Satz."
 
-#: includes/twofa.php:245
+#: includes/twofa.php:220
 msgid "none yet"
 msgstr "noch keine"
 
-#: includes/twofa.php:249
+#: includes/twofa.php:224
 msgid "Generate new codes"
 msgstr "Neue Codes erzeugen"
 
-#: includes/twofa.php:249
+#: includes/twofa.php:224
 msgid "Generate backup codes"
 msgstr "Backup-Codes erzeugen"
 
-#: includes/twofa.php:250
+#: includes/twofa.php:225
 msgid "Generate new backup codes? All existing codes stop working."
-msgstr "Neue Backup-Codes erzeugen? Alle bisherigen Codes funktionieren dann nicht mehr."
+msgstr ""
+"Neue Backup-Codes erzeugen? Alle bisherigen Codes funktionieren dann nicht "
+"mehr."
 
-#: includes/twofa.php:293
+#: includes/twofa.php:271
 msgid "Authenticator app successfully verified and confirmed!"
 msgstr "Authenticator-App erfolgreich geprüft und bestätigt!"
 
-#: includes/twofa.php:295
+#: includes/twofa.php:273
 msgid "Invalid 6-digit code. Please check your device time and try again."
-msgstr "Ungültiger 6-stelliger Code. Bitte prüfe die Uhrzeit deines Geräts und versuche es erneut."
+msgstr ""
+"Ungültiger 6-stelliger Code. Bitte prüfe die Uhrzeit deines Geräts und "
+"versuche es erneut."
 
-#: includes/twofa.php:297
+#: includes/twofa.php:275
 msgid "New backup codes generated. The previous codes no longer work."
-msgstr "Neue Backup-Codes erzeugt. Die bisherigen Codes funktionieren nicht mehr."
+msgstr ""
+"Neue Backup-Codes erzeugt. Die bisherigen Codes funktionieren nicht mehr."
 
-#: includes/twofa.php:299
+#: includes/twofa.php:277
 msgid "New 2FA secret generated. Please scan the new QR code."
 msgstr "Neuer 2FA-Schlüssel erzeugt. Bitte scanne den neuen QR-Code."
 
-#: includes/twofa.php:309
+#: includes/twofa.php:287
 msgid "Status:"
 msgstr "Status:"
 
-#: includes/twofa.php:311
+#: includes/twofa.php:289
 msgid "Confirmed & Active"
 msgstr "Bestätigt & aktiv"
 
-#: includes/twofa.php:313
+#: includes/twofa.php:291
 msgid "Pending Confirmation"
 msgstr "Wartet auf Bestätigung"
 
-#: includes/twofa.php:317
-msgid "Your authenticator app is set up. The QR code and setup key are hidden. To move to a new device, use \"Reset Secret\" and scan the new code."
-msgstr "Deine Authenticator-App ist eingerichtet. QR-Code und Einrichtungsschlüssel sind ausgeblendet. Für ein neues Gerät nutze „Schlüssel zurücksetzen“ und scanne den neuen Code."
+#: includes/twofa.php:295
+msgid ""
+"Your authenticator app is set up. The QR code and setup key are hidden. To "
+"move to a new device, use \"Reset Secret\" and scan the new code."
+msgstr ""
+"Deine Authenticator-App ist eingerichtet. QR-Code und Einrichtungsschlüssel "
+"sind ausgeblendet. Für ein neues Gerät nutze „Schlüssel zurücksetzen“ und "
+"scanne den neuen Code."
 
-#: includes/twofa.php:318
-msgid "Scan this QR code with Google Authenticator, Authy, 2FAS, or any compatible TOTP app."
-msgstr "Scanne diesen QR-Code mit Google Authenticator, Authy, 2FAS oder einer anderen kompatiblen TOTP-App."
+#: includes/twofa.php:296
+msgid ""
+"Scan this QR code with Google Authenticator, Authy, 2FAS, or any compatible "
+"TOTP app."
+msgstr ""
+"Scanne diesen QR-Code mit Google Authenticator, Authy, 2FAS oder einer "
+"anderen kompatiblen TOTP-App."
 
-#: includes/twofa.php:320
+#: includes/twofa.php:298
 msgid "Manual Setup Key:"
 msgstr "Manueller Einrichtungsschlüssel:"
 
-#: includes/twofa.php:321
+#: includes/twofa.php:299
 msgid "Show raw otpauth:// URI"
 msgstr "Rohe otpauth://-URI anzeigen"
 
-#: includes/twofa.php:327
+#: includes/twofa.php:305
 msgid "Verify Code"
 msgstr "Code prüfen"
 
-#: includes/twofa.php:329
-msgid "Generate a new secret key? Your previous authenticator entry will stop working."
-msgstr "Neuen geheimen Schlüssel erzeugen? Dein bisheriger Eintrag in der Authenticator-App funktioniert dann nicht mehr."
+#: includes/twofa.php:307
+msgid ""
+"Generate a new secret key? Your previous authenticator entry will stop "
+"working."
+msgstr ""
+"Neuen geheimen Schlüssel erzeugen? Dein bisheriger Eintrag in der "
+"Authenticator-App funktioniert dann nicht mehr."
 
-#: includes/twofa.php:329
+#: includes/twofa.php:307
 msgid "Reset Secret"
 msgstr "Schlüssel zurücksetzen"
 
-#: includes/twofa.php:370
+#: includes/twofa.php:323
 msgid "Tegatai Authenticator (2FA)"
 msgstr "Tegatai Authenticator (2FA)"
 
-#: includes/twofa.php:371
+#: includes/twofa.php:324
 msgid "Scan QR Code"
 msgstr "QR-Code scannen"
 
-#: includes/twofa.php:402
-msgid "Two-factor authentication required. Please use an application password."
-msgstr "Zwei-Faktor-Authentifizierung erforderlich. Bitte verwende ein Anwendungspasswort."
+#: includes/twofa.php:355
+msgid ""
+"Two-factor authentication required. Please use an application password."
+msgstr ""
+"Zwei-Faktor-Authentifizierung erforderlich. Bitte verwende ein "
+"Anwendungspasswort."
 
-#: includes/twofa.php:427
+#: includes/twofa.php:381
 msgid "Your Tegatai 2FA code is:"
 msgstr "Dein Tegatai-2FA-Code lautet:"
 
-#: includes/twofa.php:428
-msgid "Note: You can alternatively enter the code from your Authenticator app."
-msgstr "Hinweis: Du kannst alternativ den Code aus deiner Authenticator-App eingeben."
+#: includes/twofa.php:382
+msgid ""
+"Note: You can alternatively enter the code from your Authenticator app."
+msgstr ""
+"Hinweis: Du kannst alternativ den Code aus deiner Authenticator-App "
+"eingeben."
 
-#: includes/twofa.php:452
+#: includes/twofa.php:406
 msgid "Enter code:"
 msgstr "Code eingeben:"
 
-#: includes/twofa.php:454
+#: includes/twofa.php:408
 msgid "Please enter your email code or Authenticator app code:"
-msgstr "Bitte gib deinen E-Mail-Code oder den Code aus der Authenticator-App ein:"
+msgstr ""
+"Bitte gib deinen E-Mail-Code oder den Code aus der Authenticator-App ein:"
 
-#: includes/twofa.php:456
+#: includes/twofa.php:410
 msgid "Please enter your Authenticator app code:"
 msgstr "Bitte gib den Code aus deiner Authenticator-App ein:"
 
-#: includes/twofa.php:458
+#: includes/twofa.php:412
 msgid "Please enter the code sent via email:"
 msgstr "Bitte gib den Code ein, der per E-Mail gesendet wurde:"
 
-#: includes/twofa.php:462
+#: includes/twofa.php:416
 msgid "No access? Enter one of your backup codes instead."
 msgstr "Kein Zugriff? Gib stattdessen einen deiner Backup-Codes ein."
 
-#: includes/twofa.php:468
+#: includes/twofa.php:422
 msgid "Verify"
 msgstr "Prüfen"
 
-#: includes/twofa.php:542
+#. translators: %s: site name
+#: includes/twofa.php:496
+#, php-format
 msgid "[%s] A 2FA backup code was used"
 msgstr "[%s] Ein 2FA-Backup-Code wurde verwendet"
 
-#: includes/twofa.php:544
+#. translators: 1: IP address, 2: number of unused codes
+#: includes/twofa.php:498
+#, php-format
 msgid ""
 "A backup code was just used to log in to your account (IP %1$s).\n"
 "\n"
@@ -2566,14 +3247,51 @@ msgstr ""
 "\n"
 "Warst du das nicht, ändere dein Passwort und erzeuge in deinem Profil neue Backup-Codes."
 
-#: includes/twofa.php:595
+#: includes/twofa.php:505 includes/twofa.php:549
 msgid "Session expired or invalid."
 msgstr "Sitzung abgelaufen oder ungültig."
 
-#: includes/twofa.php:587
+#: includes/twofa.php:541
 msgid "Too many failed attempts. Login locked."
 msgstr "Zu viele Fehlversuche. Login gesperrt."
 
-#: includes/twofa.php:591
+#. translators: %d: number of the failed attempt
+#: includes/twofa.php:545
+#, php-format
 msgid "Invalid code. Attempt %d of 3."
 msgstr "Ungültiger Code. Versuch %d von 3."
+
+#. translators: %s: list of secret names
+#: tegatai-secure.php:401
+#, php-format
+msgid ""
+"These secrets are still stored in the database by an older version: %s. Move"
+" them into the secrets file with the command in the Secrets tab; the "
+"database copies are then deleted automatically."
+msgstr ""
+"Diese Secrets sind noch von einer älteren Version in der Datenbank "
+"gespeichert: %s. Übertrage sie mit dem Befehl im Tab Secrets in die "
+"Schlüsseldatei; die Datenbank-Kopien werden danach automatisch gelöscht."
+
+#. translators: %s: list of secret names
+#: tegatai-secure.php:402
+msgid "Open Secrets tab"
+msgstr "Tab Secrets öffnen"
+
+#: tegatai-secure.php:502
+msgid ""
+"The data folder uploads/tegatai-secure/ (logs, backups) can be reached from "
+"the web. The block is already part of the Tegatai nginx file: make sure the "
+"include line in the server block points to the file shown in the Server tab "
+"and reload nginx. On Apache, make sure .htaccess files are allowed "
+"(AllowOverride)."
+msgstr ""
+"Der Datenordner uploads/tegatai-secure/ (Logs, Backups) ist aus dem Web "
+"erreichbar. Die Sperre ist bereits Teil der Tegatai-nginx-Datei: Achte "
+"darauf, dass die include-Zeile im Server-Block auf die Datei zeigt, die im "
+"Tab Server angezeigt wird, und lade nginx neu. Bei Apache darauf achten, "
+"dass .htaccess-Dateien erlaubt sind (AllowOverride)."
+
+#: tegatai-secure.php:503
+msgid "Check again"
+msgstr "Erneut prüfen"

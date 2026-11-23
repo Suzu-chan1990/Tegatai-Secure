@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.2.4
+Stable tag: 2.2.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -428,6 +428,12 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 
 == Changelog ==
 
+= 2.2.6 =
+* New optional headers Cross-Origin-Opener-Policy (same-origin-allow-popups) and Cross-Origin-Resource-Policy (same-site). X-XSS-Protection now sends "0", as recommended today.
+
+= 2.2.5 =
+* HTTP security headers now also reach responses without PHP: pages from a page cache (Kyasshu, WP Rocket, WP Super Cache, W3 Total Cache, LiteSpeed Cache …), static files and the admin / login screens. The enabled headers are written into the nginx file (add_header, with fastcgi_hide_header so PHP's copy is dropped) and into the .htaccess block (Header unset + Header always set). Permissions-Policy no longer lists interest-cohort.
+
 = 2.2.4 =
 * Direct requests for PHP files in plugins and themes: new exception list under Server → Custom Protection → "PHP Exceptions" (one file per line, a trailing / allows a folder). Preset: LiteSpeed Cache guest mode (guest.vary.php), Matomo for WordPress (app/index.php, app/matomo.php, app/piwik.php) and Burst Statistics (endpoint.php). New switch "Allow direct PHP in Plugins & Themes" (off by default) for plugins that still fail. Both apply to the nginx file and to .htaccess.
 
@@ -487,6 +493,12 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 Older versions: see the [full changelog](https://github.com/Suzu-chan1990/Tegatai-Secure).
 
 == Upgrade Notice ==
+
+= 2.2.6 =
+New Cross-Origin headers; X-XSS-Protection sends "0". nginx: reload nginx after the update.
+
+= 2.2.5 =
+Security headers work with page caches. nginx: reload nginx after the update.
 
 = 2.2.4 =
 Plugins with their own PHP endpoint (LiteSpeed Cache guest mode, Matomo, Burst Statistics) work again with the server rules. Add further files under Server → PHP Exceptions.

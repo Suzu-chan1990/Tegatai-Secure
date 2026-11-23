@@ -1,3 +1,39 @@
+## [2.2.6] - Cross-Origin headers, X-XSS-Protection "0"
+
+### Added
+
+* **Cross-Origin-Opener-Policy** (`header_coop`, off by default): `same-origin-allow-popups`. Windows of other sites lose their reference to this site (protection against cross-window attacks); windows the site opens itself (share dialogs, OAuth popups) keep working.
+* **Cross-Origin-Resource-Policy** (`header_corp`, off by default): `same-site`. Browsers only let the same site (including subdomains) load files of this site. Leave it off when other domains embed images or files from the site. Server-side fetches (link previews of social networks) are not affected.
+* Both are part of the PHP headers and of the server rules (nginx / `.htaccess`), like the other headers.
+
+### Changed
+
+* **X-XSS-Protection** sends `0` instead of `1; mode=block`. The XSS filter is gone from all current browsers, and `1; mode=block` could be abused in old ones; `0` is today's recommendation (OWASP, MDN). The admin text says to leave it off and rely on the Content Security Policy.
+
+### Upgrade notes
+
+* The server rules are written again once after the update (`ENV_VERSION` 10). nginx: reload nginx afterwards.
+* New strings in the language files (de_DE, en_US).
+
+## [2.2.5] - Security headers for every response
+
+### Fixed
+
+* **HTTP security headers were missing on most responses.** They were only sent by PHP (`send_headers`), so every response without PHP had none: pages from a page cache that the web server delivers directly (Kyasshu, WP Rocket, WP Super Cache, W3 Total Cache, LiteSpeed Cache …), static files and error pages of the web server. `send_headers` also never runs for the admin, the login page and `admin-ajax.php`.
+* The enabled headers are now part of the server rules as well:
+  * **nginx** (`tegatai-nginx.conf`): `add_header … always` on server block level, plus `fastcgi_hide_header` / `proxy_hide_header` for the same names, so the copy PHP sends is dropped and every header is sent once.
+  * **Apache / LiteSpeed** (`.htaccess` block, needs `mod_headers`): `Header unset …` plus `Header always set …`. Apache keeps two header tables (PHP-FPM writes into the "always" one, mod_php into the normal one); this pair replaces PHP's copy in both cases and also covers Apache's own error pages.
+* Tested on nginx 1.24 and Apache 2.4.58, each with PHP-FPM and with Kyasshu as page cache: every header is sent exactly once on cached pages (gzip/br/zstd), PHP pages, the login page, static files and error pages.
+* PHP keeps sending the headers as before (for setups without the server rules) and now also on the admin and login screens (`admin_init`, `login_init`). Headers that WordPress or another plugin already set are not sent twice.
+* Switching a header on or off writes the server rules again (before, only `server_*` switches did).
+* Permissions-Policy no longer lists `interest-cohort` (FLoC no longer exists in any browser; it only caused console warnings).
+
+### Upgrade notes
+
+* The server rules are written again once after the update (`ENV_VERSION` 9). nginx: reload nginx afterwards.
+* nginx inherits `add_header` only into locations that have no `add_header` of their own. A location of another configuration (e.g. a cache plugin's nginx rules) that sets its own headers does not get Tegatai's security headers. Kyasshu 2.8.9 and newer have no `add_header` in their locations.
+* If the hosting panel already sends HSTS (e.g. Froxlor with "HSTS" enabled for the domain), leave Tegatai's HSTS switch off, otherwise the header is sent twice.
+
 ## [2.2.4] - Exceptions for direct PHP requests in plugins and themes
 
 ### Added

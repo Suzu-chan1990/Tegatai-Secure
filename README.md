@@ -132,7 +132,12 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 
 ### HTTP headers
 
-X-Frame-Options, X-Content-Type-Options, X-XSS-Protection, HSTS (optionally with subdomains), Referrer-Policy, Permissions-Policy and a basic Content-Security-Policy.
+X-Frame-Options, X-Content-Type-Options, X-XSS-Protection (sends `0`, outdated), HSTS (optionally with subdomains), Referrer-Policy, Permissions-Policy, a basic Content-Security-Policy, Cross-Origin-Opener-Policy (`same-origin-allow-popups`) and Cross-Origin-Resource-Policy (`same-site`).
+
+The enabled headers are sent by PHP and written into the server rules (nginx file and `.htaccess` block), so they also reach responses without PHP: pages from a page cache (Kyasshu, WP Rocket, WP Super Cache, W3 Total Cache, LiteSpeed Cache …), static files and error pages. Each header is sent once: nginx drops PHP's copy with `fastcgi_hide_header`, Apache replaces it with `Header unset` + `Header always set`.
+
+* nginx: a `location` with its own `add_header` does not inherit headers from the server block. Locations of other configurations (e.g. a cache plugin's nginx rules) need their own headers.
+* If the hosting panel already sends HSTS, leave Tegatai's HSTS switch off.
 
 ### WP Masking
 
