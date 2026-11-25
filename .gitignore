@@ -1,0 +1,8 @@
+# Tegatai data folders (created on the site, never part of the plugin)
+/geoip/
+/logs/
+/backups/
+/server/
+/.htaccess
+/index.html
+/web.config
