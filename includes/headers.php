@@ -54,7 +54,9 @@ class Tegatai_Headers {
         // "interest-cohort" (FLoC) is gone from all browsers; listing it only causes console warnings.
         if (!empty($ops['header_permissions'])) $h['Permissions-Policy'] = 'geolocation=(), camera=(), microphone=()';
         // Permissive baseline (HTTPS/same-origin only); it allows inline scripts/eval and is no XSS protection.
-        if (!empty($ops['header_csp']))         $h['Content-Security-Policy'] = "default-src 'self' https: wss: data: blob: 'unsafe-inline' 'unsafe-eval';";
+        // upgrade-insecure-requests: browsers switch http:// resources of the page to https:// before
+        // the policy is checked (Firefox blocked http:// images that Chrome upgraded on its own)
+        if (!empty($ops['header_csp']))         $h['Content-Security-Policy'] = "default-src 'self' https: wss: data: blob: 'unsafe-inline' 'unsafe-eval'; upgrade-insecure-requests";
         // Windows of other sites lose their reference to this site; windows this site opens
         // (share dialogs, OAuth popups) keep working.
         if (!empty($ops['header_coop']))        $h['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups';

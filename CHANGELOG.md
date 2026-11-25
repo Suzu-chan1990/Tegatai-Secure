@@ -1,3 +1,13 @@
+## [2.2.8] - CSP: upgrade-insecure-requests
+
+### Fixed
+
+* **Content Security Policy (basic)** now ends with `upgrade-insecure-requests`. Images, scripts and styles that a page still loads via `http://` are switched to `https://` by the browser before the policy is checked. Before, Firefox blocked such `http://` images (they stayed empty) because `https:` was the only allowed scheme, while Chrome upgraded them on its own and showed them.
+
+### Upgrade notes
+
+* `ENV_VERSION` 12: the server rules (which carry the headers) are written again once after the update. nginx: reload nginx afterwards.
+
 ## [2.2.7] - Data folder is always set up, nginx file is never missing
 
 ### Fixed

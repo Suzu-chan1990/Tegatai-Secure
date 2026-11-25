@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.2.7
+Stable tag: 2.2.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -427,6 +427,9 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 11. IP Prison
 
 == Changelog ==
+
+= 2.2.8 =
+* Content Security Policy (basic): adds `upgrade-insecure-requests`. Browsers now switch http:// images, scripts and styles of the page to https:// before the policy is checked. Firefox blocked such http:// images (empty images), while Chrome upgraded them on its own. The server rules are written again once after the update (nginx: reload nginx afterwards).
 
 = 2.2.7 =
 * The data folder uploads/tegatai-secure/ (logs, backups, server, geoip) is now checked on every admin, cron and WP-CLI request and created again when it is missing; folders of older versions are moved in completely. Before, a failed first attempt was marked as done and never repeated, so the nginx file could be missing at the path the Server tab named. Failures are shown with the reason and retried every ten minutes.
