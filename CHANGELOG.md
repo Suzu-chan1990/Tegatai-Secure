@@ -1,3 +1,19 @@
+## [2.2.9] - Switch for AI user fetches
+
+### Added
+
+* **Allow AI User Fetches** (WAF Firewall tab, below "Block AI Bots"): lets user-initiated AI fetchers (`Claude-User`, `ChatGPT-User`, `Perplexity-User`) through while "Block AI Bots" is on. These agents only fetch a page when a person asks an AI assistant to open it; they are not training crawlers. Training crawlers (`ClaudeBot`, `GPTBot`, ...) stay blocked. Off by default.
+* The exemption covers the WAF check and the server bot rules: Apache gets a negated `RewriteCond` in front of the bot conditions, nginx a negative lookahead in the bot regex. Switching it writes the server rules again.
+
+### Fixed
+
+* With "Block AI Bots" on, every agent of Anthropic and OpenAI was blocked, also when a user asked Claude or ChatGPT to open a page: the patterns `claude`, `anthropic` and `chatgpt-user` match their user fetchers as well (the Claude-User agent contains `claude-user@anthropic.com`).
+
+### Upgrade notes
+
+* New option `allow_ai_user_fetch` (off). nginx: after switching it, reload nginx.
+* New strings in the language files (de_DE, en_US).
+
 ## [2.2.8] - CSP: upgrade-insecure-requests
 
 ### Fixed

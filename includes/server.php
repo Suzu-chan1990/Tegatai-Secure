@@ -15,6 +15,9 @@ class Tegatai_Server {
         'seo_spam' => 'ahrefsbot|semrushbot|mj12bot|dotbot|rogerbot|blexbot|megaindex|magpie-crawler|scrapy|python-requests|libwww-perl'
     ];
 
+    // User-initiated AI fetchers; exempted from the bot rules when 'allow_ai_user_fetch' is on.
+    private static $ai_user_fetchers = 'claude-user|chatgpt-user|perplexity-user';
+
     // URL path (no trailing slash) of a WordPress URL, e.g. "/blog/wp-content/uploads".
     private static function url_path($url) {
         return rtrim((string)wp_parse_url($url, PHP_URL_PATH), '/');
@@ -152,6 +155,8 @@ class Tegatai_Server {
             $r[] = '# Tegatai: bad bots';
             $r[] = 'RewriteCond %{REMOTE_ADDR} !^127\.0\.0\.1$';
             $r[] = 'RewriteCond %{REMOTE_ADDR} !^::1$';
+            // Without [OR] this condition is ANDed with the OR group below
+            if ($on('allow_ai_user_fetch')) $r[] = 'RewriteCond %{HTTP_USER_AGENT} !(' . self::$ai_user_fetchers . ') [NC]';
             $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['scanners'] . ') [NC,OR]';
             $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['ai_bots'] . ') [NC,OR]';
             $r[] = 'RewriteCond %{HTTP_USER_AGENT} (' . self::$bot_patterns['seo_spam'] . ') [NC]';
@@ -663,7 +668,12 @@ class Tegatai_Server {
         if (!empty($ops['server_filter_bad_bots'])) {
             $lines[] = "# Enterprise Bad Bot & AI Scraper Protection";
             $combined_bots = self::$bot_patterns['scanners'] . '|' . self::$bot_patterns['ai_bots'] . '|' . self::$bot_patterns['seo_spam'];
-            $lines[] = "if (\$http_user_agent ~* \"($combined_bots)\") {";
+            if (!empty($ops['allow_ai_user_fetch'])) {
+                // Negative lookahead: user-initiated AI fetchers never match the block regex
+                $lines[] = "if (\$http_user_agent ~* \"^(?!.*(?:" . self::$ai_user_fetchers . ")).*($combined_bots)\") {";
+            } else {
+                $lines[] = "if (\$http_user_agent ~* \"($combined_bots)\") {";
+            }
             $lines[] = "    return 403;";
             $lines[] = "}";
             $lines[] = "";

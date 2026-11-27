@@ -4,7 +4,7 @@ Tags: security, firewall, malware scanner, hardening, 2fa
 Requires at least: 7.1
 Tested up to: 7.2
 Requires PHP: 8.4
-Stable tag: 2.2.8
+Stable tag: 2.2.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,7 +36,7 @@ Rules that the web server can enforce are written to `tegatai-nginx.conf` (nginx
 * WAF: checks URL, query string and request body for SQL injection, script injection, path traversal and PHP code patterns. Users who may edit posts are not checked.
 * Own regex rules (one per line, with a check against slow patterns) and a URL whitelist
 * IP whitelist and blacklist (one IP per line)
-* Bad bot filter (attack tools and scripted clients) and optional blocks for AI crawlers and SEO crawlers. Real search engine bots are verified by reverse DNS and let through.
+* Bad bot filter (attack tools and scripted clients) and optional blocks for AI crawlers and SEO crawlers. A separate switch lets AI assistants open a page when a person asks them to (Claude-User, ChatGPT-User, Perplexity-User) while training crawlers stay blocked. Real search engine bots are verified by reverse DNS and let through.
 * Rate limit: 180 requests per minute, 60 for AJAX and API requests, then HTTP 429
 * 404 trap: 20 not-found requests within 5 minutes ban the IP for 1 hour. Requests for typical scanner targets (`.env`, `phpmyadmin`, `shell.php` and others) ban it for 24 hours at once.
 * Trap URL: a path listed as `Disallow` in `robots.txt`; a request for it bans the IP for 24 hours (part of the WAF)
@@ -428,6 +428,9 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 
 == Changelog ==
 
+= 2.2.9 =
+* New switch "Allow AI User Fetches" in the WAF Firewall tab. With "Block AI Bots" on, AI assistants could not open a page even when a person asked them to (Claude-User, ChatGPT-User, Perplexity-User), because "claude", "anthropic" and "chatgpt-user" matched every agent of these services. When the switch is on, these user-initiated fetchers pass the WAF and the server bot rules (nginx and Apache); training crawlers such as ClaudeBot and GPTBot stay blocked. Off by default.
+
 = 2.2.8 =
 * Content Security Policy (basic): adds `upgrade-insecure-requests`. Browsers now switch http:// images, scripts and styles of the page to https:// before the policy is checked. Firefox blocked such http:// images (empty images), while Chrome upgraded them on its own. The server rules are written again once after the update (nginx: reload nginx afterwards).
 
@@ -502,6 +505,9 @@ GeoIP lookups are local. The plugin only contacts these services when the matchi
 Older versions: see the [full changelog](https://github.com/Suzu-chan1990/Tegatai-Secure).
 
 == Upgrade Notice ==
+
+= 2.2.9 =
+New switch to let AI assistants open pages on a user's request while AI training crawlers stay blocked. Off by default.
 
 = 2.2.7 =
 The data folder and the nginx file are created again when they are missing. nginx: point the include line to the path shown in the Server tab only once that file exists, test with nginx -t, then reload.

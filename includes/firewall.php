@@ -9,6 +9,9 @@ class Tegatai_Firewall {
     // curl/wget are not listed: system cron jobs (wget -q -O - .../wp-cron.php) and uptime monitors use them.
     private $bad_agents = ['python-requests', 'libwww-perl', 'sqlmap', 'nikto', 'masscan'];
     private $ai_bots = ['gptbot', 'chatgpt-user', 'anthropic', 'claude', 'cohere', 'perplexity', 'omgili'];
+    // Fetchers that act on a live user request (a person asked an AI assistant to open a page).
+    // They are not training crawlers; the 'allow_ai_user_fetch' switch lets them pass the AI bot block.
+    private $ai_user_fetchers = ['claude-user', 'chatgpt-user', 'perplexity-user'];
     private $seo_bots = ['semrush', 'ahrefs', 'majestic', 'screaming frog', 'dotbot', 'rogerbot', 'bytespider'];
     private $sensitive_files = ['.env', '.git', 'wp-config.php.bak', 'debug.log', '.htaccess'];
     
@@ -89,7 +92,8 @@ class Tegatai_Firewall {
         if ($this->verify_good_bot()) return;
 
         // 2. TÜRSTEHER: Ressourcen-Fresser blocken
-        if (!empty($ops['block_ai_bots'])) $this->check_specific_bots($this->ai_bots, 'AI/LLM Bot');
+        // AI user fetchers (Claude-User, ChatGPT-User, Perplexity-User) skip this check when allowed
+        if (!empty($ops['block_ai_bots']) && !(!empty($ops['allow_ai_user_fetch']) && $this->is_ai_user_fetch())) $this->check_specific_bots($this->ai_bots, 'AI/LLM Bot');
         if (!empty($ops['block_seo_bots'])) $this->check_specific_bots($this->seo_bots, 'SEO Scraper');
 
         // Blacklist IPs
@@ -436,6 +440,15 @@ class Tegatai_Firewall {
         }
 
         return 'unverified';
+    }
+
+    // True when the user agent belongs to a user-initiated AI fetcher (not a training crawler).
+    private function is_ai_user_fetch() {
+        $ua = strtolower(tegatai_server_raw('HTTP_USER_AGENT', 1024));
+        foreach ($this->ai_user_fetchers as $f) {
+            if (strpos($ua, $f) !== false) return true;
+        }
+        return false;
     }
 
     private function check_specific_bots($bot_list, $type_name) {

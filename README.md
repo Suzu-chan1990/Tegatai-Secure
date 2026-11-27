@@ -86,7 +86,7 @@ Taken on an empty demo site with sample data. All IP addresses are documentation
 * WAF: checks URL, query string and request body for SQL injection, script injection, path traversal and PHP code patterns. Users who may edit posts are not checked.
 * Own regex rules (one per line, with a check against slow patterns) and a URL whitelist
 * IP whitelist and blacklist (one IP per line)
-* Bad bot filter (attack tools and scripted clients) and optional blocks for AI crawlers and SEO crawlers. Real search engine bots are verified by reverse DNS and let through.
+* Bad bot filter (attack tools and scripted clients) and optional blocks for AI crawlers and SEO crawlers. A separate switch lets AI assistants open a page when a person asks them to (Claude-User, ChatGPT-User, Perplexity-User) while training crawlers stay blocked. Real search engine bots are verified by reverse DNS and let through.
 * Rate limit: 180 requests per minute, 60 for AJAX and API requests, then HTTP 429
 * 404 trap: 20 not-found requests within 5 minutes ban the IP for 1 hour. Requests for typical scanner targets (`.env`, `phpmyadmin`, `shell.php` and others) ban it for 24 hours at once.
 * Trap URL: a path listed as `Disallow` in `robots.txt`; a request for it bans the IP for 24 hours (part of the WAF)

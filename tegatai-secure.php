@@ -3,7 +3,7 @@
  * Plugin Name: Tegatai Secure
  * Plugin URI: https://github.com/Suzu-chan1990/Tegatai-Secure
  * Description: Firewall, login protection with 2FA, anti-spam, scanners, server rules, encrypted database backups and IP ban sharing between your own sites.
- * Version: 2.2.8
+ * Version: 2.2.9
  * Author: Saguya
  * License: GPLv2 or later
  * Text Domain: tegatai-secure
@@ -186,7 +186,7 @@ function tegatai_install_db() {
 register_activation_hook( __FILE__, 'tegatai_install_db' );
 
 
-define( 'TEGATAI_VERSION', '2.2.8' );
+define( 'TEGATAI_VERSION', '2.2.9' );
 define( 'TEGATAI_FILE', __FILE__ );
 define( 'TEGATAI_PATH', plugin_dir_path( __FILE__ ) );
 define( 'TEGATAI_URL', plugin_dir_url( __FILE__ ) );
